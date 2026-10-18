@@ -1,4 +1,4 @@
-package com.github.cyrilpeng.veneranext
+package com.github.lezy233.veneranext
 
 fun main() {
     val subscriptions = VolumeKeySubscriptions()

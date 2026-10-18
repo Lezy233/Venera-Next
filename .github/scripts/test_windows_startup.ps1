@@ -30,6 +30,7 @@ if (Test-Path -LiteralPath 'C:\Program Files (x86)\Venera') {
 }
 foreach ($root in $env:APPDATA, $env:LOCALAPPDATA) {
     foreach ($relative in @(
+        'com.github.lezy233\VeneraNext',
         'com.github.cyrilpeng\VeneraNext',
         'CyrilPeng_venera-next\VeneraNext',
         'CyrilPeng_venera-next\venera',
@@ -48,7 +49,7 @@ if (-not $output.StartsWith($workspace, [StringComparison]::OrdinalIgnoreCase)) 
 }
 $testRoot = Join-Path $output ([Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $testRoot -Force | Out-Null
-$startupLog = Join-Path $env:LOCALAPPDATA 'com.github.cyrilpeng\VeneraNext\logs\windows-startup.log'
+$startupLog = Join-Path $env:LOCALAPPDATA 'com.github.lezy233\VeneraNext\logs\windows-startup.log'
 $appPath = $null
 $uninstaller = $null
 $started = [Collections.Generic.List[Diagnostics.Process]]::new()

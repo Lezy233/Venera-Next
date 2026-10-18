@@ -66,7 +66,7 @@ final class ScopedDirectoryAccess {
     private static func storeURL() throws -> URL {
         let support = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask,
                                                  appropriateFor: nil, create: true)
-        let owner = support.appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.github.cyrilpeng.veneranext", isDirectory: true)
+        let owner = support.appendingPathComponent(Bundle.main.bundleIdentifier ?? "com.github.lezy233.veneranext", isDirectory: true)
         try FileManager.default.createDirectory(at: owner, withIntermediateDirectories: true)
         return owner.appendingPathComponent("directory-access.plist")
     }

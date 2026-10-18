@@ -236,7 +236,7 @@ void main() {
       ).writeAsStringSync('source');
 
       final currentDir = Directory(
-        p.join(baseDir.path, 'com.github.cyrilpeng', 'VeneraNext'),
+        p.join(baseDir.path, 'com.github.lezy233', 'VeneraNext'),
       )..createSync(recursive: true);
 
       await App.migrateLegacyWindowsPathForTesting(currentDir.path);
@@ -272,7 +272,7 @@ void main() {
       File(p.join(legacyDir.path, 'appdata.json')).writeAsStringSync('legacy');
 
       final currentDir = Directory(
-        p.join(baseDir.path, 'com.github.cyrilpeng', 'VeneraNext'),
+        p.join(baseDir.path, 'com.github.lezy233', 'VeneraNext'),
       )..createSync(recursive: true);
       File(
         p.join(currentDir.path, 'appdata.json'),
@@ -305,7 +305,7 @@ void main() {
       File(p.join(legacyDir.path, 'appdata.json')).writeAsStringSync('legacy');
 
       final currentDir = Directory(
-        p.join(baseDir.path, 'com.github.cyrilpeng', 'VeneraNext'),
+        p.join(baseDir.path, 'com.github.lezy233', 'VeneraNext'),
       )..createSync(recursive: true);
       File(p.join(currentDir.path, 'logs.txt')).writeAsStringSync('new log');
 
@@ -323,32 +323,38 @@ void main() {
   );
 
   test(
-    'migrates data from the original Windows application identity',
+    'migrates data from previous Windows application identities',
     () async {
-      final baseDir = Directory.systemTemp.createTempSync(
-        'venera-appdata-migration-',
-      );
-      addTearDown(() {
-        if (baseDir.existsSync()) {
-          baseDir.deleteSync(recursive: true);
-        }
-      });
+      for (final (company, product) in [
+        ('com.github.cyrilpeng', 'VeneraNext'),
+        ('com.github.wgh136', 'venera'),
+      ]) {
+        final baseDir = Directory.systemTemp.createTempSync(
+          'venera-appdata-migration-',
+        );
+        addTearDown(() {
+          if (baseDir.existsSync()) {
+            baseDir.deleteSync(recursive: true);
+          }
+        });
 
-      final legacyDir = Directory(
-        p.join(baseDir.path, 'com.github.wgh136', 'venera'),
-      )..createSync(recursive: true);
-      File(p.join(legacyDir.path, 'appdata.json')).writeAsStringSync('legacy');
+        final legacyDir = Directory(
+          p.join(baseDir.path, company, product),
+        )..createSync(recursive: true);
+        final legacyFile = p.join(legacyDir.path, 'appdata.json');
+        File(legacyFile).writeAsStringSync('legacy');
 
-      final currentDir = Directory(
-        p.join(baseDir.path, 'com.github.cyrilpeng', 'VeneraNext'),
-      )..createSync(recursive: true);
+        final currentDir = Directory(
+          p.join(baseDir.path, 'com.github.lezy233', 'VeneraNext'),
+        )..createSync(recursive: true);
 
-      await App.migrateLegacyWindowsPathForTesting(currentDir.path);
+        await App.migrateLegacyWindowsPathForTesting(currentDir.path);
 
-      expect(
-        File(p.join(currentDir.path, 'appdata.json')).readAsStringSync(),
-        'legacy',
-      );
+        expect(
+          File(p.join(currentDir.path, 'appdata.json')).readAsStringSync(),
+          'legacy',
+        );
+      }
     },
   );
 

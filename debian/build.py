@@ -24,12 +24,12 @@ def stage_package(bundle, stage, arch, version):
     control = stage / "DEBIAN"
     control.mkdir()
     (control / "control").write_text(
-        "Package: venera-next\n"
+        "Package: venera-next-dev\n"
         f"Version: {deb_version}\n"
         f"Architecture: {DEBIAN_ARCHES[arch]}\n"
         "Section: graphics\nPriority: optional\n"
         "Depends: libwebkit2gtk-4.1-0, libgtk-3-0\n"
-        "Maintainer: CyrilPeng <https://github.com/CyrilPeng/venera-next>\n"
+        "Maintainer: Lezy233\n"
         "Description: VeneraNext comic reader\n",
         encoding="utf-8",
     )
