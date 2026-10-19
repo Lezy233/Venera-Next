@@ -328,6 +328,9 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
   }
 
   Iterable<Widget> buildTitle() sync* {
+    // Sources may expose the author only as a namespaced tag.
+    final subtitle = comic.subTitle ?? comic.findAuthor();
+
     yield SliverAppbar(
       title: AnimatedOpacity(
         opacity: showAppbarTitle ? 1.0 : 0.0,
@@ -389,11 +392,8 @@ class _ComicPageState extends LoadingState<ComicPage, ComicDetails>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SelectableText(comic.title, style: ts.s18),
-                if (comic.subTitle != null)
-                  SelectableText(
-                    comic.subTitle!,
-                    style: ts.s14,
-                  ).paddingVertical(4),
+                if (subtitle != null)
+                  SelectableText(subtitle, style: ts.s14).paddingVertical(4),
                 Text(
                   (ComicSource.find(comic.sourceKey)?.name) ?? '',
                   style: ts.s12,

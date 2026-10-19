@@ -68,7 +68,10 @@ Future<ComicUpdateResult> updateComic(
         name: info.title,
         coverPath: info.cover,
         author:
-            info.subTitle ?? info.tags['author']?.firstOrNull ?? comic.author,
+            info.findAuthor() ??
+            info.subTitle ??
+            info.tags['author']?.firstOrNull ??
+            comic.author,
         type: comic.type,
         tags: tags,
       ),

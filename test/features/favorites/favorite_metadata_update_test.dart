@@ -19,24 +19,28 @@ FavoriteItem _item(String id) => FavoriteItem.withTime(
   coverPath: 'old cover',
   time: 'legacy: untouched',
 );
-ComicDetails _details(String id, {String? subtitle, List<String>? authors}) =>
-    ComicDetails.fromJson({
-      'title': 'new $id',
-      'subtitle': subtitle,
-      'cover': 'new cover',
-      'sourceKey': 'synthetic',
-      'comicId': 'untrusted returned id',
-      'tags': {
-        'author': ?authors,
-        'ARTIST': ['ignored'],
-        'Time': ['ignored'],
-        'Genre': ['one', 'two'],
-      },
-    });
+ComicDetails _details(
+  String id, {
+  String? subtitle,
+  List<String>? authors,
+  List<String>? artists,
+}) => ComicDetails.fromJson({
+  'title': 'new $id',
+  'subtitle': subtitle,
+  'cover': 'new cover',
+  'sourceKey': 'synthetic',
+  'comicId': 'untrusted returned id',
+  'tags': {
+    'author': ?authors,
+    'ARTIST': ?artists,
+    'Time': ['ignored'],
+    'Genre': ['one', 'two'],
+  },
+});
 Future<void> _turn() => Future<void>.delayed(Duration.zero);
 
 void main() {
-  for (final mode in ['subtitle', 'author', 'original']) {
+  for (final mode in ['subtitle', 'author', 'artist', 'original']) {
     test(
       'metadata preserves storage identity and mapping with $mode author',
       () async {
@@ -51,7 +55,8 @@ void main() {
               _details(
                 'A',
                 subtitle: mode == 'subtitle' ? 'subtitle' : null,
-                authors: mode == 'original' ? [] : ['author'],
+                authors: mode == 'author' ? ['author'] : [],
+                artists: mode == 'artist' ? ['artist'] : null,
               ),
             );
           },
@@ -67,7 +72,13 @@ void main() {
         expect(value.name, 'new A');
         expect(value.coverPath, 'new cover');
         expect(value.tags, ['Genre:one', 'Genre:two']);
-        expect(value.author, mode == 'original' ? 'old author' : mode);
+        final expectedAuthor = switch (mode) {
+          'subtitle' => 'subtitle',
+          'author' => 'author',
+          'artist' => 'artist',
+          _ => 'old author',
+        };
+        expect(value.author, expectedAuthor);
         expect(result.progress, (
           total: 1,
           completed: 1,

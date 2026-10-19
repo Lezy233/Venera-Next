@@ -192,7 +192,10 @@ class FavoriteMetadataUpdate {
         name: info.title,
         coverPath: info.cover,
         author:
-            info.subTitle ?? info.tags['author']?.firstOrNull ?? item.author,
+            info.findAuthor() ??
+            info.subTitle ??
+            info.tags['author']?.firstOrNull ??
+            item.author,
         tags: tags,
       );
       stage = FavoriteMetadataStage.save;

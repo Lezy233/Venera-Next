@@ -97,7 +97,8 @@ abstract mixin class ComicPageActions {
       id: comic.id,
       name: comic.title,
       coverPath: comic.cover,
-      author: comic.subTitle ?? comic.uploader ?? '',
+      author:
+          comic.findAuthor() ?? comic.subTitle ?? comic.uploader ?? '',
       type: comic.comicType,
       tags: tags,
     );

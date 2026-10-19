@@ -103,7 +103,18 @@ class FavoriteItem implements Comic {
   double? get stars => null;
 
   @override
-  String? get subtitle => author;
+  String? get subtitle {
+    // Legacy rows may store an uploader or an empty author. Namespaced author
+    // tags from the comic details are authoritative when they are present.
+    for (final tag in tags) {
+      final separator = tag.indexOf(':');
+      if (separator <= 0) continue;
+      if (!isAuthorNamespace(tag.substring(0, separator))) continue;
+      final value = tag.substring(separator + 1).trim();
+      if (value.isNotEmpty) return value;
+    }
+    return author;
+  }
 
   @override
   String get title => name;
