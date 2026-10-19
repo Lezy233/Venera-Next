@@ -50,6 +50,18 @@ void main() {
     expect(favoriteTagLabel('artist:純愛'), '純愛');
   });
 
+  test('aliases resolve author values for filtering and sorting', () {
+    final comic = _item(tags: ['artist:木の芽']);
+    expect(favoriteAuthorValues(comic), ['木の芽']);
+    expect(favoriteAuthorValues(comic, aliases: {'木の芽': 'Konomi'}), ['Konomi']);
+    final sorted = sortFavoriteItems(
+      [_item(id: 'b', author: 'B'), _item(id: 'a', author: 'A')],
+      'authorAsc',
+      aliases: {'A': 'Z', 'B': 'A'},
+    );
+    expect(sorted.map((e) => e.id), ['b', 'a']);
+  });
+
   test('sorts by favorite time in both directions', () {
     final older = _item(id: 'a', time: DateTime.utc(2026, 1, 1));
     final newer = _item(id: 'b', time: DateTime.utc(2026, 2, 1));

@@ -23,6 +23,7 @@ import 'package:venera_next/components/window_selection_task.dart';
 import 'package:venera_next/features/comic_details/comic_details.dart';
 import 'package:venera_next/features/comic_source/comic_source.dart';
 import 'package:venera_next/features/comic_widgets/comic_widgets.dart';
+import 'package:venera_next/features/favorites/author_management_dialog.dart';
 import 'package:venera_next/features/favorites/favorite_actions.dart';
 import 'package:venera_next/features/favorites/favorite_filters.dart';
 import 'package:venera_next/features/favorites/favorites_display.dart';
@@ -109,6 +110,16 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
   late final String _observedDataPath;
   WindowSelectionTask? _queryOwner;
   final _metadataTasks = <WindowSelectionTask>{};
+
+  Map<String, String> get _authorAliases {
+    final stored = appdata.implicitData['local_favorites_author_aliases'];
+    if (stored is! Map) return const {};
+    return {
+      for (final entry in stored.entries)
+        if (entry.key is String && entry.value is String)
+          entry.key as String: entry.value as String,
+    };
+  }
 
   bool get _canReadObservedFolder =>
       mounted &&
@@ -231,7 +242,10 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
   List<FavoriteItem> filterComics(List<FavoriteItem> curComics) {
     return curComics.where((comic) {
       if (authorFilters.isNotEmpty &&
-          !favoriteAuthorValues(comic).any(authorFilters.contains)) {
+          !favoriteAuthorValues(
+            comic,
+            aliases: _authorAliases,
+          ).any(authorFilters.contains)) {
         return false;
       }
       if (tagFilters.isNotEmpty && !_matchesTagFilters(comic)) {
@@ -263,6 +277,39 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
     final result = values.toSet().toList();
     result.sort();
     return result;
+  }
+
+  void _applyAuthorAliases(Map<String, String> aliases) {
+    final cleaned = <String, String>{
+      for (final entry in aliases.entries)
+        if (entry.value.isNotEmpty && entry.key != entry.value)
+          entry.key: entry.value,
+    };
+    unawaited(
+      appdata
+          .updateImplicit((draft) {
+            draft['local_favorites_author_aliases'] = cleaned;
+          })
+          .then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stack) {
+              Log.error('Favorite author aliases', error, stack);
+            },
+          ),
+    );
+    final mapped = authorFilters
+        .map((value) => cleaned[value] ?? value)
+        .toSet();
+    setState(() {
+      if (mapped.length != authorFilters.length ||
+          !mapped.containsAll(authorFilters)) {
+        authorFilters = mapped;
+      }
+    });
+    if (mapped.length != authorFilters.length ||
+        !mapped.containsAll(authorFilters)) {
+      _persistFilters();
+    }
   }
 
   void _persistFilters() {
@@ -387,7 +434,8 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
   }
 
   List<String> _availableAuthors() => _collectFilterValues([
-    for (final comic in comics) ...favoriteAuthorValues(comic),
+    for (final comic in comics)
+      ...favoriteAuthorValues(comic, aliases: _authorAliases),
   ]);
 
   List<String> _availableTags() => _collectFilterValues([
@@ -870,7 +918,7 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                     final request = ++_filterRequest;
                     final availableAuthors = _collectFilterValues([
                       for (final comic in comics)
-                        ...favoriteAuthorValues(comic),
+                        ...favoriteAuthorValues(comic, aliases: _authorAliases),
                     ]);
                     final availableTags = _collectFilterValues([
                       for (final comic in comics)
@@ -991,6 +1039,22 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                           return;
                         }
                         _refreshMetadata(context, target.folder);
+                      },
+                    ),
+                    MenuEntry(
+                      icon: Icons.people_outline,
+                      text: "Manage authors".tl,
+                      onClick: () {
+                        if (_queryOwner?.canPresent != true) return;
+                        showFavoriteAuthorManagementDialog(
+                          context: context,
+                          comics: _observedManager.getAllComics(),
+                          aliases: _authorAliases,
+                          isCurrent: () =>
+                              _canReadObservedFolder &&
+                              widget.folder == target.folder,
+                          onChanged: _applyAuthorAliases,
+                        );
                       },
                     ),
                     MenuEntry(
@@ -1231,6 +1295,7 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
             comics: sortFavoriteItems(
               filterComics(searchMode ? searchResults : comics),
               sortMode,
+              aliases: _authorAliases,
             ),
             selections: selectedComics,
             useFavoriteDisplaySettings: true,

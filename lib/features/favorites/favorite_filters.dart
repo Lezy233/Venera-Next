@@ -25,21 +25,35 @@ String favoriteTagLabel(String tag) {
 /// Namespaced author tags are authoritative, matching how the favorites list
 /// resolves its subtitle; the subtitle (the stored author for favorites without
 /// author tags) is only a fallback so that an uploader never masquerades as an
-/// author.
-List<String> favoriteAuthorValues(Comic comic) {
+/// author. [aliases] maps raw names to the canonical name chosen by the user.
+List<String> favoriteAuthorValues(
+  Comic comic, {
+  Map<String, String> aliases = const {},
+}) {
   final tagAuthors = <String>[];
   for (final tag in comic.tags ?? const <String>[]) {
     final separator = tag.indexOf(':');
     if (separator <= 0) continue;
     if (!isAuthorNamespace(tag.substring(0, separator))) continue;
-    final value = normalizeFavoriteAuthor(tag.substring(separator + 1));
+    final value = _resolveFavoriteAuthor(
+      normalizeFavoriteAuthor(tag.substring(separator + 1)),
+      aliases,
+    );
     if (value.isNotEmpty && !tagAuthors.contains(value)) {
       tagAuthors.add(value);
     }
   }
   if (tagAuthors.isNotEmpty) return List.unmodifiable(tagAuthors);
-  final author = normalizeFavoriteAuthor(comic.subtitle ?? '');
+  final author = _resolveFavoriteAuthor(
+    normalizeFavoriteAuthor(comic.subtitle ?? ''),
+    aliases,
+  );
   return author.isEmpty ? const [] : [author];
+}
+
+String _resolveFavoriteAuthor(String value, Map<String, String> aliases) {
+  if (value.isEmpty) return value;
+  return aliases[value] ?? value;
 }
 
 /// Light normalization only: alias merging is a separate, user-confirmed step.
@@ -58,18 +72,27 @@ const favoriteSortModes = [
 bool isManualFavoriteSort(String mode) => mode == favoriteSortModes.first;
 
 /// Returns a sorted copy for automatic modes; `manual` keeps the stored order.
-List<FavoriteItem> sortFavoriteItems(List<FavoriteItem> items, String mode) {
+List<FavoriteItem> sortFavoriteItems(
+  List<FavoriteItem> items,
+  String mode, {
+  Map<String, String> aliases = const {},
+}) {
   if (isManualFavoriteSort(mode)) return List.unmodifiable(items);
   final sorted = List<FavoriteItem>.of(items);
-  sorted.sort((a, b) => _compareFavoriteItems(a, b, mode));
+  sorted.sort((a, b) => _compareFavoriteItems(a, b, mode, aliases));
   return List.unmodifiable(sorted);
 }
 
-int _compareFavoriteItems(FavoriteItem a, FavoriteItem b, String mode) {
+int _compareFavoriteItems(
+  FavoriteItem a,
+  FavoriteItem b,
+  String mode,
+  Map<String, String> aliases,
+) {
   int result;
   if (mode == 'authorAsc' || mode == 'authorDesc') {
-    final left = _authorSortKey(a);
-    final right = _authorSortKey(b);
+    final left = _authorSortKey(a, aliases);
+    final right = _authorSortKey(b, aliases);
     if (left.isEmpty != right.isEmpty) {
       // Favorites without a known author always sort last.
       return left.isEmpty ? 1 : -1;
@@ -88,7 +111,7 @@ int _compareFavoriteItems(FavoriteItem a, FavoriteItem b, String mode) {
   return a.id.compareTo(b.id);
 }
 
-String _authorSortKey(FavoriteItem comic) {
-  final values = favoriteAuthorValues(comic);
+String _authorSortKey(FavoriteItem comic, Map<String, String> aliases) {
+  final values = favoriteAuthorValues(comic, aliases: aliases);
   return values.isEmpty ? '' : values.first.toLowerCase();
 }
