@@ -119,6 +119,24 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
     );
   }
 
+  Widget _scopeTile(
+    String comicId,
+    String sourceKey,
+    bool enabled,
+  ) => SwitchListTile(
+    title: Text('Customize other settings for this comic'.tl),
+    subtitle: Text(
+      'This selection only affects this comic. Change default preferences in Settings → Reader.'
+          .tl,
+    ),
+    value: enabled,
+    onChanged: (b) {
+      _saveScope((comicId, sourceKey, 'scope'), (draft) {
+        draft.setEnabledComicSpecificSettings(comicId, sourceKey, b);
+      });
+    },
+  );
+
   Widget _modeSettings() => ReaderModeSettings(
     comicId: widget.comicId,
     sourceKey: widget.comicSource,
@@ -144,28 +162,32 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
         !isEnabledSpecificSettings &&
         appdata.settings.isDeviceSpecificSettingsEnabled();
 
+    if (comicId != null && sourceKey != null && !isEnabledSpecificSettings) {
+      return protectSettings(
+        SmoothCustomScrollView(
+          slivers: [
+            SliverAppbar(title: Text("Reading".tl)),
+            settingsSaveStatus.toSliver(),
+            _scopeTile(comicId, sourceKey, false).toSliver(),
+          ],
+        ),
+      );
+    }
+
     return protectSettings(
       SmoothCustomScrollView(
         slivers: [
           SliverAppbar(title: Text("Reading".tl)),
           settingsSaveStatus.toSliver(),
-          if (comicId != null) _modeSettings(),
+          if (comicId != null && sourceKey != null)
+            _scopeTile(
+              comicId,
+              sourceKey,
+              isEnabledSpecificSettings,
+            ).toSliver(),
           if (comicId != null && sourceKey != null)
             SliverMainAxisGroup(
               slivers: [
-                SwitchListTile(
-                  title: Text('Customize other settings for this comic'.tl),
-                  value: isEnabledSpecificSettings,
-                  onChanged: (b) {
-                    _saveScope((comicId, sourceKey, 'scope'), (draft) {
-                      draft.setEnabledComicSpecificSettings(
-                        comicId,
-                        sourceKey,
-                        b,
-                      );
-                    });
-                  },
-                ).toSliver(),
                 if (isEnabledSpecificSettings)
                   Center(
                     child: TextButton(
@@ -208,7 +230,7 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
                 Divider().toSliver(),
               ],
             ),
-          if (comicId == null) _modeSettings(),
+          if (comicId == null || isEnabledSpecificSettings) _modeSettings(),
           const Divider().toSliver(),
           SwitchSetting.reader(
             title: "Tap to turn Pages".tl,

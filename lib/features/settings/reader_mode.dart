@@ -94,10 +94,22 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
     );
   }
 
-  Widget _pagesPerScreen(String cid, String source) {
+  String _pageUnitLabel(int value) {
+    final locale = Localizations.localeOf(context);
+    if (locale.languageCode != 'zh') return '$value';
+    final traditional =
+        locale.scriptCode == 'Hant' || locale.countryCode == 'TW';
+    return traditional ? '$value頁' : '$value页';
+  }
+
+  Widget _pagesPerScreen({String? cid, String? source}) {
+    final scoped = cid != null && source != null;
+    final scope = scoped
+        ? ReaderPreferenceScope.comic
+        : ReaderPreferenceScope.global;
     final store = ReaderPreferenceStore(
       settings: appdata.settings,
-      scope: ReaderPreferenceScope.comic,
+      scope: scope,
       comicId: cid,
       sourceKey: source,
     );
@@ -106,42 +118,56 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
     final preference = landscape
         ? ReaderPreferences.readerScreenPicNumberForLandscape
         : ReaderPreferences.readerScreenPicNumberForPortrait;
-    final current = store.read(preference);
-    return ListTile(
-      title: Text('Pages per screen'.tl),
-      trailing: Select(
-        current: '$current',
-        values: const ['1', '2'],
-        minWidth: 64,
-        onTap: (index) {
-          if (index < 0 || index > 1) return;
-          if (cid != widget.comicId || source != widget.sourceKey) return;
-          final value = index + 1;
-          unawaited(
-            saveSetting(
-              (cid, source, 'pagesPerScreen'),
-              () => appdata.updateSettings((draft) {
-                final scoped = ReaderPreferenceStore(
-                  settings: draft,
-                  scope: ReaderPreferenceScope.comic,
-                  comicId: cid,
-                  sourceKey: source,
-                );
-                scoped.write(
-                  ReaderPreferences.readerScreenPicNumberForPortrait,
-                  value,
-                );
-                scoped.write(
-                  ReaderPreferences.readerScreenPicNumberForLandscape,
-                  value,
-                );
-              }),
-              onSaved: () => widget.onChanged?.call(),
-              isCurrent: () =>
-                  cid == widget.comicId && source == widget.sourceKey,
-            ),
-          );
-        },
+    final current = store.read(preference).toInt();
+    final modified =
+        scoped &&
+        current !=
+            ReaderPreferenceStore(
+              settings: appdata.settings,
+              scope: ReaderPreferenceScope.global,
+            ).read(preference).toInt();
+    return _ModifiedRow(
+      modified: modified,
+      child: ListTile(
+        title: Text('Pages per screen'.tl),
+        trailing: Select(
+          current: _pageUnitLabel(current),
+          values: [_pageUnitLabel(1), _pageUnitLabel(2)],
+          minWidth: 64,
+          onTap: (index) {
+            if (index < 0 || index > 1) return;
+            if (scoped &&
+                (cid != widget.comicId || source != widget.sourceKey)) {
+              return;
+            }
+            final value = index + 1;
+            unawaited(
+              saveSetting(
+                (cid, source, 'pagesPerScreen'),
+                () => appdata.updateSettings((draft) {
+                  final target = ReaderPreferenceStore(
+                    settings: draft,
+                    scope: scope,
+                    comicId: cid,
+                    sourceKey: source,
+                  );
+                  target.write(
+                    ReaderPreferences.readerScreenPicNumberForPortrait,
+                    value,
+                  );
+                  target.write(
+                    ReaderPreferences.readerScreenPicNumberForLandscape,
+                    value,
+                  );
+                }),
+                onSaved: () => widget.onChanged?.call(),
+                isCurrent: () =>
+                    !scoped ||
+                    (cid == widget.comicId && source == widget.sourceKey),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -180,6 +206,7 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
                 ? 'Used when there are too few images or their proportions are mixed.'
                 : null,
           ),
+          _pagesPerScreen(),
         ],
       );
     }
@@ -198,48 +225,53 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         settingsSaveStatus,
-        ListTile(
-          title: Text('Reading mode for this comic'.tl),
-          subtitle: Text(
-            'Currently using: @mode'.tlParams({
-              'mode': readerModeLabels[current] ?? current,
-            }),
-          ),
-          trailing: Select(
-            current: override == null
-                ? 'Follow default'.tl
-                : readerModeLabels[override] ?? override,
-            values: [
-              'Follow default'.tl,
-              for (final key in readerModeLabels.keys) readerModeLabels[key]!,
-            ],
-            minWidth: 96,
-            onTap: (index) {
-              final keys = ['default', ...readerModeLabels.keys];
-              if (index < 0 || index >= keys.length) return;
-              // The menu can outlive a target change; do not write the old
-              // comic's setting in that case.
-              if (cid != widget.comicId || source != widget.sourceKey) return;
-              final value = keys[index];
-              unawaited(
-                saveSetting(
-                  (cid, source, 'readerMode'),
-                  () => appdata.updateSettings((draft) {
-                    draft.setComicReaderModeOverride(
-                      cid,
-                      source,
-                      value == 'default' ? null : value,
-                    );
-                  }),
-                  onSaved: () => widget.onChanged?.call(),
-                  isCurrent: () =>
-                      cid == widget.comicId && source == widget.sourceKey,
-                ),
-              );
-            },
+        _ModifiedRow(
+          modified:
+              override != null &&
+              override != _store.read(ReaderPreferences.readerMode),
+          child: ListTile(
+            title: Text('Reading mode for this comic'.tl),
+            subtitle: Text(
+              'Currently using: @mode'.tlParams({
+                'mode': readerModeLabels[current] ?? current,
+              }),
+            ),
+            trailing: Select(
+              current: override == null
+                  ? 'Follow default'.tl
+                  : readerModeLabels[override] ?? override,
+              values: [
+                'Follow default'.tl,
+                for (final key in readerModeLabels.keys) readerModeLabels[key]!,
+              ],
+              minWidth: 96,
+              onTap: (index) {
+                final keys = ['default', ...readerModeLabels.keys];
+                if (index < 0 || index >= keys.length) return;
+                // The menu can outlive a target change; do not write the old
+                // comic's setting in that case.
+                if (cid != widget.comicId || source != widget.sourceKey) return;
+                final value = keys[index];
+                unawaited(
+                  saveSetting(
+                    (cid, source, 'readerMode'),
+                    () => appdata.updateSettings((draft) {
+                      draft.setComicReaderModeOverride(
+                        cid,
+                        source,
+                        value == 'default' ? null : value,
+                      );
+                    }),
+                    onSaved: () => widget.onChanged?.call(),
+                    isCurrent: () =>
+                        cid == widget.comicId && source == widget.sourceKey,
+                  ),
+                );
+              },
+            ),
           ),
         ),
-        _pagesPerScreen(cid, source),
+        _pagesPerScreen(cid: cid, source: source),
         if (auto) ...[
           ListTile(
             leading: Icon(switch (layout) {
@@ -285,17 +317,31 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
               ),
             ),
         ],
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-          child: Text(
-            'This selection only affects this comic. Change default preferences in Settings → Reader.'
-                .tl,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
+      ],
+    );
+  }
+}
+
+class _ModifiedRow extends StatelessWidget {
+  const _ModifiedRow({required this.modified, required this.child});
+
+  final bool modified;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(
+            color: modified
+                ? Theme.of(context).colorScheme.primary
+                : Colors.transparent,
+            width: 3,
           ),
         ),
-      ],
+      ),
+      child: child,
     );
   }
 }

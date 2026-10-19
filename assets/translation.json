@@ -905,7 +905,7 @@
     "Collapse sidebar": "收起侧栏",
     "Expand sidebar": "展开侧栏",
     "Thumbnails": "缩略图",
-    "Pages per screen": "每屏页数",
+    "Pages per screen": "翻页单位",
     "Failed to load source": "无法加载来源"
   },
   "zh_TW": {
@@ -1813,7 +1813,7 @@
     "Collapse sidebar": "收合側欄",
     "Expand sidebar": "展開側欄",
     "Thumbnails": "縮圖",
-    "Pages per screen": "每屏頁數",
+    "Pages per screen": "翻頁單位",
     "Failed to load source": "無法載入來源"
   }
 }
