@@ -8,6 +8,7 @@ import 'package:venera_next/features/reader/bottom_actions.dart';
 import 'package:venera_next/features/reader/top_bar.dart';
 import 'package:venera_next/components/message.dart';
 import 'package:venera_next/features/reader/sidebar_binding.dart';
+import 'package:venera_next/features/reader/thumbnails.dart';
 import 'package:venera_next/features/history/history_api.dart'
     show ImageFavoriteResult;
 import 'package:venera_next/features/reader/image_favorite_controller.dart';
@@ -53,6 +54,7 @@ class ReaderScaffold extends StatefulWidget {
     required this.onRotate,
     required this.onSystemUiChanged,
     required this.createChapterMenu,
+    this.createThumbnails,
     required this.favoriteChanges,
     required this.createFavoriteQuery,
     required this.createImageFavorite,
@@ -75,6 +77,7 @@ class ReaderScaffold extends StatefulWidget {
   final VoidCallback? onRotate;
   final void Function(bool menuOpen) onSystemUiChanged;
   final ReaderChapterMenuRequest? Function() createChapterMenu;
+  final ReaderThumbnailRequest? Function()? createThumbnails;
   final Listenable favoriteChanges;
   final ReaderImageFavoriteQuery? Function() createFavoriteQuery;
   final ReaderImageFavoriteRequest? Function() createImageFavorite;
@@ -299,6 +302,14 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
     chapterTitle: widget.data.chapterTitle,
     onBack: () => unawaited(widget.onExit()),
     actions: [
+      if (widget.data.gallery && widget.createThumbnails != null)
+        Tooltip(
+          message: "Thumbnails".tl,
+          child: IconButton(
+            icon: const Icon(Icons.grid_view_outlined),
+            onPressed: openThumbnails,
+          ),
+        ),
       if (shouldShowChapterComments())
         Tooltip(
           message: "Chapter Comments".tl,
@@ -589,6 +600,26 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
 
   bool shouldShowChapterComments() {
     return widget.createChapterComments() != null;
+  }
+
+  void openThumbnails() {
+    final request = widget.createThumbnails?.call();
+    if (request == null || request.isEmpty || !request.isCurrent()) return;
+    ReaderSidebarHandle? handle;
+    handle = _sidebarBinding.show(
+      context,
+      ReaderThumbnailsView(
+        request: request,
+        onSelect: (page) {
+          if (handle?.isCurrent != true) return;
+          request.select(page);
+          handle?.close();
+        },
+        onClose: () => handle?.close(),
+      ),
+      width: 240,
+      isRequestCurrent: request.isCurrent,
+    );
   }
 
   void openChapterComments() {

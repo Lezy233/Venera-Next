@@ -14,6 +14,7 @@ import 'package:venera_next/features/comic_source/comic_source.dart';
 import 'package:venera_next/features/history/history.dart';
 import 'package:venera_next/features/local_comics/local_comics.dart';
 import 'package:venera_next/features/reader/gesture_host.dart';
+import 'package:venera_next/features/reader/thumbnails.dart';
 import 'package:venera_next/features/reader/gesture_request.dart';
 import 'package:venera_next/features/reader/auto_reading.dart';
 import 'package:venera_next/features/reader/images_host.dart';
@@ -782,6 +783,42 @@ class ReaderState extends State<Reader>
   bool toNextChapter() => toChapter(chapter + 1);
   bool toPrevChapter({bool toLastPage = false}) =>
       toChapter(chapter - 1, toLastPage: toLastPage);
+
+  ReaderThumbnailRequest? createThumbnails() {
+    final imgs = images;
+    if (imgs == null || imgs.isEmpty) return null;
+    if (_sessionFrozen || controller.isDisposed) return null;
+    final comic = cid;
+    final chapterId = eid;
+    final layout = pageLayout;
+    final count = layout.pageCount(imgs.length);
+    final pages = <ReaderThumbnailPage>[];
+    for (var page = 1; page <= count; page++) {
+      final (start, end) = layout.imageRange(page, imgs.length);
+      if (start >= end) continue;
+      pages.add(
+        ReaderThumbnailPage(page, [
+          for (var i = start; i < end; i++) imgs[i],
+        ], start + 1),
+      );
+    }
+    if (pages.isEmpty) return null;
+    return ReaderThumbnailRequest(
+      pages: pages,
+      currentPage: () => page,
+      isCurrent: () =>
+          mounted &&
+          !_sessionFrozen &&
+          !controller.isDisposed &&
+          cid == comic &&
+          eid == chapterId &&
+          identical(images, imgs),
+      select: toPage,
+      sourceKey: ComicSource.find(type.sourceKey)?.key,
+      comicId: comic,
+      chapterId: chapterId,
+    );
+  }
 
   ReaderChapterMenuRequest? createChapterMenu() {
     final chapters = widget.chapters;

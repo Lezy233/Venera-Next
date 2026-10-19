@@ -46,6 +46,7 @@ class ReaderShellHost extends StatelessWidget {
       onRotate: App.isAndroid ? reader.cycleReaderOrientation : null,
       onSystemUiChanged: reader.updateSystemUi,
       createChapterMenu: reader.createChapterMenu,
+      createThumbnails: reader.createThumbnails,
       favoriteChanges: reader.imageFavorites,
       createFavoriteQuery: reader.createImageFavoriteQuery,
       createImageFavorite: reader.createImageFavoriteRequest,
