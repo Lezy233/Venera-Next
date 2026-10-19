@@ -81,9 +81,13 @@ class Select extends StatelessWidget {
                                   : null,
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              values[index],
-                              style: const TextStyle(fontSize: 13),
+                            Flexible(
+                              child: Text(
+                                values[index],
+                                style: const TextStyle(fontSize: 13),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),
@@ -98,15 +102,17 @@ class Select extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                minWidth: textMinWidth,
-                maxWidth: 180,
-              ),
-              child: Text(
-                current ?? ' ',
-                style: const TextStyle(fontSize: 13),
-                overflow: TextOverflow.ellipsis,
+            Flexible(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: textMinWidth,
+                  maxWidth: 180,
+                ),
+                child: Text(
+                  current ?? ' ',
+                  style: const TextStyle(fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
             Icon(

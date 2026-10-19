@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:venera_next/components/select.dart';
 import 'package:venera_next/foundation/preferences.dart';
 import 'package:venera_next/foundation/reader_preferences.dart';
 import 'package:venera_next/foundation/reader_preference_store.dart';
@@ -69,73 +72,24 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
     );
   }
 
-  Future<void> _chooseMode({
-    required String title,
-    required String value,
-    required Future<bool> Function(String) onSelected,
-    bool allowDefault = false,
-  }) async {
-    if (!acceptsSettingsChanges) return;
-    final target = (widget.comicId, widget.sourceKey);
-    final options = {
-      if (allowDefault) 'default': 'Follow default'.tl,
-      ...readerModeLabels,
-    };
-    final selected = await showDialog<String>(
-      context: context,
-      builder: (context) => SimpleDialog(
-        title: Text(title),
-        children: options.entries.map((option) {
-          return SimpleDialogOption(
-            onPressed: () => Navigator.pop(context, option.key),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-            child: Row(
-              children: [
-                Icon(
-                  value == option.key
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_unchecked,
-                  color: value == option.key
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.onSurfaceVariant,
-                  size: 20,
-                ),
-                const SizedBox(width: 16),
-                Expanded(child: Text(option.value)),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-    if (mounted &&
-        selected != null &&
-        target == (widget.comicId, widget.sourceKey) &&
-        acceptsSettingsChanges &&
-        options.containsKey(selected)) {
-      await onSelected(selected);
-    }
-  }
-
   Widget _preference(
     String title,
     Preference<String> preference, {
     String? description,
   }) {
     final value = _store.read(preference);
+    final keys = readerModeLabels.keys.toList();
     return ListTile(
       title: Text(title.tl),
-      subtitle: Text(
-        [
-          readerModeLabels[value] ?? value,
-          if (description != null) description.tl,
-        ].join('\n'),
-      ),
-      trailing: const Icon(Icons.expand_more),
-      onTap: () => _chooseMode(
-        title: title.tl,
-        value: value,
-        onSelected: (value) => _setPreference(preference, value),
+      subtitle: description == null ? null : Text(description.tl),
+      trailing: Select(
+        current: readerModeLabels[value] ?? value,
+        values: [for (final key in keys) readerModeLabels[key]!],
+        minWidth: 96,
+        onTap: (index) {
+          if (index < 0 || index >= keys.length) return;
+          unawaited(_setPreference(preference, keys[index]));
+        },
       ),
     );
   }
@@ -195,33 +149,42 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
         ListTile(
           title: Text('Reading mode for this comic'.tl),
           subtitle: Text(
-            [
-              override == null
-                  ? 'Follow default'.tl
-                  : readerModeLabels[override] ?? override,
-              'Currently using: @mode'.tlParams({
-                'mode': readerModeLabels[current] ?? current,
-              }),
-            ].join('\n'),
+            'Currently using: @mode'.tlParams({
+              'mode': readerModeLabels[current] ?? current,
+            }),
           ),
-          trailing: const Icon(Icons.expand_more),
-          onTap: () => _chooseMode(
-            title: 'Reading mode for this comic'.tl,
-            value: override ?? 'default',
-            allowDefault: true,
-            onSelected: (value) => saveSetting(
-              (cid, source, 'readerMode'),
-              () => appdata.updateSettings((draft) {
-                draft.setComicReaderModeOverride(
-                  cid,
-                  source,
-                  value == 'default' ? null : value,
-                );
-              }),
-              onSaved: () => widget.onChanged?.call(),
-              isCurrent: () =>
-                  cid == widget.comicId && source == widget.sourceKey,
-            ),
+          trailing: Select(
+            current: override == null
+                ? 'Follow default'.tl
+                : readerModeLabels[override] ?? override,
+            values: [
+              'Follow default'.tl,
+              for (final key in readerModeLabels.keys) readerModeLabels[key]!,
+            ],
+            minWidth: 96,
+            onTap: (index) {
+              final keys = ['default', ...readerModeLabels.keys];
+              if (index < 0 || index >= keys.length) return;
+              // The menu can outlive a target change; do not write the old
+              // comic's setting in that case.
+              if (cid != widget.comicId || source != widget.sourceKey) return;
+              final value = keys[index];
+              unawaited(
+                saveSetting(
+                  (cid, source, 'readerMode'),
+                  () => appdata.updateSettings((draft) {
+                    draft.setComicReaderModeOverride(
+                      cid,
+                      source,
+                      value == 'default' ? null : value,
+                    );
+                  }),
+                  onSaved: () => widget.onChanged?.call(),
+                  isCurrent: () =>
+                      cid == widget.comicId && source == widget.sourceKey,
+                ),
+              );
+            },
           ),
         ),
         if (auto) ...[

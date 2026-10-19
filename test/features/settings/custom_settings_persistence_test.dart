@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:venera_next/components/select.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:venera_next/components/code.dart';
@@ -460,11 +461,16 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.text('Reading mode for this comic'));
+      await tester.tap(
+        find.descendant(
+          of: find.widgetWithText(ListTile, 'Reading mode for this comic'),
+          matching: find.byType(Select),
+        ),
+      );
       await tester.pumpAndSettle();
       updateHost(() => comic = 'two');
       await tester.pump();
-      await tester.tap(find.byType(SimpleDialogOption).last);
+      await tester.tap(find.byType(PopupMenuItem<String>).last);
       await tester.pumpAndSettle();
       expect(appdata.settings.comicReaderModeOverride('one', 'local'), isNull);
       expect(appdata.settings.comicReaderModeOverride('two', 'local'), isNull);
@@ -493,11 +499,16 @@ void main() {
           ),
         ),
       );
-      await tester.tap(find.text('Reading mode for this comic'));
+      await tester.tap(
+        find.descendant(
+          of: find.widgetWithText(ListTile, 'Reading mode for this comic'),
+          matching: find.byType(Select),
+        ),
+      );
       await tester.pumpAndSettle();
       final release = Completer<void>();
       final exclusive = AppDataOperations.instance.run(() => release.future);
-      await tester.tap(find.byType(SimpleDialogOption).last);
+      await tester.tap(find.byType(PopupMenuItem<String>).last);
       await tester.pump(const Duration(milliseconds: 400));
       updateHost(() => comic = 'two');
       await tester.pump();
