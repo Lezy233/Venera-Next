@@ -149,6 +149,71 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
     },
   ).toSliver();
 
+  Widget _thumbnailSettings() {
+    final comicId = widget.comicId;
+    final source = widget.comicSource;
+    final specific =
+        comicId != null &&
+        appdata.settings.isComicSpecificSettingsEnabled(comicId, source);
+    final device =
+        !specific && appdata.settings.isDeviceSpecificSettingsEnabled();
+    final position = _value(ReaderPreferences.readerThumbnailPosition);
+    final mode = _activeReaderMode;
+    final topToBottom =
+        mode == 'galleryTopToBottom' ||
+        mode == 'continuousTopToBottom' ||
+        mode == 'waterfallTopToBottom';
+    void changed(String key) {
+      setState(() {});
+      widget.onChanged?.call(key);
+    }
+
+    return SliverToBoxAdapter(
+      child: ExpansionTile(
+        title: Text('Thumbnails'.tl),
+        initiallyExpanded: true,
+        childrenPadding: EdgeInsets.zero,
+        children: [
+          SelectSetting.reader(
+            title: 'Edge mode'.tl,
+            preference: ReaderPreferences.readerThumbnailMode,
+            optionTranslation: {'floating': 'Floating'.tl, 'fixed': 'Fixed'.tl},
+            onChanged: () => changed('readerThumbnailMode'),
+            comicId: specific ? comicId : null,
+            comicSource: specific ? source : null,
+            useDeviceSettings: device,
+          ),
+          SelectSetting.reader(
+            title: 'Edge position'.tl,
+            preference: ReaderPreferences.readerThumbnailPosition,
+            optionTranslation: {
+              'left': 'Left'.tl,
+              'bottom': 'Bottom'.tl,
+              'right': 'Right'.tl,
+            },
+            onChanged: () => changed('readerThumbnailPosition'),
+            comicId: specific ? comicId : null,
+            comicSource: specific ? source : null,
+            useDeviceSettings: device,
+          ),
+          if (position == 'bottom' && topToBottom)
+            SelectSetting.reader(
+              title: 'Scroll direction'.tl,
+              preference: ReaderPreferences.readerThumbnailScrollDirection,
+              optionTranslation: {
+                'rightToLeft': 'Right to left'.tl,
+                'leftToRight': 'Left to right'.tl,
+              },
+              onChanged: () => changed('readerThumbnailScrollDirection'),
+              comicId: specific ? comicId : null,
+              comicSource: specific ? source : null,
+              useDeviceSettings: device,
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final comicId = widget.comicId;
@@ -176,6 +241,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
 
     return protectSettings(
       SmoothCustomScrollView(
+        // Keep nearby sections built so scope/brightness controls stay alive
+        // while the long settings list scrolls.
+        cacheExtent: 1200,
         slivers: [
           SliverAppbar(title: Text("Reading".tl)),
           settingsSaveStatus.toSliver(),
@@ -230,7 +298,10 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
                 Divider().toSliver(),
               ],
             ),
-          if (comicId == null || isEnabledSpecificSettings) _modeSettings(),
+          if (comicId == null || isEnabledSpecificSettings) ...[
+            _thumbnailSettings(),
+            _modeSettings(),
+          ],
           const Divider().toSliver(),
           SwitchSetting.reader(
             title: "Tap to turn Pages".tl,

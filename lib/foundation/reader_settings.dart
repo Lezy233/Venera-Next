@@ -75,6 +75,11 @@ class ReaderSettings {
 
   String get readerMode => _values['readerMode'] as String;
   String get quickCollectImage => _values['quickCollectImage'] as String;
+  String get readerThumbnailMode => _values['readerThumbnailMode'] as String;
+  String get readerThumbnailPosition =>
+      _values['readerThumbnailPosition'] as String;
+  String get readerThumbnailScrollDirection =>
+      _values['readerThumbnailScrollDirection'] as String;
   String get longPressAction => _values['longPressAction'] as String;
   String get longPressZoomPosition =>
       _values['longPressZoomPosition'] as String;

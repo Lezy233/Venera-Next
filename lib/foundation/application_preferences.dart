@@ -257,6 +257,24 @@ abstract final class LayoutPreferences {
     'favoritesFilterPanelOpen',
     false,
   );
+  static const readerThumbnailWidth = NumericPreference(
+    'readerThumbnailWidth',
+    240,
+    min: 120,
+    max: 480,
+    step: 1,
+  );
+  static const readerThumbnailHeight = NumericPreference(
+    'readerThumbnailHeight',
+    140,
+    min: 100,
+    max: 320,
+    step: 1,
+  );
+  static const readerThumbnailCollapsed = BoolPreference(
+    'readerThumbnailCollapsed',
+    false,
+  );
   static const favoritesFilterAuthorShare = NumericPreference(
     'favoritesFilterAuthorShare',
     0.5,
@@ -272,6 +290,9 @@ abstract final class LayoutPreferences {
     favoritesFilterPanelWidth,
     favoritesFilterPanelOpen,
     favoritesFilterAuthorShare,
+    readerThumbnailWidth,
+    readerThumbnailHeight,
+    readerThumbnailCollapsed,
   ];
 }
 

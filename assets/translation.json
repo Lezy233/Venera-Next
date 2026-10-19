@@ -906,6 +906,16 @@
     "Expand sidebar": "展开侧栏",
     "Thumbnails": "缩略图",
     "Pages per screen": "翻页单位",
+    "Edge mode": "贴边模式",
+    "Floating": "浮动",
+    "Fixed": "固定",
+    "Edge position": "贴边方向",
+    "Left": "左边",
+    "Bottom": "底部",
+    "Right": "右边",
+    "Scroll direction": "滚动方向",
+    "Right to left": "从右到左",
+    "Left to right": "从左到右",
     "Failed to load source": "无法加载来源"
   },
   "zh_TW": {
@@ -1814,6 +1824,16 @@
     "Expand sidebar": "展開側欄",
     "Thumbnails": "縮圖",
     "Pages per screen": "翻頁單位",
+    "Edge mode": "貼邊模式",
+    "Floating": "浮動",
+    "Fixed": "固定",
+    "Edge position": "貼邊方向",
+    "Left": "左邊",
+    "Bottom": "底部",
+    "Right": "右邊",
+    "Scroll direction": "滾動方向",
+    "Right to left": "從右到左",
+    "Left to right": "從左到右",
     "Failed to load source": "無法載入來源"
   }
 }

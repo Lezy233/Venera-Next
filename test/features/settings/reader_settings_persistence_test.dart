@@ -81,7 +81,9 @@ void main() {
       // The second edit must resolve the scope at its queue head, after the
       // admitted toggle, even though the live settings still use global scope.
       tester
-          .widget<ReaderBrightnessControl>(find.byType(ReaderBrightnessControl))
+          .widget<ReaderBrightnessControl>(
+            find.byType(ReaderBrightnessControl, skipOffstage: false),
+          )
           .onBrightnessChanged(25);
       expect(appdata.settings['readerBrightness'], 50);
       release.complete();
@@ -123,7 +125,9 @@ void main() {
       final release = Completer<void>();
       final exclusive = AppDataOperations.instance.run(() => release.future);
       final change = tester
-          .widget<ReaderBrightnessControl>(find.byType(ReaderBrightnessControl))
+          .widget<ReaderBrightnessControl>(
+            find.byType(ReaderBrightnessControl, skipOffstage: false),
+          )
           .onBrightnessChanged;
       change(20);
       change(35);
@@ -158,7 +162,9 @@ void main() {
       final release = Completer<void>();
       final exclusive = AppDataOperations.instance.run(() => release.future);
       tester
-          .widget<ReaderBrightnessControl>(find.byType(ReaderBrightnessControl))
+          .widget<ReaderBrightnessControl>(
+            find.byType(ReaderBrightnessControl, skipOffstage: false),
+          )
           .onBrightnessChanged(25);
       await tester.pumpWidget(const SizedBox.shrink());
       expect(preview.brightness, 25);
@@ -185,7 +191,9 @@ void main() {
       );
       final blocked = Directory('${root.path}/appdata.json')..createSync();
       tester
-          .widget<ReaderBrightnessControl>(find.byType(ReaderBrightnessControl))
+          .widget<ReaderBrightnessControl>(
+            find.byType(ReaderBrightnessControl, skipOffstage: false),
+          )
           .onBrightnessChanged(30);
       for (var i = 0; i < 500 && find.text('Retry').evaluate().isEmpty; i++) {
         await tester.runAsync(
@@ -232,7 +240,9 @@ void main() {
       final release = Completer<void>();
       final exclusive = AppDataOperations.instance.run(() => release.future);
       tester
-          .widget<ReaderBrightnessControl>(find.byType(ReaderBrightnessControl))
+          .widget<ReaderBrightnessControl>(
+            find.byType(ReaderBrightnessControl, skipOffstage: false),
+          )
           .onBrightnessChanged(20);
       updateHost(() => comic = 'two');
       await tester.pump();

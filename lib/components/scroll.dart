@@ -14,9 +14,12 @@ class SmoothCustomScrollView extends StatelessWidget {
     super.key,
     required this.slivers,
     this.controller,
+    this.cacheExtent,
   });
 
   final ScrollController? controller;
+
+  final double? cacheExtent;
 
   final List<Widget> slivers;
 
@@ -28,6 +31,7 @@ class SmoothCustomScrollView extends StatelessWidget {
         return CustomScrollView(
           controller: controller,
           physics: physics,
+          cacheExtent: cacheExtent,
           slivers: [
             ...slivers,
             SliverPadding(
