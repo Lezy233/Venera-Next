@@ -94,6 +94,58 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
     );
   }
 
+  Widget _pagesPerScreen(String cid, String source) {
+    final store = ReaderPreferenceStore(
+      settings: appdata.settings,
+      scope: ReaderPreferenceScope.comic,
+      comicId: cid,
+      sourceKey: source,
+    );
+    final landscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    final preference = landscape
+        ? ReaderPreferences.readerScreenPicNumberForLandscape
+        : ReaderPreferences.readerScreenPicNumberForPortrait;
+    final current = store.read(preference);
+    return ListTile(
+      title: Text('Pages per screen'.tl),
+      trailing: Select(
+        current: '$current',
+        values: const ['1', '2'],
+        minWidth: 64,
+        onTap: (index) {
+          if (index < 0 || index > 1) return;
+          if (cid != widget.comicId || source != widget.sourceKey) return;
+          final value = index + 1;
+          unawaited(
+            saveSetting(
+              (cid, source, 'pagesPerScreen'),
+              () => appdata.updateSettings((draft) {
+                final scoped = ReaderPreferenceStore(
+                  settings: draft,
+                  scope: ReaderPreferenceScope.comic,
+                  comicId: cid,
+                  sourceKey: source,
+                );
+                scoped.write(
+                  ReaderPreferences.readerScreenPicNumberForPortrait,
+                  value,
+                );
+                scoped.write(
+                  ReaderPreferences.readerScreenPicNumberForLandscape,
+                  value,
+                );
+              }),
+              onSaved: () => widget.onChanged?.call(),
+              isCurrent: () =>
+                  cid == widget.comicId && source == widget.sourceKey,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = appdata.settings;
@@ -187,6 +239,7 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
             },
           ),
         ),
+        _pagesPerScreen(cid, source),
         if (auto) ...[
           ListTile(
             leading: Icon(switch (layout) {
