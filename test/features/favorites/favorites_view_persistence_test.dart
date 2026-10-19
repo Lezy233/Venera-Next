@@ -201,7 +201,16 @@ void main() {
       );
       await tester.tap(find.byTooltip('Filter'));
       await tester.pumpAndSettle();
-      tester.widget<Select>(find.byType(Select)).onTap!(2);
+      // The editor now also exposes a sort dropdown; target the reading status
+      // one explicitly.
+      tester
+          .widget<Select>(
+            find.descendant(
+              of: find.widgetWithText(ListTile, 'Filter reading status'),
+              matching: find.byType(Select),
+            ),
+          )
+          .onTap!(2);
       await tester.pump();
       final release = Completer<void>();
       final exclusive = AppDataOperations.instance.run(() => release.future);

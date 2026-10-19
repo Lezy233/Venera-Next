@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:venera_next/components/appbar.dart';
+import 'package:venera_next/components/navigation_bar.dart';
 import 'package:venera_next/components/settings_save_state.dart';
 import 'package:venera_next/components/sidebar_resize_handle.dart';
 import 'package:venera_next/foundation/appdata.dart';
@@ -43,6 +44,23 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
   bool leftBarCollapsed = false;
 
   bool _resizingLeftBar = false;
+
+  NaviPaneState? _navPane;
+
+  void _syncNavExpandHandle() {
+    final navPane = _navPane;
+    if (navPane == null || !navPane.mounted) return;
+    navPane.setExpandHandleSuppressed(leftBarCollapsed);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _navPane ??= context.findAncestorStateOfType<NaviPaneState>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncNavExpandHandle();
+    });
+  }
 
   void setFolder(bool isNetwork, String? folder) {
     if (!acceptsSettingsChanges) return;
@@ -148,6 +166,7 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
 
   void _toggleLeftBar() {
     setState(() => leftBarCollapsed = !leftBarCollapsed);
+    _syncNavExpandHandle();
     _persistLeftBar();
   }
 
@@ -168,6 +187,7 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
       }
       _leftBarWidth = next.clamp(_kLeftBarMinWidth, _kLeftBarMaxWidth);
     });
+    _syncNavExpandHandle();
   }
 
   void _finishLeftBarResize() {
@@ -256,6 +276,10 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
 
   @override
   void dispose() {
+    final navPane = _navPane;
+    if (navPane != null && navPane.mounted) {
+      navPane.setExpandHandleSuppressed(false);
+    }
     final route = _folderSelector;
     _folderSelector = null;
     scheduleMicrotask(() {

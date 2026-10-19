@@ -104,6 +104,15 @@ class NaviPaneState extends State<NaviPane>
 
   late bool _sideBarCollapsed;
 
+  bool _expandHandleSuppressed = false;
+
+  /// A page that owns a collapsed sidebar of its own can ask for its expand
+  /// handle to take priority over the navigation rail's handle.
+  void setExpandHandleSuppressed(bool value) {
+    if (value == _expandHandleSuppressed) return;
+    setState(() => _expandHandleSuppressed = value);
+  }
+
   void _toggleSideBar() {
     setState(() => _sideBarCollapsed = !_sideBarCollapsed);
     _persistSideBar();
@@ -307,7 +316,7 @@ class NaviPaneState extends State<NaviPane>
                 child: buildLeft(sideBarWidth),
               ),
               Positioned.fill(left: mainViewLeft, child: buildMainView()),
-              if (manual)
+              if (manual && !(_expandHandleSuppressed && _sideBarCollapsed))
                 Positioned(
                   left: sideBarWidth - SidebarResizeHandle.width / 2,
                   top: 0,

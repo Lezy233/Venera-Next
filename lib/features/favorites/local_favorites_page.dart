@@ -279,6 +279,11 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
     return result;
   }
 
+  /// Keeps already selected values visible even when they are no longer in the
+  /// aggregated options (for example a tag hidden by the new tag rules).
+  List<String> _withSelected(List<String> available, Set<String> selected) =>
+      _collectFilterValues([...available, ...selected]);
+
   void _applyAuthorAliases(Map<String, String> aliases) {
     final cleaned = <String, String>{
       for (final entry in aliases.entries)
@@ -438,13 +443,26 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
       ...favoriteAuthorValues(comic, aliases: _authorAliases),
   ]);
 
-  List<String> _availableTags() => _collectFilterValues([
-    for (final comic in comics)
-      for (final tag in comic.tags) favoriteTagLabel(tag),
-  ]);
+  List<String> _availableTags() {
+    final values = <String>[];
+    for (final comic in comics) {
+      for (final tag in comic.tags) {
+        final separator = tag.indexOf(':');
+        if (separator > 0 && isAuthorNamespace(tag.substring(0, separator))) {
+          continue;
+        }
+        final label = favoriteTagLabel(tag);
+        // Some sources use pure numeric tags; they are not useful filters.
+        if (RegExp(r'^\d+$').hasMatch(label)) continue;
+        values.add(label);
+      }
+    }
+    return _collectFilterValues(values);
+  }
 
   Widget _buildFilterPanel() {
     return Material(
+      color: Theme.of(context).colorScheme.surfaceContainer,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -477,8 +495,11 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                 sortMode: sortMode,
                 authors: authorFilters,
                 tags: tagFilters,
-                authorOptions: _availableAuthors(),
-                tagOptions: _availableTags(),
+                authorOptions: _withSelected(
+                  _availableAuthors(),
+                  authorFilters,
+                ),
+                tagOptions: _withSelected(_availableTags(), tagFilters),
                 editable: true,
                 onReadFilter: _setReadFilter,
                 onSortMode: _setSortMode,
@@ -509,7 +530,7 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                 border: Border(
                   left: BorderSide(
                     color: context.colorScheme.outlineVariant,
-                    width: 0.6,
+                    width: 1,
                   ),
                 ),
               ),
@@ -554,8 +575,11 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                 sortMode: sortMode,
                 authors: authorFilters,
                 tags: tagFilters,
-                authorOptions: _availableAuthors(),
-                tagOptions: _availableTags(),
+                authorOptions: _withSelected(
+                  _availableAuthors(),
+                  authorFilters,
+                ),
+                tagOptions: _withSelected(_availableTags(), tagFilters),
                 editable: true,
                 onReadFilter: (value) {
                   if (!isCurrent()) return;
@@ -916,14 +940,8 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                     }
                     final folder = widget.folder;
                     final request = ++_filterRequest;
-                    final availableAuthors = _collectFilterValues([
-                      for (final comic in comics)
-                        ...favoriteAuthorValues(comic, aliases: _authorAliases),
-                    ]);
-                    final availableTags = _collectFilterValues([
-                      for (final comic in comics)
-                        for (final tag in comic.tags) favoriteTagLabel(tag),
-                    ]);
+                    final availableAuthors = _availableAuthors();
+                    final availableTags = _availableTags();
                     showDialog(
                       context: context,
                       builder: (context) {
@@ -1837,6 +1855,9 @@ class _LocalFavoritesFilterDialogState
 
 /// Shared presentation for the filter dialog, the right side panel and the
 /// mobile bottom sheet. Hosts own persistence; this widget only edits values.
+
+/// Shared presentation for the filter dialog, the right side panel and the
+/// mobile bottom sheet. Hosts own persistence; this widget only edits values.
 class _FavoriteFilterEditor extends StatelessWidget {
   const _FavoriteFilterEditor({
     required this.readFilter,
@@ -1869,83 +1890,79 @@ class _FavoriteFilterEditor extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(top: 12, bottom: 4),
-          child: _FilterSectionTitle('Sort'),
-        ),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
+        _FilterSelectRow(
+          title: "Sort",
+          current: favoriteSortModeLabels[sortMode] ?? 'Manual',
+          values: [
             for (final mode in favoriteSortModes)
-              ChoiceChip(
-                label: Text((favoriteSortModeLabels[mode] ?? 'Manual').tl),
-                selected: sortMode == mode,
-                onSelected: editable
-                    ? (selected) {
-                        if (selected) onSortMode(mode);
-                      }
-                    : null,
-              ),
+              favoriteSortModeLabels[mode] ?? 'Manual',
           ],
+          enabled: editable,
+          onSelected: (index) => onSortMode(favoriteSortModes[index]),
         ),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text("Filter reading status".tl),
-          trailing: Select(
-            current: readFilter.tl,
-            values: readFilterList.map((e) => e.tl).toList(),
-            minWidth: 64,
-            onTap: (index) {
-              if (!editable || index < 0 || index >= readFilterList.length) {
-                return;
-              }
-              onReadFilter(readFilterList[index]);
-            },
-          ),
+        _FilterSelectRow(
+          title: "Filter reading status",
+          current: readFilter,
+          values: readFilterList,
+          enabled: editable,
+          onSelected: (index) => onReadFilter(readFilterList[index]),
         ),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 320),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _FilterChipsSection(
-                  title: "Author",
-                  options: authorOptions,
-                  selected: authors,
-                  editable: editable,
-                  onToggle: onAuthorToggle,
-                ),
-                _FilterChipsSection(
-                  title: "Tag",
-                  options: tagOptions,
-                  selected: tags,
-                  editable: editable,
-                  onToggle: onTagToggle,
-                ),
-              ],
-            ),
-          ),
+        _CollapsibleFilterChips(
+          title: "Author",
+          options: authorOptions,
+          selected: authors,
+          editable: editable,
+          onToggle: onAuthorToggle,
+        ),
+        _CollapsibleFilterChips(
+          title: "Tags",
+          options: tagOptions,
+          selected: tags,
+          editable: editable,
+          onToggle: onTagToggle,
         ),
       ],
     );
   }
 }
 
-class _FilterSectionTitle extends StatelessWidget {
-  const _FilterSectionTitle(this.title);
+/// One labelled dropdown row; sort and reading status share this shape.
+class _FilterSelectRow extends StatelessWidget {
+  const _FilterSelectRow({
+    required this.title,
+    required this.current,
+    required this.values,
+    required this.enabled,
+    required this.onSelected,
+  });
 
   final String title;
+  final String current;
+  final List<String> values;
+  final bool enabled;
+  final ValueChanged<int> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    return Text(title.tl);
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(title.tl),
+      trailing: Select(
+        current: current.tl,
+        values: values.map((value) => value.tl).toList(),
+        minWidth: 96,
+        onTap: (index) {
+          if (!enabled || index < 0 || index >= values.length) return;
+          onSelected(index);
+        },
+      ),
+    );
   }
 }
 
-class _FilterChipsSection extends StatelessWidget {
-  const _FilterChipsSection({
+/// A titled chip section that can be folded away independently.
+class _CollapsibleFilterChips extends StatefulWidget {
+  const _CollapsibleFilterChips({
     required this.title,
     required this.options,
     required this.selected,
@@ -1960,27 +1977,51 @@ class _FilterChipsSection extends StatelessWidget {
   final ValueChanged<String> onToggle;
 
   @override
+  State<_CollapsibleFilterChips> createState() =>
+      _CollapsibleFilterChipsState();
+}
+
+class _CollapsibleFilterChipsState extends State<_CollapsibleFilterChips> {
+  bool expanded = true;
+
+  @override
   Widget build(BuildContext context) {
-    if (options.isEmpty) return const SizedBox.shrink();
+    if (widget.options.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 12, bottom: 4),
-          child: _FilterSectionTitle(title),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(widget.title.tl),
+          trailing: IconButton(
+            tooltip: (expanded ? 'Collapse' : 'Expand').tl,
+            icon: Icon(expanded ? Icons.expand_less : Icons.expand_more),
+            onPressed: () => setState(() => expanded = !expanded),
+          ),
         ),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final option in options)
-              FilterChip(
-                label: Text(option),
-                selected: selected.contains(option),
-                onSelected: editable ? (_) => onToggle(option) : null,
+        if (expanded)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 240),
+              child: SingleChildScrollView(
+                child: Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final option in widget.options)
+                      FilterChip(
+                        label: Text(option),
+                        selected: widget.selected.contains(option),
+                        onSelected: widget.editable
+                            ? (_) => widget.onToggle(option)
+                            : null,
+                      ),
+                  ],
+                ),
               ),
-          ],
-        ),
+            ),
+          ),
       ],
     );
   }
