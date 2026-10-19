@@ -257,6 +257,13 @@ abstract final class LayoutPreferences {
     'favoritesFilterPanelOpen',
     false,
   );
+  static const favoritesFilterAuthorShare = NumericPreference(
+    'favoritesFilterAuthorShare',
+    0.5,
+    min: 0.2,
+    max: 0.8,
+    step: 0.01,
+  );
   static const all = <Preference<Object>>[
     navSidebarWidth,
     navSidebarCollapsed,
@@ -264,6 +271,7 @@ abstract final class LayoutPreferences {
     favoritesSidebarCollapsed,
     favoritesFilterPanelWidth,
     favoritesFilterPanelOpen,
+    favoritesFilterAuthorShare,
   ];
 }
 

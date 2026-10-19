@@ -169,11 +169,11 @@ class NaviPaneState extends State<NaviPane>
 
   static const _kBottomBarHeight = 58.0;
 
-  static const _kFoldedSideBarWidth = 72.0;
+  static const _kFoldedSideBarWidth = 48.0;
 
   static const _kSideBarWidth = 224.0;
 
-  static const _kSideBarMinWidth = 160.0;
+  static const _kSideBarMinWidth = 120.0;
 
   static const _kSideBarMaxWidth = 320.0;
 
@@ -443,7 +443,7 @@ class NaviPaneState extends State<NaviPane>
     final showTitle = width >= _kSideBarMinWidth;
     final topPadding = MediaQuery.paddingOf(context).top;
     final dividerColor = Theme.of(context).colorScheme.outlineVariant;
-    const paddingHorizontal = 12.0;
+    const paddingHorizontal = 4.0;
     return Material(
       child: SizedBox(
         width: width,
@@ -519,31 +519,35 @@ class _SideNaviWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final icon = Icon(enabled ? entry.activeIcon : entry.icon);
+    final icon = Icon(enabled ? entry.activeIcon : entry.icon, size: 20);
     return ClickInkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(8),
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        height: 32,
         decoration: BoxDecoration(
           color: enabled ? colorScheme.primaryContainer : null,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: showTitle
             ? Row(
                 children: [
                   icon,
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Flexible(
-                    child: Text(entry.label, overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      entry.label,
+                      style: const TextStyle(fontSize: 13),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               )
             : Align(alignment: Alignment.centerLeft, child: icon),
       ),
-    ).paddingVertical(4);
+    ).paddingVertical(2);
   }
 }
 
@@ -560,27 +564,31 @@ class _PaneActionWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final icon = Icon(entry.icon);
+    final icon = Icon(entry.icon, size: 20);
     return ClickInkWell(
       onTap: entry.onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(8),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        height: 32,
         child: showTitle
             ? Row(
                 children: [
                   icon,
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   Flexible(
-                    child: Text(entry.label, overflow: TextOverflow.ellipsis),
+                    child: Text(
+                      entry.label,
+                      style: const TextStyle(fontSize: 13),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               )
             : Align(alignment: Alignment.centerLeft, child: icon),
       ),
-    ).paddingVertical(4);
+    ).paddingVertical(2);
   }
 }
 

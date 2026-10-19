@@ -4,8 +4,9 @@ import 'package:venera_next/foundation/global_preference_store.dart';
 import 'package:venera_next/foundation/application_preferences.dart';
 import 'package:venera_next/components/file_save_task.dart';
 import 'favorite_models.dart';
-import 'dart:convert';
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show listEquals;
@@ -145,6 +146,8 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
   late double _filterPanelWidth;
 
   late bool _filterPanelOpen;
+
+  late double _filterAuthorShare;
 
   bool _resizingFilterPanel = false;
 
@@ -385,6 +388,34 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
     _persistFilters();
   }
 
+  void _setAuthorFilters(Set<String> value) {
+    setState(() => authorFilters = Set<String>.of(value));
+    _persistFilters();
+  }
+
+  void _setTagFilters(Set<String> value) {
+    setState(() => tagFilters = Set<String>.of(value));
+    _persistFilters();
+  }
+
+  void _setFilterAuthorShare(double value) {
+    setState(() => _filterAuthorShare = value);
+    unawaited(
+      appdata
+          .updateSettings((draft) {
+            GlobalPreferenceStore(
+              draft,
+            ).write(LayoutPreferences.favoritesFilterAuthorShare, value);
+          })
+          .then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stack) {
+              Log.error('Favorites filter section share', error, stack);
+            },
+          ),
+    );
+  }
+
   void _toggleFilterPanel() {
     setState(() => _filterPanelOpen = !_filterPanelOpen);
     _persistFilterPanel();
@@ -488,24 +519,51 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
             ),
           ),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: _FavoriteFilterEditor(
-                readFilter: readFilterSelect,
-                sortMode: sortMode,
-                authors: authorFilters,
-                tags: tagFilters,
-                authorOptions: _withSelected(
-                  _availableAuthors(),
-                  authorFilters,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children: [
+                      _FilterSelectRow(
+                        title: "Sort",
+                        current: favoriteSortModeLabels[sortMode] ?? 'Manual',
+                        values: [
+                          for (final mode in favoriteSortModes)
+                            favoriteSortModeLabels[mode] ?? 'Manual',
+                        ],
+                        enabled: true,
+                        onSelected: (index) =>
+                            _setSortMode(favoriteSortModes[index]),
+                      ),
+                      _FilterSelectRow(
+                        title: "Filter reading status",
+                        current: readFilterSelect,
+                        values: readFilterList,
+                        enabled: true,
+                        onSelected: (index) =>
+                            _setReadFilter(readFilterList[index]),
+                      ),
+                    ],
+                  ),
                 ),
-                tagOptions: _withSelected(_availableTags(), tagFilters),
-                editable: true,
-                onReadFilter: _setReadFilter,
-                onSortMode: _setSortMode,
-                onAuthorToggle: _toggleAuthorFilter,
-                onTagToggle: _toggleTagFilter,
-              ),
+                const SizedBox(height: 4),
+                Expanded(
+                  child: _FilterSectionPanes(
+                    authorOptions: _withSelected(
+                      _availableAuthors(),
+                      authorFilters,
+                    ),
+                    tagOptions: _withSelected(_availableTags(), tagFilters),
+                    authors: authorFilters,
+                    tags: tagFilters,
+                    authorShare: _filterAuthorShare,
+                    onAuthorsChanged: _setAuthorFilters,
+                    onTagsChanged: _setTagFilters,
+                    onAuthorShareChanged: _setFilterAuthorShare,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -687,6 +745,9 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
         .read(LayoutPreferences.favoritesFilterPanelWidth)
         .toDouble();
     _filterPanelOpen = layout.read(LayoutPreferences.favoritesFilterPanelOpen);
+    _filterAuthorShare = layout
+        .read(LayoutPreferences.favoritesFilterAuthorShare)
+        .toDouble();
     if (!isAllFolder) {
       var (a, b) = _observedManager.findLinked(widget.folder);
       networkSource = a;
@@ -2013,6 +2074,12 @@ class _CollapsibleFilterChipsState extends State<_CollapsibleFilterChips> {
                       FilterChip(
                         label: Text(option),
                         selected: widget.selected.contains(option),
+                        // Selected state is conveyed by colour, without a tick.
+                        showCheckmark: false,
+                        selectedColor: Theme.of(
+                          context,
+                        ).colorScheme.primaryContainer,
+                        visualDensity: VisualDensity.compact,
                         onSelected: widget.editable
                             ? (_) => widget.onToggle(option)
                             : null,
@@ -2023,6 +2090,324 @@ class _CollapsibleFilterChipsState extends State<_CollapsibleFilterChips> {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Two VSCode Explorer style sections for the right panel: collapsible headers,
+/// a draggable splitter when both are open, per-section search and bulk select.
+class _FilterSectionPanes extends StatefulWidget {
+  const _FilterSectionPanes({
+    required this.authorOptions,
+    required this.tagOptions,
+    required this.authors,
+    required this.tags,
+    required this.authorShare,
+    required this.onAuthorsChanged,
+    required this.onTagsChanged,
+    required this.onAuthorShareChanged,
+  });
+
+  final List<String> authorOptions;
+  final List<String> tagOptions;
+  final Set<String> authors;
+  final Set<String> tags;
+  final double authorShare;
+  final ValueChanged<Set<String>> onAuthorsChanged;
+  final ValueChanged<Set<String>> onTagsChanged;
+  final ValueChanged<double> onAuthorShareChanged;
+
+  @override
+  State<_FilterSectionPanes> createState() => _FilterSectionPanesState();
+}
+
+class _FilterSectionPanesState extends State<_FilterSectionPanes> {
+  static const _headerHeight = 40.0;
+  static const _splitterHeight = 8.0;
+  static const _minShare = 0.2;
+  static const _maxShare = 0.8;
+
+  bool authorExpanded = true;
+  bool tagExpanded = false;
+  late double share = widget.authorShare.clamp(_minShare, _maxShare);
+  final authorSearch = TextEditingController();
+  final tagSearch = TextEditingController();
+  String authorQuery = '';
+  String tagQuery = '';
+
+  @override
+  void didUpdateWidget(covariant _FilterSectionPanes oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.authorShare != widget.authorShare) {
+      share = widget.authorShare.clamp(_minShare, _maxShare);
+    }
+  }
+
+  @override
+  void dispose() {
+    authorSearch.dispose();
+    tagSearch.dispose();
+    super.dispose();
+  }
+
+  List<String> _filtered(List<String> options, String query) {
+    final keyword = query.trim().toLowerCase();
+    if (keyword.isEmpty) return options;
+    return options
+        .where((option) => option.toLowerCase().contains(keyword))
+        .toList();
+  }
+
+  void _resize(double delta, double available) {
+    if (available <= 0) return;
+    setState(() {
+      share = (share + delta / available).clamp(_minShare, _maxShare);
+    });
+  }
+
+  void _endResize() => widget.onAuthorShareChanged(share);
+
+  @override
+  Widget build(BuildContext context) {
+    final authorVisible = _filtered(widget.authorOptions, authorQuery);
+    final tagVisible = _filtered(widget.tagOptions, tagQuery);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final total = constraints.maxHeight;
+        final bothExpanded = authorExpanded && tagExpanded;
+        final double authorHeight;
+        final double tagHeight;
+        if (bothExpanded) {
+          final available = math.max(
+            0.0,
+            total - 2 * _headerHeight - _splitterHeight,
+          );
+          final authorBody = available * share;
+          authorHeight = _headerHeight + authorBody;
+          tagHeight = _headerHeight + (available - authorBody);
+        } else if (authorExpanded) {
+          authorHeight = math.max(_headerHeight, total - _headerHeight);
+          tagHeight = _headerHeight;
+        } else if (tagExpanded) {
+          authorHeight = _headerHeight;
+          tagHeight = math.max(_headerHeight, total - _headerHeight);
+        } else {
+          authorHeight = _headerHeight;
+          tagHeight = _headerHeight;
+        }
+        return Column(
+          children: [
+            _section(
+              title: "Author",
+              expanded: authorExpanded,
+              onToggle: () => setState(() => authorExpanded = !authorExpanded),
+              options: authorVisible,
+              selected: widget.authors,
+              controller: authorSearch,
+              onQueryChanged: (value) => setState(() => authorQuery = value),
+              onChanged: widget.onAuthorsChanged,
+              height: authorHeight,
+            ),
+            if (bothExpanded)
+              MouseRegion(
+                cursor: SystemMouseCursors.resizeUpDown,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onVerticalDragUpdate: (details) => _resize(
+                    details.delta.dy,
+                    math.max(1.0, total - 2 * _headerHeight - _splitterHeight),
+                  ),
+                  onVerticalDragEnd: (_) => _endResize(),
+                  onVerticalDragCancel: _endResize,
+                  child: SizedBox(
+                    height: _splitterHeight,
+                    child: Center(
+                      child: Container(
+                        height: 1,
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            _section(
+              title: "Tags",
+              expanded: tagExpanded,
+              onToggle: () => setState(() => tagExpanded = !tagExpanded),
+              options: tagVisible,
+              selected: widget.tags,
+              controller: tagSearch,
+              onQueryChanged: (value) => setState(() => tagQuery = value),
+              onChanged: widget.onTagsChanged,
+              height: tagHeight,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _section({
+    required String title,
+    required bool expanded,
+    required VoidCallback onToggle,
+    required List<String> options,
+    required Set<String> selected,
+    required TextEditingController controller,
+    required ValueChanged<String> onQueryChanged,
+    required ValueChanged<Set<String>> onChanged,
+    required double height,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: height,
+      child: Column(
+        children: [
+          SizedBox(
+            height: _headerHeight,
+            child: Row(
+              children: [
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 32,
+                    height: 32,
+                  ),
+                  iconSize: 18,
+                  tooltip: (expanded ? 'Collapse' : 'Expand').tl,
+                  icon: Icon(
+                    expanded ? Icons.expand_more : Icons.chevron_right,
+                  ),
+                  onPressed: onToggle,
+                ),
+                Expanded(
+                  child: Text(
+                    title.tl,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (selected.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: Text(
+                      '${selected.length}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 28,
+                    height: 28,
+                  ),
+                  iconSize: 16,
+                  tooltip: 'Select all'.tl,
+                  icon: const Icon(Icons.select_all),
+                  onPressed: !expanded
+                      ? null
+                      : () {
+                          final next = Set<String>.of(selected)
+                            ..addAll(options);
+                          onChanged(next);
+                        },
+                ),
+                IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 28,
+                    height: 28,
+                  ),
+                  iconSize: 16,
+                  tooltip: 'Deselect all'.tl,
+                  icon: const Icon(Icons.deselect),
+                  onPressed: !expanded || selected.isEmpty
+                      ? null
+                      : () => onChanged(<String>{}),
+                ),
+              ],
+            ),
+          ),
+          if (expanded)
+            Expanded(
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+                    child: TextField(
+                      controller: controller,
+                      style: const TextStyle(fontSize: 12),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        hintText: 'Search'.tl,
+                        hintStyle: const TextStyle(fontSize: 12),
+                        prefixIcon: const Icon(Icons.search, size: 16),
+                        prefixIconConstraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 6,
+                          horizontal: 4,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      onChanged: onQueryChanged,
+                    ),
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                      child: options.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              child: Text(
+                                'No search results found'.tl,
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            )
+                          : Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                for (final option in options)
+                                  _chip(option, selected, onChanged),
+                              ],
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(
+    String option,
+    Set<String> selected,
+    ValueChanged<Set<String>> onChanged,
+  ) {
+    return FilterChip(
+      label: Text(option, style: const TextStyle(fontSize: 12)),
+      selected: selected.contains(option),
+      showCheckmark: false,
+      selectedColor: Theme.of(context).colorScheme.primaryContainer,
+      visualDensity: VisualDensity.compact,
+      onSelected: (_) {
+        final next = Set<String>.of(selected);
+        if (!next.remove(option)) next.add(option);
+        onChanged(next);
+      },
     );
   }
 }
