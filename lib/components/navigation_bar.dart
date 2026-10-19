@@ -1,19 +1,13 @@
-import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:venera_next/components/sidebar_resize_handle.dart';
 import 'package:venera_next/foundation/app.dart';
 import 'package:venera_next/foundation/app_page_route.dart';
-import 'package:venera_next/foundation/appdata.dart';
-import 'package:venera_next/foundation/application_preferences.dart';
 import 'package:venera_next/foundation/consts.dart';
 import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/foundation/edge_back_gesture.dart';
-import 'package:venera_next/foundation/global_preference_store.dart';
-import 'package:venera_next/foundation/log.dart';
 import 'package:venera_next/foundation/widget_utils.dart';
 import 'package:venera_next/routing/app_navigation.dart';
 
@@ -100,61 +94,6 @@ class NaviPaneState extends State<NaviPane>
 
   void Function()? mainViewUpdateHandler;
 
-  late double _sideBarWidth;
-
-  late bool _sideBarCollapsed;
-
-  bool _expandHandleSuppressed = false;
-
-  /// A page that owns a collapsed sidebar of its own can ask for its expand
-  /// handle to take priority over the navigation rail's handle.
-  void setExpandHandleSuppressed(bool value) {
-    if (value == _expandHandleSuppressed) return;
-    setState(() => _expandHandleSuppressed = value);
-  }
-
-  void _toggleSideBar() {
-    setState(() => _sideBarCollapsed = !_sideBarCollapsed);
-    _persistSideBar();
-  }
-
-  void _resizeSideBar(double delta) {
-    setState(() {
-      if (_sideBarCollapsed) {
-        if (delta <= 0) return;
-        _sideBarCollapsed = false;
-        _sideBarWidth = _kSideBarMinWidth;
-        return;
-      }
-      final next = _sideBarWidth + delta;
-      if (next < _kSideBarMinWidth) {
-        _sideBarCollapsed = true;
-        _sideBarWidth = _kSideBarMinWidth;
-        return;
-      }
-      _sideBarWidth = next.clamp(_kSideBarMinWidth, _kSideBarMaxWidth);
-    });
-  }
-
-  void _persistSideBar() {
-    final width = _sideBarWidth;
-    final collapsed = _sideBarCollapsed;
-    unawaited(
-      appdata
-          .updateSettings((draft) {
-            final store = GlobalPreferenceStore(draft);
-            store.write(LayoutPreferences.navSidebarWidth, width);
-            store.write(LayoutPreferences.navSidebarCollapsed, collapsed);
-          })
-          .then<void>(
-            (_) {},
-            onError: (Object error, StackTrace stack) {
-              Log.error('Navigation sidebar settings', error, stack);
-            },
-          ),
-    );
-  }
-
   late AnimationController controller;
 
   final _naviItemTapListeners = <NaviItemTapListener>[];
@@ -169,13 +108,7 @@ class NaviPaneState extends State<NaviPane>
 
   static const _kBottomBarHeight = 58.0;
 
-  static const _kFoldedSideBarWidth = 48.0;
-
-  static const _kSideBarWidth = 224.0;
-
-  static const _kSideBarMinWidth = 120.0;
-
-  static const _kSideBarMaxWidth = 320.0;
+  static const _kSideBarWidth = 48.0;
 
   static const _kTopBarHeight = 48.0;
 
@@ -208,11 +141,6 @@ class NaviPaneState extends State<NaviPane>
       vsync: this,
     );
     widget.observer.addListener(onNavigatorStateChange);
-    final preferences = GlobalPreferenceStore(appdata.settings);
-    _sideBarWidth = preferences
-        .read(LayoutPreferences.navSidebarWidth)
-        .toDouble();
-    _sideBarCollapsed = preferences.read(LayoutPreferences.navSidebarCollapsed);
     super.initState();
   }
 
@@ -293,42 +221,19 @@ class NaviPaneState extends State<NaviPane>
         animation: controller,
         builder: (context, child) {
           final value = controller.value;
-          final manual = MediaQuery.of(context).size.width > changePoint;
-          final sideBarWidth = manual
-              ? (_sideBarCollapsed ? _kFoldedSideBarWidth : _sideBarWidth)
-              : _kFoldedSideBarWidth +
-                    (_kSideBarWidth - _kFoldedSideBarWidth) *
-                        ((value - 2).clamp(0, 1));
-          final sideBarLeft = manual
-              ? 0.0
-              : _kFoldedSideBarWidth * ((value - 2.0).clamp(-1.0, 0.0));
-          final mainViewLeft = manual
-              ? sideBarWidth
-              : _kFoldedSideBarWidth * ((value - 1).clamp(0, 1)) +
-                    (_kSideBarWidth - _kFoldedSideBarWidth) *
-                        ((value - 2).clamp(0, 1));
+          // The navigation rail is always the fixed icon bar; only the mobile
+          // slide-in animation is driven by the controller now.
+          final sideBarLeft = _kSideBarWidth * ((value - 2.0).clamp(-1.0, 0.0));
+          final mainViewLeft = _kSideBarWidth * ((value - 1).clamp(0, 1));
           Widget content = Stack(
             children: [
               Positioned(
                 left: sideBarLeft,
                 top: 0,
                 bottom: 0,
-                child: buildLeft(sideBarWidth),
+                child: buildLeft(_kSideBarWidth),
               ),
               Positioned.fill(left: mainViewLeft, child: buildMainView()),
-              if (manual && !(_expandHandleSuppressed && _sideBarCollapsed))
-                Positioned(
-                  left: sideBarWidth - SidebarResizeHandle.width / 2,
-                  top: 0,
-                  bottom: 0,
-                  width: SidebarResizeHandle.width,
-                  child: SidebarResizeHandle(
-                    expanded: !_sideBarCollapsed,
-                    onToggle: _toggleSideBar,
-                    onDrag: _resizeSideBar,
-                    onDragEnd: _persistSideBar,
-                  ),
-                ),
             ],
           );
           if (sideInsets != EdgeInsets.zero) {
@@ -440,48 +345,39 @@ class NaviPaneState extends State<NaviPane>
   }
 
   Widget buildLeft(double width) {
-    final showTitle = width >= _kSideBarMinWidth;
     final topPadding = MediaQuery.paddingOf(context).top;
     final dividerColor = Theme.of(context).colorScheme.outlineVariant;
-    const paddingHorizontal = 4.0;
     return Material(
       child: SizedBox(
         width: width,
         height: double.infinity,
         child: Stack(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: paddingHorizontal,
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 16),
-                  SizedBox(height: topPadding),
-                  ...List<Widget>.generate(
-                    widget.paneItems.length,
-                    (index) => _SideNaviWidget(
-                      enabled: currentPage == index,
-                      entry: widget.paneItems[index],
-                      showTitle: showTitle,
-                      onTap: () {
-                        updatePage(index);
-                      },
-                      key: ValueKey(index),
-                    ),
+            Column(
+              children: [
+                const SizedBox(height: 16),
+                SizedBox(height: topPadding),
+                ...List<Widget>.generate(
+                  widget.paneItems.length,
+                  (index) => _SideNaviWidget(
+                    enabled: currentPage == index,
+                    entry: widget.paneItems[index],
+                    onTap: () {
+                      updatePage(index);
+                    },
+                    key: ValueKey(index),
                   ),
-                  const Spacer(),
-                  ...List<Widget>.generate(
-                    widget.paneActions.length,
-                    (index) => _PaneActionWidget(
-                      entry: widget.paneActions[index],
-                      showTitle: showTitle,
-                      key: ValueKey(index + widget.paneItems.length),
-                    ),
+                ),
+                const Spacer(),
+                ...List<Widget>.generate(
+                  widget.paneActions.length,
+                  (index) => _PaneActionWidget(
+                    entry: widget.paneActions[index],
+                    key: ValueKey(index + widget.paneItems.length),
                   ),
-                  const SizedBox(height: 16),
-                ],
-              ),
+                ),
+                const SizedBox(height: 16),
+              ],
             ),
             Positioned(
               top: topPadding,
@@ -504,7 +400,6 @@ class _SideNaviWidget extends StatelessWidget {
     required this.enabled,
     required this.entry,
     required this.onTap,
-    required this.showTitle,
     super.key,
   });
 
@@ -514,81 +409,56 @@ class _SideNaviWidget extends StatelessWidget {
 
   final VoidCallback onTap;
 
-  final bool showTitle;
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final icon = Icon(enabled ? entry.activeIcon : entry.icon, size: 20);
-    return ClickInkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        height: 32,
-        decoration: BoxDecoration(
-          color: enabled ? colorScheme.primaryContainer : null,
-          borderRadius: BorderRadius.circular(8),
+    return Tooltip(
+      message: entry.label,
+      waitDuration: const Duration(milliseconds: 600),
+      child: ClickInkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: enabled ? colorScheme.primaryContainer : null,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(
+            child: Icon(
+              enabled ? entry.activeIcon : entry.icon,
+              size: 24,
+              color: enabled ? colorScheme.onPrimaryContainer : null,
+            ),
+          ),
         ),
-        child: showTitle
-            ? Row(
-                children: [
-                  icon,
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      entry.label,
-                      style: const TextStyle(fontSize: 13),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              )
-            : Align(alignment: Alignment.centerLeft, child: icon),
       ),
-    ).paddingVertical(2);
+    );
   }
 }
 
 class _PaneActionWidget extends StatelessWidget {
-  const _PaneActionWidget({
-    required this.entry,
-    required this.showTitle,
-    super.key,
-  });
+  const _PaneActionWidget({required this.entry, super.key});
 
   final PaneActionEntry entry;
 
-  final bool showTitle;
-
   @override
   Widget build(BuildContext context) {
-    final icon = Icon(entry.icon, size: 20);
-    return ClickInkWell(
-      onTap: entry.onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        height: 32,
-        child: showTitle
-            ? Row(
-                children: [
-                  icon,
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      entry.label,
-                      style: const TextStyle(fontSize: 13),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              )
-            : Align(alignment: Alignment.centerLeft, child: icon),
+    return Tooltip(
+      message: entry.label,
+      waitDuration: const Duration(milliseconds: 600),
+      child: ClickInkWell(
+        onTap: entry.onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          width: 48,
+          height: 48,
+          child: Center(child: Icon(entry.icon, size: 24)),
+        ),
       ),
-    ).paddingVertical(2);
+    );
   }
 }
 

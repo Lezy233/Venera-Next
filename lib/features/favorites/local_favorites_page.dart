@@ -149,6 +149,10 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
 
   late double _filterAuthorShare;
 
+  late bool _authorSectionExpanded;
+
+  late bool _tagSectionExpanded;
+
   bool _resizingFilterPanel = false;
 
   static const _kFilterPanelBreakpoint = 900.0;
@@ -416,6 +420,34 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
     );
   }
 
+  void _setAuthorSectionExpanded(bool value) {
+    setState(() => _authorSectionExpanded = value);
+    _persistSectionExpansion();
+  }
+
+  void _setTagSectionExpanded(bool value) {
+    setState(() => _tagSectionExpanded = value);
+    _persistSectionExpansion();
+  }
+
+  void _persistSectionExpansion() {
+    final author = _authorSectionExpanded;
+    final tag = _tagSectionExpanded;
+    unawaited(
+      appdata
+          .updateImplicit((draft) {
+            draft['local_favorites_author_expanded'] = author;
+            draft['local_favorites_tag_expanded'] = tag;
+          })
+          .then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stack) {
+              Log.error('Favorites filter sections', error, stack);
+            },
+          ),
+    );
+  }
+
   void _toggleFilterPanel() {
     setState(() => _filterPanelOpen = !_filterPanelOpen);
     _persistFilterPanel();
@@ -536,6 +568,7 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                         onSelected: (index) =>
                             _setSortMode(favoriteSortModes[index]),
                       ),
+                      const Divider(height: 1),
                       _FilterSelectRow(
                         title: "Filter reading status",
                         current: readFilterSelect,
@@ -547,7 +580,7 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 4),
+                const Divider(height: 1),
                 Expanded(
                   child: _FilterSectionPanes(
                     authorOptions: _withSelected(
@@ -558,9 +591,13 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                     authors: authorFilters,
                     tags: tagFilters,
                     authorShare: _filterAuthorShare,
+                    authorExpanded: _authorSectionExpanded,
+                    tagExpanded: _tagSectionExpanded,
                     onAuthorsChanged: _setAuthorFilters,
                     onTagsChanged: _setTagFilters,
                     onAuthorShareChanged: _setFilterAuthorShare,
+                    onAuthorExpandedChanged: _setAuthorSectionExpanded,
+                    onTagExpandedChanged: _setTagSectionExpanded,
                   ),
                 ),
               ],
@@ -748,6 +785,10 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
     _filterAuthorShare = layout
         .read(LayoutPreferences.favoritesFilterAuthorShare)
         .toDouble();
+    _authorSectionExpanded =
+        appdata.implicitData['local_favorites_author_expanded'] != false;
+    _tagSectionExpanded =
+        appdata.implicitData['local_favorites_tag_expanded'] == true;
     if (!isAllFolder) {
       var (a, b) = _observedManager.findLinked(widget.folder);
       networkSource = a;
@@ -2005,17 +2046,59 @@ class _FilterSelectRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final selectedIndex = values.indexOf(current);
     return ListTile(
       contentPadding: EdgeInsets.zero,
       title: Text(title.tl),
-      trailing: Select(
-        current: current.tl,
-        values: values.map((value) => value.tl).toList(),
-        minWidth: 96,
-        onTap: (index) {
+      trailing: PopupMenuButton<int>(
+        enabled: enabled,
+        tooltip: '',
+        padding: EdgeInsets.zero,
+        position: PopupMenuPosition.under,
+        color: colorScheme.surfaceContainerHigh,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+          side: BorderSide(color: colorScheme.outlineVariant),
+        ),
+        itemBuilder: (context) => [
+          for (var index = 0; index < values.length; index++)
+            CheckedPopupMenuItem<int>(
+              value: index,
+              checked: index == selectedIndex,
+              child: Text(values[index].tl),
+            ),
+        ],
+        onSelected: (index) {
           if (!enabled || index < 0 || index >= values.length) return;
           onSelected(index);
         },
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(10, 5, 4, 5),
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: colorScheme.outline),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 150),
+                child: Text(
+                  current.tl,
+                  style: const TextStyle(fontSize: 13),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Icon(
+                Icons.arrow_drop_down,
+                size: 18,
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -2103,9 +2186,13 @@ class _FilterSectionPanes extends StatefulWidget {
     required this.authors,
     required this.tags,
     required this.authorShare,
+    required this.authorExpanded,
+    required this.tagExpanded,
     required this.onAuthorsChanged,
     required this.onTagsChanged,
     required this.onAuthorShareChanged,
+    required this.onAuthorExpandedChanged,
+    required this.onTagExpandedChanged,
   });
 
   final List<String> authorOptions;
@@ -2113,9 +2200,13 @@ class _FilterSectionPanes extends StatefulWidget {
   final Set<String> authors;
   final Set<String> tags;
   final double authorShare;
+  final bool authorExpanded;
+  final bool tagExpanded;
   final ValueChanged<Set<String>> onAuthorsChanged;
   final ValueChanged<Set<String>> onTagsChanged;
   final ValueChanged<double> onAuthorShareChanged;
+  final ValueChanged<bool> onAuthorExpandedChanged;
+  final ValueChanged<bool> onTagExpandedChanged;
 
   @override
   State<_FilterSectionPanes> createState() => _FilterSectionPanesState();
@@ -2127,8 +2218,6 @@ class _FilterSectionPanesState extends State<_FilterSectionPanes> {
   static const _minShare = 0.2;
   static const _maxShare = 0.8;
 
-  bool authorExpanded = true;
-  bool tagExpanded = false;
   late double share = widget.authorShare.clamp(_minShare, _maxShare);
   final authorSearch = TextEditingController();
   final tagSearch = TextEditingController();
@@ -2174,7 +2263,7 @@ class _FilterSectionPanesState extends State<_FilterSectionPanes> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final total = constraints.maxHeight;
-        final bothExpanded = authorExpanded && tagExpanded;
+        final bothExpanded = widget.authorExpanded && widget.tagExpanded;
         final double authorHeight;
         final double tagHeight;
         if (bothExpanded) {
@@ -2185,10 +2274,10 @@ class _FilterSectionPanesState extends State<_FilterSectionPanes> {
           final authorBody = available * share;
           authorHeight = _headerHeight + authorBody;
           tagHeight = _headerHeight + (available - authorBody);
-        } else if (authorExpanded) {
+        } else if (widget.authorExpanded) {
           authorHeight = math.max(_headerHeight, total - _headerHeight);
           tagHeight = _headerHeight;
-        } else if (tagExpanded) {
+        } else if (widget.tagExpanded) {
           authorHeight = _headerHeight;
           tagHeight = math.max(_headerHeight, total - _headerHeight);
         } else {
@@ -2197,16 +2286,15 @@ class _FilterSectionPanesState extends State<_FilterSectionPanes> {
         }
         return Column(
           children: [
-            _section(
-              title: "Author",
-              expanded: authorExpanded,
-              onToggle: () => setState(() => authorExpanded = !authorExpanded),
+            _authorSection(
+              expanded: widget.authorExpanded,
+              onToggle: () =>
+                  widget.onAuthorExpandedChanged(!widget.authorExpanded),
               options: authorVisible,
-              selected: widget.authors,
               controller: authorSearch,
               onQueryChanged: (value) => setState(() => authorQuery = value),
-              onChanged: widget.onAuthorsChanged,
               height: authorHeight,
+              divider: !bothExpanded,
             ),
             if (bothExpanded)
               MouseRegion(
@@ -2232,8 +2320,8 @@ class _FilterSectionPanesState extends State<_FilterSectionPanes> {
               ),
             _section(
               title: "Tags",
-              expanded: tagExpanded,
-              onToggle: () => setState(() => tagExpanded = !tagExpanded),
+              expanded: widget.tagExpanded,
+              onToggle: () => widget.onTagExpandedChanged(!widget.tagExpanded),
               options: tagVisible,
               selected: widget.tags,
               controller: tagSearch,
@@ -2244,6 +2332,39 @@ class _FilterSectionPanesState extends State<_FilterSectionPanes> {
           ],
         );
       },
+    );
+  }
+
+  Widget _authorSection({
+    required bool expanded,
+    required VoidCallback onToggle,
+    required List<String> options,
+    required TextEditingController controller,
+    required ValueChanged<String> onQueryChanged,
+    required double height,
+    required bool divider,
+  }) {
+    final section = _section(
+      title: "Author",
+      expanded: expanded,
+      onToggle: onToggle,
+      options: options,
+      selected: widget.authors,
+      controller: controller,
+      onQueryChanged: onQueryChanged,
+      onChanged: widget.onAuthorsChanged,
+      height: height,
+    );
+    if (!divider) return section;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
+        ),
+      ),
+      child: section,
     );
   }
 
