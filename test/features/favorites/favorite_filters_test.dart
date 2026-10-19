@@ -3,15 +3,20 @@ import 'package:venera_next/features/favorites/favorite_filters.dart';
 import 'package:venera_next/features/favorites/favorite_models.dart';
 import 'package:venera_next/foundation/comic_type.dart';
 
-FavoriteItem _item({String author = '', List<String> tags = const []}) =>
-    FavoriteItem(
-      id: 'id',
-      name: 'name',
-      coverPath: '',
-      author: author,
-      type: const ComicType(17),
-      tags: tags,
-    );
+FavoriteItem _item({
+  String id = 'id',
+  String author = '',
+  List<String> tags = const [],
+  DateTime? time,
+}) => FavoriteItem(
+  id: id,
+  name: 'name $id',
+  coverPath: '',
+  author: author,
+  type: const ComicType(17),
+  tags: tags,
+  favoriteTime: time,
+);
 
 void main() {
   test('namespaced author tags win over the stored author', () {
@@ -43,5 +48,35 @@ void main() {
 
   test('labels fall back to the raw value without translation data', () {
     expect(favoriteTagLabel('artist:純愛'), '純愛');
+  });
+
+  test('sorts by favorite time in both directions', () {
+    final older = _item(id: 'a', time: DateTime.utc(2026, 1, 1));
+    final newer = _item(id: 'b', time: DateTime.utc(2026, 2, 1));
+    final items = [older, newer];
+    expect(sortFavoriteItems(items, 'timeNewest').map((e) => e.id), ['b', 'a']);
+    expect(sortFavoriteItems(items, 'timeOldest').map((e) => e.id), ['a', 'b']);
+  });
+
+  test('author sorting keeps unknown authors last in both directions', () {
+    final alpha = _item(id: 'a', author: 'alpha');
+    final beta = _item(id: 'b', author: 'beta');
+    final none = _item(id: 'c', author: '');
+    final items = [none, beta, alpha];
+    expect(sortFavoriteItems(items, 'authorAsc').map((e) => e.id), [
+      'a',
+      'b',
+      'c',
+    ]);
+    expect(sortFavoriteItems(items, 'authorDesc').map((e) => e.id), [
+      'b',
+      'a',
+      'c',
+    ]);
+  });
+
+  test('manual mode keeps the stored order', () {
+    final items = [_item(id: 'b'), _item(id: 'a')];
+    expect(sortFavoriteItems(items, 'manual').map((e) => e.id), ['b', 'a']);
   });
 }
