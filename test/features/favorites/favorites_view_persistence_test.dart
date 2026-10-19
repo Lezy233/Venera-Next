@@ -210,9 +210,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.widgetWithText(CheckedPopupMenuItem<int>, 'Completed'),
-      );
+      await tester.tap(find.widgetWithText(PopupMenuItem<int>, 'Completed'));
       await tester.pump();
       final release = Completer<void>();
       final exclusive = AppDataOperations.instance.run(() => release.future);

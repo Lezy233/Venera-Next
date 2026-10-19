@@ -555,29 +555,28 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    children: [
-                      _FilterSelectRow(
-                        title: "Sort",
-                        current: favoriteSortModeLabels[sortMode] ?? 'Manual',
-                        values: [
-                          for (final mode in favoriteSortModes)
-                            favoriteSortModeLabels[mode] ?? 'Manual',
-                        ],
-                        enabled: true,
-                        onSelected: (index) =>
-                            _setSortMode(favoriteSortModes[index]),
-                      ),
-                      const Divider(height: 1),
-                      _FilterSelectRow(
-                        title: "Filter reading status",
-                        current: readFilterSelect,
-                        values: readFilterList,
-                        enabled: true,
-                        onSelected: (index) =>
-                            _setReadFilter(readFilterList[index]),
-                      ),
+                  child: _FilterSelectRow(
+                    title: "Sort",
+                    current: favoriteSortModeLabels[sortMode] ?? 'Manual',
+                    values: [
+                      for (final mode in favoriteSortModes)
+                        favoriteSortModeLabels[mode] ?? 'Manual',
                     ],
+                    enabled: true,
+                    onSelected: (index) =>
+                        _setSortMode(favoriteSortModes[index]),
+                  ),
+                ),
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _FilterSelectRow(
+                    title: "Filter reading status",
+                    current: readFilterSelect,
+                    values: readFilterList,
+                    enabled: true,
+                    onSelected: (index) =>
+                        _setReadFilter(readFilterList[index]),
                   ),
                 ),
                 const Divider(height: 1),
@@ -2029,6 +2028,11 @@ class _FavoriteFilterEditor extends StatelessWidget {
 }
 
 /// One labelled dropdown row; sort and reading status share this shape.
+const _kFilterHeadingStyle = TextStyle(
+  fontSize: 13,
+  fontWeight: FontWeight.w600,
+);
+
 class _FilterSelectRow extends StatelessWidget {
   const _FilterSelectRow({
     required this.title,
@@ -2050,23 +2054,42 @@ class _FilterSelectRow extends StatelessWidget {
     final selectedIndex = values.indexOf(current);
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      title: Text(title.tl),
+      minTileHeight: 48,
+      title: Text(title.tl, style: _kFilterHeadingStyle),
       trailing: PopupMenuButton<int>(
         enabled: enabled,
         tooltip: '',
         padding: EdgeInsets.zero,
         position: PopupMenuPosition.under,
         color: colorScheme.surfaceContainerHigh,
+        menuPadding: const EdgeInsets.symmetric(vertical: 4),
+        constraints: const BoxConstraints(minWidth: 160, maxWidth: 260),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(6),
           side: BorderSide(color: colorScheme.outlineVariant),
         ),
         itemBuilder: (context) => [
           for (var index = 0; index < values.length; index++)
-            CheckedPopupMenuItem<int>(
+            PopupMenuItem<int>(
               value: index,
-              checked: index == selectedIndex,
-              child: Text(values[index].tl),
+              height: 28,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 18,
+                    child: index == selectedIndex
+                        ? Icon(
+                            Icons.check,
+                            size: 14,
+                            color: colorScheme.onSurface,
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(values[index].tl, style: const TextStyle(fontSize: 13)),
+                ],
+              ),
             ),
         ],
         onSelected: (index) {
@@ -2213,7 +2236,7 @@ class _FilterSectionPanes extends StatefulWidget {
 }
 
 class _FilterSectionPanesState extends State<_FilterSectionPanes> {
-  static const _headerHeight = 40.0;
+  static const _headerHeight = 48.0;
   static const _splitterHeight = 8.0;
   static const _minShare = 0.2;
   static const _maxShare = 0.8;
@@ -2404,10 +2427,7 @@ class _FilterSectionPanesState extends State<_FilterSectionPanes> {
                 Expanded(
                   child: Text(
                     title.tl,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: _kFilterHeadingStyle,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
