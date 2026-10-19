@@ -52,6 +52,9 @@ class _App {
     if (isAndroid) {
       externalStoragePath = (await getExternalStorageDirectory())!.path;
     }
+    // A fresh sandbox container has no cache directory yet, and callers such
+    // as data import create temporary files inside it directly.
+    await Directory(cachePath).create(recursive: true);
     isInitialized = true;
   }
 
