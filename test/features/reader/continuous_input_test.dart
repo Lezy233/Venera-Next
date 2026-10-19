@@ -148,8 +148,10 @@ void main() {
           );
           await tester.sendEventToBinding(
             pointer.scroll(
-              mode == 'ltr' || mode == 'rtl'
+              mode == 'ltr'
                   ? const Offset(120, 0)
+                  : mode == 'rtl'
+                  ? const Offset(-120, 0)
                   : const Offset(0, 120),
             ),
           );
@@ -175,8 +177,10 @@ void main() {
             PointerPanZoomUpdateEvent(
               pointer: panPointer,
               position: center,
-              panDelta: mode == 'ltr' || mode == 'rtl'
+              panDelta: mode == 'ltr'
                   ? const Offset(-120, 0)
+                  : mode == 'rtl'
+                  ? const Offset(120, 0)
                   : const Offset(0, -120),
               scale: 1,
             ),
@@ -188,6 +192,58 @@ void main() {
           );
           await tester.sendEventToBinding(
             PointerPanZoomEndEvent(pointer: panPointer, position: center),
+          );
+
+          // Momentum: the end event flings with the sampled pan velocity.
+          state.scrollController.jumpTo(
+            state.scrollController.position.minScrollExtent,
+          );
+          await tester.pump();
+          const flingPointer = 3;
+          await tester.sendEventToBinding(
+            PointerPanZoomStartEvent(pointer: flingPointer, position: center),
+          );
+          for (var i = 1; i <= 4; i++) {
+            final step = Offset(
+              mode == 'rtl'
+                  ? i * 20.0
+                  : mode == 'vertical' || mode == 'waterfall'
+                  ? 0
+                  : -i * 20.0,
+              mode == 'vertical' || mode == 'waterfall' ? -i * 20.0 : 0,
+            );
+            final delta = Offset(
+              mode == 'rtl'
+                  ? 20.0
+                  : mode == 'vertical' || mode == 'waterfall'
+                  ? 0
+                  : -20.0,
+              mode == 'vertical' || mode == 'waterfall' ? -20.0 : 0,
+            );
+            await tester.sendEventToBinding(
+              PointerPanZoomUpdateEvent(
+                pointer: flingPointer,
+                position: center,
+                timeStamp: Duration(milliseconds: i * 16),
+                pan: step,
+                panDelta: delta,
+                scale: 1,
+              ),
+            );
+          }
+          await tester.sendEventToBinding(
+            PointerPanZoomEndEvent(
+              pointer: flingPointer,
+              position: center,
+              timeStamp: const Duration(milliseconds: 80),
+            ),
+          );
+          await tester.pump();
+          final afterFlingStart = state.scrollController.position.pixels;
+          await tester.pump(const Duration(milliseconds: 100));
+          expect(
+            state.scrollController.position.pixels,
+            greaterThan(afterFlingStart),
           );
           state.smoothTo(200);
           await tester.pump(const Duration(milliseconds: 20));

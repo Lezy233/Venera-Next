@@ -80,6 +80,7 @@ class ReaderContinuousView extends StatefulWidget {
 }
 
 class ContinuousModeState extends State<ReaderContinuousView>
+    with TickerProviderStateMixin
     implements
         ReaderImageViewController,
         AutoReadingViewport,
@@ -103,6 +104,7 @@ class ContinuousModeState extends State<ReaderContinuousView>
   bool _positionUpdateScheduled = false;
   ScrollController? _scrollController;
   bool _disposed = false;
+  VelocityTracker? _panVelocityTracker;
   Timer? _initialCacheTimer;
   Timer? _scrollActivityTimer;
   ScrollPosition? _smoothPosition;
@@ -723,7 +725,7 @@ class ContinuousModeState extends State<ReaderContinuousView>
     // animate every event, which made the page lag behind the fingers and
     // jump when the gesture ended. Apply the axis delta immediately instead.
     final delta = data.vertical ? event.scrollDelta.dy : event.scrollDelta.dx;
-    if (delta != 0) _scrollDirect(delta);
+    if (delta != 0) _scrollDirect(data.reverse ? -delta : delta);
   }
 
   /// Trackpads emit small, dense deltas. Animating each one made the view lag
@@ -742,6 +744,23 @@ class ContinuousModeState extends State<ReaderContinuousView>
       position.maxScrollExtent,
     );
     if (target != position.pixels) position.jumpTo(target);
+  }
+
+  /// Continues the gesture with the same deceleration the native scrollable
+  /// would use, so trackpad momentum is preserved without per-event animation.
+  void _fling(double velocity) {
+    final position = _scrollController?.position;
+    if (position is! ScrollPositionWithSingleContext || !position.hasPixels) {
+      return;
+    }
+    if (velocity.abs() < 50) return;
+    final simulation = ClampingScrollSimulation(
+      position: position.pixels,
+      velocity: velocity,
+    );
+    position.beginActivity(
+      BallisticScrollActivity(position, simulation, this, false),
+    );
   }
 
   void _predownload(WaterfallImageRef image) {
@@ -1041,15 +1060,31 @@ class ContinuousModeState extends State<ReaderContinuousView>
           });
         }
       },
+      onPointerPanZoomStart: (event) {
+        _panVelocityTracker = VelocityTracker.withKind(
+          PointerDeviceKind.trackpad,
+        )..addPosition(event.timeStamp, Offset.zero);
+      },
       onPointerPanZoomUpdate: (event) {
         // macOS trackpads report two-finger scrolling as pan/zoom with
         // scale == 1. Apply the movement on the active axis immediately so it
         // follows the fingers instead of animating behind them.
         if (event.scale != 1.0 || disableScroll || isCTRLPressed) return;
+        _panVelocityTracker?.addPosition(event.timeStamp, event.pan);
         final delta = data.vertical
             ? 0 - event.panDelta.dy
             : 0 - event.panDelta.dx;
-        if (delta != 0) _scrollDirect(delta);
+        if (delta != 0) _scrollDirect(data.reverse ? -delta : delta);
+      },
+      onPointerPanZoomEnd: (event) {
+        final tracker = _panVelocityTracker;
+        _panVelocityTracker = null;
+        if (tracker == null || disableScroll) return;
+        final velocity = tracker.getVelocity().pixelsPerSecond;
+        final axisVelocity = data.vertical ? -velocity.dy : -velocity.dx;
+        _fling(
+          (data.reverse ? -axisVelocity : axisVelocity) * data.scrollSpeed,
+        );
       },
       onPointerMove: (event) {
         Offset value = event.delta;
