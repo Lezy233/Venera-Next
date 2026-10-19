@@ -456,6 +456,7 @@ class GalleryModeState extends State<ReaderGalleryView>
                 : Alignment.centerRight,
             onInit: (state) => imageStates[state] = images[0],
             onDispose: (state) => imageStates.remove(state),
+            onImageSize: (size) => data.onImageSize?.call(images[0] + 1, size),
           ),
         ),
         Expanded(
@@ -470,6 +471,7 @@ class GalleryModeState extends State<ReaderGalleryView>
                 : Alignment.centerLeft,
             onInit: (state) => imageStates[state] = images[1],
             onDispose: (state) => imageStates.remove(state),
+            onImageSize: (size) => data.onImageSize?.call(images[1] + 1, size),
           ),
         ),
       ];

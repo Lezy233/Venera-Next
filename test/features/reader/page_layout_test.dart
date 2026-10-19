@@ -52,6 +52,31 @@ void main() {
     expect(cover.historyImage(5, 6), 6);
   });
 
+  test('spread images occupy their own display page', () {
+    final layout = ReaderPageLayout(
+      imagesPerPage: 2,
+      singleImageOnFirstPage: false,
+      spreadImages: const {2},
+    );
+    expect(layout.pageCount(5), 4);
+    expect(layout.imageRange(1, 5), (0, 1));
+    expect(layout.imageRange(2, 5), (1, 2));
+    expect(layout.imageRange(3, 5), (2, 4));
+    expect(layout.imageRange(4, 5), (4, 5));
+    expect(layout.pageForImage(2, imageCount: 5), 2);
+    expect(layout.pageForImage(3, imageCount: 5), 3);
+    expect(layout.historyImage(3, 5), 3);
+
+    final cover = ReaderPageLayout(
+      imagesPerPage: 2,
+      singleImageOnFirstPage: true,
+      spreadImages: const {2},
+    );
+    expect(cover.imageRange(1, 5), (0, 1));
+    expect(cover.imageRange(2, 5), (1, 2));
+    expect(cover.imageRange(3, 5), (2, 4));
+  });
+
   test(
     'layout transitions keep the old first image on the destination page',
     () {

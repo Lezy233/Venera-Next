@@ -848,6 +848,7 @@ class ReaderState extends State<Reader>
     );
   }
 
+  @override
   void update() {
     if (!_stateDisposed) _targetValidity.value++;
     if (_sessionClosing != null || _sessionFrozen) return;
@@ -896,7 +897,11 @@ class ReaderState extends State<Reader>
   @override
   String get cid => widget.cid;
 
+  @override
   String get eid => widget.chapters?.ids.elementAtOrNull(chapter - 1) ?? '0';
+
+  @override
+  bool get layoutDisposed => _stateDisposed;
 
   @override
   List<String>? get images => controller.content.images;
@@ -926,7 +931,8 @@ class ReaderState extends State<Reader>
     initialChapter: widget.initialChapter ?? 1,
     initialPage: widget.initialPage,
     currentChapter: () => chapter,
-    displayPage: (imagePage) => pageLayout.pageForImage(imagePage),
+    displayPage: (imagePage) =>
+        pageLayout.pageForImage(imagePage, imageCount: images?.length),
     restorePage: controller.restorePage,
   );
 
@@ -1988,6 +1994,12 @@ abstract mixin class ReaderImagePerPageHandler {
 
   String get cid;
 
+  String get eid;
+
+  bool get layoutDisposed;
+
+  void update();
+
   ComicType get type;
 
   /// Images used to bound page remapping
@@ -1996,13 +2008,31 @@ abstract mixin class ReaderImagePerPageHandler {
   void initImagesPerPage(int initialPage) {
     _lastImagesPerPage = imagesPerPage;
     _lastOrientation = isPortrait;
-    if (imagesPerPage != 1) page = pageLayout.pageForImage(initialPage);
+    if (imagesPerPage != 1) {
+      page = pageLayout.pageForImage(initialPage, imageCount: images?.length);
+    }
   }
+
+  final Map<String, Set<int>> _spreadImages = {};
 
   ReaderPageLayout get pageLayout => ReaderPageLayout(
     imagesPerPage: imagesPerPage,
     singleImageOnFirstPage: showSingleImageOnFirstPage(),
+    spreadImages: _spreadImages[eid] ?? const {},
   );
+
+  /// Records an image that already contains two facing pages. In double-page
+  /// mode such an image gets a full display page of its own.
+  void reportImageSize(int imageNumber, Size size) {
+    if (imagesPerPage != 2) return;
+    if (size.width <= 0 || size.height <= 0) return;
+    if (size.width / size.height <= 1.15) return;
+    final spreads = _spreadImages.putIfAbsent(eid, () => <int>{});
+    if (!spreads.add(imageNumber)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!layoutDisposed) update();
+    });
+  }
 
   bool showSingleImageOnFirstPage() => appdata.settings
       .readerSettings(cid, type.sourceKey)

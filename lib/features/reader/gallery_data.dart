@@ -1,3 +1,5 @@
+import 'package:flutter/widgets.dart';
+
 import 'page_layout.dart';
 import 'reader_controller.dart';
 
@@ -21,6 +23,7 @@ class ReaderGalleryData {
     required this.chapterId,
     this.showImageDimensions = false,
     this.observeImageReadiness = false,
+    this.onImageSize,
   });
 
   final ReaderContentState content;
@@ -39,6 +42,9 @@ class ReaderGalleryData {
   final String chapterId;
   final bool showImageDimensions;
   final bool observeImageReadiness;
+
+  /// Called with the decoded size of an image shown on a display page.
+  final void Function(int imageNumber, Size size)? onImageSize;
 
   List<String> get images => content.images ?? const [];
   int get imagePages => layout.pageCount(images.length);

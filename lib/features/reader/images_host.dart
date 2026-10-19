@@ -149,6 +149,7 @@ class ReaderImagesHost extends StatelessWidget {
           chapterId: reader.eid,
           showImageDimensions: preferences.showImageDimensions,
           observeImageReadiness: preferences.autoReadingSkipUnavailableImages,
+          onImageSize: reader.reportImageSize,
         ),
         navigation: reader.controller,
         onViewportChanged: viewportChanged,
