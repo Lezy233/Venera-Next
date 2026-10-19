@@ -23,6 +23,7 @@ import 'package:venera_next/features/comic_details/comic_details.dart';
 import 'package:venera_next/features/comic_source/comic_source.dart';
 import 'package:venera_next/features/comic_widgets/comic_widgets.dart';
 import 'package:venera_next/features/favorites/favorite_actions.dart';
+import 'package:venera_next/features/favorites/favorite_filters.dart';
 import 'package:venera_next/features/favorites/favorites_display.dart';
 import 'package:venera_next/features/favorites/favorites_constants.dart';
 import 'package:venera_next/features/favorites/favorites_manager.dart';
@@ -123,6 +124,13 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
 
   late String readFilterSelect;
 
+  late Set<String> authorFilters;
+
+  late Set<String> tagFilters;
+
+  static Set<String> _readFilterValues(Object? value) =>
+      value is List ? value.whereType<String>().toSet() : <String>{};
+
   var searchResults = <FavoriteItem>[];
 
   void updateSearchResult() {
@@ -201,6 +209,13 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
 
   List<FavoriteItem> filterComics(List<FavoriteItem> curComics) {
     return curComics.where((comic) {
+      if (authorFilters.isNotEmpty &&
+          !favoriteAuthorValues(comic).any(authorFilters.contains)) {
+        return false;
+      }
+      if (tagFilters.isNotEmpty && !_matchesTagFilters(comic)) {
+        return false;
+      }
       var history = HistoryScope.read(
         context,
       ).find(comic.id, ComicType(comic.sourceKey.hashCode));
@@ -211,6 +226,42 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
       }
       return true;
     }).toList();
+  }
+
+  bool _matchesTagFilters(FavoriteItem comic) {
+    for (final tag in comic.tags) {
+      if (tagFilters.contains(favoriteTagValue(tag)) ||
+          tagFilters.contains(favoriteTagLabel(tag))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  List<String> _collectFilterValues(Iterable<String> values) {
+    final result = values.toSet().toList();
+    result.sort();
+    return result;
+  }
+
+  void _persistFilters() {
+    final readFilter = readFilterSelect;
+    final authors = authorFilters.toList();
+    final tags = tagFilters.toList();
+    unawaited(
+      appdata
+          .updateImplicit((draft) {
+            draft['local_favorites_read_filter'] = readFilter;
+            draft['local_favorites_author_filter'] = authors;
+            draft['local_favorites_tag_filter'] = tags;
+          })
+          .then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stack) {
+              Log.error('Favorites filter', error, stack);
+            },
+          ),
+    );
   }
 
   bool matchKeyword(String keyword, FavoriteItem comic) {
@@ -283,6 +334,12 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
     readFilterSelect =
         appdata.implicitData["local_favorites_read_filter"] ??
         readFilterList[0];
+    authorFilters = _readFilterValues(
+      appdata.implicitData['local_favorites_author_filter'],
+    );
+    tagFilters = _readFilterValues(
+      appdata.implicitData['local_favorites_tag_filter'],
+    );
     if (!isAllFolder) {
       var (a, b) = _observedManager.findLinked(widget.folder);
       networkSource = a;
@@ -517,18 +574,33 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                 message: "Filter".tl,
                 child: IconButton(
                   icon: const Icon(Icons.sort_rounded),
-                  color: readFilterSelect != readFilterList[0]
+                  color:
+                      readFilterSelect != readFilterList[0] ||
+                          authorFilters.isNotEmpty ||
+                          tagFilters.isNotEmpty
                       ? context.colorScheme.primaryContainer
                       : null,
                   onPressed: () {
                     final folder = widget.folder;
                     final request = ++_filterRequest;
+                    final availableAuthors = _collectFilterValues([
+                      for (final comic in comics)
+                        ...favoriteAuthorValues(comic),
+                    ]);
+                    final availableTags = _collectFilterValues([
+                      for (final comic in comics)
+                        for (final tag in comic.tags) favoriteTagLabel(tag),
+                    ]);
                     showDialog(
                       context: context,
                       builder: (context) {
                         return _LocalFavoritesFilterDialog(
                           initReadFilterSelect: readFilterSelect,
-                          updateConfig: (readFilter) {
+                          initAuthors: authorFilters,
+                          initTags: tagFilters,
+                          availableAuthors: availableAuthors,
+                          availableTags: availableTags,
+                          updateConfig: (readFilter, authors, tags) {
                             if (!mounted ||
                                 widget.folder != folder ||
                                 request != _filterRequest) {
@@ -536,6 +608,8 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                             }
                             setState(() {
                               readFilterSelect = readFilter;
+                              authorFilters = authors;
+                              tagFilters = tags;
                             });
                             updateComics();
                           },
@@ -864,11 +938,23 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
           )
         else
           SliverGridComics(
-            comics: searchMode ? searchResults : filterComics(comics),
+            comics: filterComics(searchMode ? searchResults : comics),
             selections: selectedComics,
             useFavoriteDisplaySettings: true,
             menuBuilder: (c) {
+              final authors = favoriteAuthorValues(c);
               return [
+                if (authors.isNotEmpty)
+                  MenuEntry(
+                    icon: Icons.person_search,
+                    text: "Filter by author".tl,
+                    onClick: () {
+                      setState(() {
+                        authorFilters = authors.toSet();
+                      });
+                      _persistFilters();
+                    },
+                  ),
                 if (!isAllFolder)
                   MenuEntry(
                     icon: Icons.delete,
@@ -1231,11 +1317,20 @@ class _FavoriteFolderSyncPanelState
 class _LocalFavoritesFilterDialog extends StatefulWidget {
   const _LocalFavoritesFilterDialog({
     required this.initReadFilterSelect,
+    required this.initAuthors,
+    required this.initTags,
+    required this.availableAuthors,
+    required this.availableTags,
     required this.updateConfig,
   });
 
   final String initReadFilterSelect;
-  final ValueChanged<String> updateConfig;
+  final Set<String> initAuthors;
+  final Set<String> initTags;
+  final List<String> availableAuthors;
+  final List<String> availableTags;
+  final void Function(String readFilter, Set<String> authors, Set<String> tags)
+  updateConfig;
 
   @override
   State<_LocalFavoritesFilterDialog> createState() =>
@@ -1248,8 +1343,61 @@ class _LocalFavoritesFilterDialogState
     extends SettingsSaveState<_LocalFavoritesFilterDialog> {
   List<String> optionTypes = ['Filter'];
   late var readFilter = widget.initReadFilterSelect;
+  late final authors = <String>{...widget.initAuthors};
+  late final tags = <String>{...widget.initTags};
+
+  bool get _editable =>
+      acceptsSettingsChanges && !savingSettings && !hasSettingsSaveError;
+
+  List<String> _options(List<String> available, Set<String> selected) {
+    final values = <String>{...available, ...selected}.toList();
+    values.sort();
+    return values;
+  }
+
+  Widget _selector({
+    required String title,
+    required List<String> options,
+    required Set<String> selected,
+  }) {
+    if (options.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 4),
+          child: Text(title.tl),
+        ),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final option in options)
+              FilterChip(
+                label: Text(option),
+                selected: selected.contains(option),
+                onSelected: _editable
+                    ? (value) {
+                        setState(() {
+                          if (value) {
+                            selected.add(option);
+                          } else {
+                            selected.remove(option);
+                          }
+                        });
+                      }
+                    : null,
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final authorOptions = _options(widget.availableAuthors, authors);
+    final tagOptions = _options(widget.availableTags, tags);
     Widget tabBar = Material(
       borderRadius: BorderRadius.circular(8),
       child: AppTabBar(
@@ -1268,6 +1416,7 @@ class _LocalFavoritesFilterDialogState
               TabViewBody(
                 children: [
                   Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       ListTile(
                         title: Text("Filter reading status".tl),
@@ -1277,9 +1426,7 @@ class _LocalFavoritesFilterDialogState
                           minWidth: 64,
                           onTap: (index) {
                             if (!mounted ||
-                                !acceptsSettingsChanges ||
-                                savingSettings ||
-                                hasSettingsSaveError ||
+                                !_editable ||
                                 index < 0 ||
                                 index >= readFilterList.length) {
                               return;
@@ -1288,6 +1435,26 @@ class _LocalFavoritesFilterDialogState
                               readFilter = readFilterList[index];
                             });
                           },
+                        ),
+                      ),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 320),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _selector(
+                                title: "Author",
+                                options: authorOptions,
+                                selected: authors,
+                              ),
+                              _selector(
+                                title: "Tag",
+                                options: tagOptions,
+                                selected: tags,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -1299,18 +1466,40 @@ class _LocalFavoritesFilterDialogState
         ),
         actions: [
           settingsSaveStatus,
+          TextButton(
+            onPressed: savingSettings || hasSettingsSaveError
+                ? null
+                : () {
+                    setState(() {
+                      readFilter = readFilterList[0];
+                      authors.clear();
+                      tags.clear();
+                    });
+                  },
+            child: Text("Clear".tl),
+          ),
           FilledButton(
             onPressed: savingSettings || hasSettingsSaveError
                 ? null
                 : () {
                     final value = readFilter;
+                    final selectedAuthors = Set<String>.of(authors);
+                    final selectedTags = Set<String>.of(tags);
                     saveSetting(
-                      'local_favorites_read_filter',
+                      'local_favorites_filter',
                       () => appdata.updateImplicit((draft) {
                         draft['local_favorites_read_filter'] = value;
+                        draft['local_favorites_author_filter'] = selectedAuthors
+                            .toList();
+                        draft['local_favorites_tag_filter'] = selectedTags
+                            .toList();
                       }),
                       onSaved: () {
-                        widget.updateConfig(value);
+                        widget.updateConfig(
+                          value,
+                          selectedAuthors,
+                          selectedTags,
+                        );
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (mounted) leaveSettings();
                         });
