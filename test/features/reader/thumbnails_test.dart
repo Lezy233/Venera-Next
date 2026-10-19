@@ -50,4 +50,45 @@ void main() {
         .onSelect(3);
     expect(selectedPage, 3);
   });
+
+  testWidgets('horizontal thumbnail strip fills the given height', (
+    tester,
+  ) async {
+    final request = ReaderThumbnailRequest(
+      pages: const [
+        ReaderThumbnailPage(1, ['file:///missing/a.png'], 1),
+        ReaderThumbnailPage(2, ['file:///missing/b.png'], 2),
+      ],
+      currentPage: () => 1,
+      isCurrent: () => true,
+      select: (_) => true,
+      sourceKey: null,
+      comicId: 'comic',
+      chapterId: 'chapter',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.bottomCenter,
+            child: SizedBox(
+              width: 600,
+              height: 140,
+              child: ReaderThumbnailsView(
+                request: request,
+                vertical: false,
+                reverse: true,
+                size: 140,
+                onSelect: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('1'), findsOneWidget);
+    expect(tester.getSize(find.byType(ReaderThumbnailsView)).width, 600);
+  });
 }

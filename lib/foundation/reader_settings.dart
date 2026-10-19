@@ -75,6 +75,7 @@ class ReaderSettings {
 
   String get readerMode => _values['readerMode'] as String;
   String get quickCollectImage => _values['quickCollectImage'] as String;
+  String get readerThumbnailState => _values['readerThumbnailState'] as String;
   String get readerThumbnailMode => _values['readerThumbnailMode'] as String;
   String get readerThumbnailPosition =>
       _values['readerThumbnailPosition'] as String;

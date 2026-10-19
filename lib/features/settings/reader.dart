@@ -137,17 +137,25 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
     },
   );
 
-  Widget _modeSettings() => ReaderModeSettings(
-    comicId: widget.comicId,
-    sourceKey: widget.comicSource,
-    currentMode: widget.currentReaderMode,
-    isDetecting: widget.isDetectingLayout,
-    onDetect: widget.onDetectLayout,
-    onChanged: () {
-      widget.onChanged?.call('readerMode');
-      _refresh();
-    },
-  ).toSliver();
+  Widget _modeSettings() {
+    final comicId = widget.comicId;
+    final source = widget.comicSource;
+    final specific =
+        comicId != null &&
+        source != null &&
+        appdata.settings.isComicSpecificSettingsEnabled(comicId, source);
+    return ReaderModeSettings(
+      comicId: specific ? comicId : null,
+      sourceKey: specific ? source : null,
+      currentMode: widget.currentReaderMode,
+      isDetecting: widget.isDetectingLayout,
+      onDetect: widget.onDetectLayout,
+      onChanged: () {
+        widget.onChanged?.call('readerMode');
+        _refresh();
+      },
+    ).toSliver();
+  }
 
   Widget _thumbnailSettings() {
     final comicId = widget.comicId;
@@ -169,11 +177,21 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
     }
 
     return SliverToBoxAdapter(
-      child: ExpansionTile(
-        title: Text('Thumbnails'.tl),
-        initiallyExpanded: true,
-        childrenPadding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          SelectSetting.reader(
+            title: 'Thumbnails'.tl,
+            preference: ReaderPreferences.readerThumbnailState,
+            optionTranslation: {
+              'expanded': 'Expanded'.tl,
+              'collapsed': 'Collapsed'.tl,
+            },
+            onChanged: () => changed('readerThumbnailState'),
+            comicId: specific ? comicId : null,
+            comicSource: specific ? source : null,
+            useDeviceSettings: device,
+          ),
           SelectSetting.reader(
             title: 'Edge mode'.tl,
             preference: ReaderPreferences.readerThumbnailMode,
@@ -226,18 +244,6 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
     bool useDeviceSpecificSettings =
         !isEnabledSpecificSettings &&
         appdata.settings.isDeviceSpecificSettingsEnabled();
-
-    if (comicId != null && sourceKey != null && !isEnabledSpecificSettings) {
-      return protectSettings(
-        SmoothCustomScrollView(
-          slivers: [
-            SliverAppbar(title: Text("Reading".tl)),
-            settingsSaveStatus.toSliver(),
-            _scopeTile(comicId, sourceKey, false).toSliver(),
-          ],
-        ),
-      );
-    }
 
     return protectSettings(
       SmoothCustomScrollView(

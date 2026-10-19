@@ -40,6 +40,8 @@ import 'package:venera_next/foundation/appdata.dart';
 import 'package:venera_next/foundation/application_preferences.dart';
 import 'package:venera_next/foundation/global_preference_store.dart';
 import 'package:venera_next/foundation/log.dart';
+import 'package:venera_next/foundation/reader_preference_store.dart';
+import 'package:venera_next/foundation/reader_preferences.dart';
 import 'package:venera_next/foundation/translations.dart';
 import 'package:venera_next/routing/settings.dart';
 
@@ -100,7 +102,11 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
 
   late double _thumbnailWidth;
   late double _thumbnailHeight;
-  late bool _thumbnailCollapsed;
+  bool? _thumbnailCollapsedOverride;
+
+  bool get _thumbnailCollapsed =>
+      _thumbnailCollapsedOverride ??
+      widget.data.preferences.readerThumbnailState == 'collapsed';
 
   bool _isOpen = false;
 
@@ -141,9 +147,6 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
     _thumbnailHeight = layout
         .read(LayoutPreferences.readerThumbnailHeight)
         .toDouble();
-    _thumbnailCollapsed = layout.read(
-      LayoutPreferences.readerThumbnailCollapsed,
-    );
     _brightnessPreview.addListener(update);
     widget.favoriteChanges.addListener(_imageFavoritesChanged);
   }
@@ -235,14 +238,12 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
   void _persistThumbnailSettings() {
     final width = _thumbnailWidth;
     final height = _thumbnailHeight;
-    final collapsed = _thumbnailCollapsed;
     unawaited(
       appdata
           .updateSettings((draft) {
             final store = GlobalPreferenceStore(draft);
             store.write(LayoutPreferences.readerThumbnailWidth, width);
             store.write(LayoutPreferences.readerThumbnailHeight, height);
-            store.write(LayoutPreferences.readerThumbnailCollapsed, collapsed);
           })
           .then<void>(
             (_) {},
@@ -253,35 +254,66 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
     );
   }
 
+  void _persistThumbnailState(bool collapsed) {
+    unawaited(
+      appdata
+          .updateSettings((draft) {
+            ReaderPreferenceStore(
+              settings: draft,
+              scope: ReaderPreferenceScope.active,
+              comicId: widget.data.comicId,
+              sourceKey: widget.data.sourceKey,
+            ).write(
+              ReaderPreferences.readerThumbnailState,
+              collapsed ? 'collapsed' : 'expanded',
+            );
+          })
+          .then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stack) {
+              Log.error('Reader thumbnail state', error, stack);
+            },
+          ),
+    );
+  }
+
   void _toggleThumbnail() {
-    setState(() => _thumbnailCollapsed = !_thumbnailCollapsed);
-    _persistThumbnailSettings();
+    final next = !_thumbnailCollapsed;
+    setState(() => _thumbnailCollapsedOverride = next);
+    _persistThumbnailState(next);
   }
 
   void _resizeThumbnails({required bool vertical, required double delta}) {
+    final wasCollapsed = _thumbnailCollapsed;
+    var becameCollapsed = wasCollapsed;
     setState(() {
       if (vertical) {
-        if (_thumbnailCollapsed && delta > 0) {
-          _thumbnailCollapsed = false;
-        }
-        final next = (_thumbnailWidth + delta).clamp(120.0, 480.0);
-        if (next <= 130) {
-          _thumbnailCollapsed = true;
-        } else {
-          _thumbnailWidth = next;
+        if (!wasCollapsed || delta > 0) {
+          _thumbnailCollapsedOverride = false;
+          final next = (_thumbnailWidth + delta).clamp(120.0, 480.0);
+          if (next <= 130 && wasCollapsed) {
+            _thumbnailCollapsedOverride = true;
+            becameCollapsed = true;
+          } else {
+            _thumbnailWidth = next;
+          }
         }
       } else {
-        if (_thumbnailCollapsed && delta > 0) {
-          _thumbnailCollapsed = false;
-        }
-        final next = (_thumbnailHeight + delta).clamp(100.0, 320.0);
-        if (next <= 110) {
-          _thumbnailCollapsed = true;
-        } else {
-          _thumbnailHeight = next;
+        if (!wasCollapsed || delta > 0) {
+          _thumbnailCollapsedOverride = false;
+          final next = (_thumbnailHeight + delta).clamp(100.0, 320.0);
+          if (next <= 110 && wasCollapsed) {
+            _thumbnailCollapsedOverride = true;
+            becameCollapsed = true;
+          } else {
+            _thumbnailHeight = next;
+          }
         }
       }
     });
+    if (becameCollapsed != wasCollapsed) {
+      _persistThumbnailState(becameCollapsed);
+    }
   }
 
   void _finishThumbnailResize() => _persistThumbnailSettings();
@@ -376,8 +408,8 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
         children: [
           Positioned.fill(child: content),
           Positioned(
-            left: position == 'left' ? 0 : null,
-            right: position == 'right' ? 0 : null,
+            left: vertical ? (position == 'left' ? 0 : null) : 0,
+            right: vertical ? (position == 'right' ? 0 : null) : 0,
             top: vertical ? 0 : null,
             bottom: 0,
             width: vertical ? size : null,

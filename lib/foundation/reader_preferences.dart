@@ -224,6 +224,11 @@ abstract final class ReaderPreferences {
     'showChapterCommentsAtEnd',
     false,
   );
+  static const readerThumbnailState = ChoicePreference(
+    'readerThumbnailState',
+    'expanded',
+    ['expanded', 'collapsed'],
+  );
   static const readerThumbnailMode = ChoicePreference(
     'readerThumbnailMode',
     'floating',
@@ -288,6 +293,7 @@ abstract final class ReaderPreferences {
     showChapterCommentsAtEnd,
     splitDualPage,
     splitDualPageInvert,
+    readerThumbnailState,
     readerThumbnailMode,
     readerThumbnailPosition,
     readerThumbnailScrollDirection,

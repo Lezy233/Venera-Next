@@ -37,7 +37,7 @@ class ReaderThumbnailRequest {
   bool get isEmpty => pages.isEmpty;
 }
 
-class ReaderThumbnailsView extends StatelessWidget {
+class ReaderThumbnailsView extends StatefulWidget {
   const ReaderThumbnailsView({
     super.key,
     required this.request,
@@ -56,27 +56,70 @@ class ReaderThumbnailsView extends StatelessWidget {
   final void Function(int page) onSelect;
 
   @override
+  State<ReaderThumbnailsView> createState() => _ReaderThumbnailsViewState();
+}
+
+class _ReaderThumbnailsViewState extends State<ReaderThumbnailsView> {
+  final _itemScrollController = ItemScrollController();
+  late int _lastPage = widget.request.currentPage();
+
+  @override
+  void initState() {
+    super.initState();
+    _centerCurrentPage();
+  }
+
+  @override
+  void didUpdateWidget(ReaderThumbnailsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final page = widget.request.currentPage();
+    if (page != _lastPage) {
+      _lastPage = page;
+      _centerCurrentPage();
+    }
+  }
+
+  /// Keeps the thumbnail of the current page centred after page turns. Wheel
+  /// scrolling stays under the user's control until the next page change.
+  void _centerCurrentPage() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_itemScrollController.isAttached) return;
+      final index = (widget.request.currentPage() - 1).clamp(
+        0,
+        widget.request.pages.length - 1,
+      );
+      _itemScrollController.scrollTo(
+        index: index,
+        alignment: 0.5,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final pages = request.pages;
+    final pages = widget.request.pages;
     return Material(
       color: theme.colorScheme.surfaceContainer,
       child: ScrollablePositionedList.builder(
-        initialScrollIndex: math.max(0, request.currentPage() - 1),
+        initialScrollIndex: math.max(0, widget.request.currentPage() - 1),
+        itemScrollController: _itemScrollController,
         itemCount: pages.length,
         scrollControllerCallback: (_) {},
-        scrollDirection: vertical ? Axis.vertical : Axis.horizontal,
-        reverse: reverse,
+        scrollDirection: widget.vertical ? Axis.vertical : Axis.horizontal,
+        reverse: widget.reverse,
         itemBuilder: (context, index) {
           final page = pages[index];
-          final current = page.page == request.currentPage();
+          final current = page.page == widget.request.currentPage();
           return _ThumbnailTile(
-            request: request,
+            request: widget.request,
             page: page,
             current: current,
-            vertical: vertical,
-            size: size,
-            onTap: () => onSelect(page.page),
+            vertical: widget.vertical,
+            size: widget.size,
+            onTap: () => widget.onSelect(page.page),
           );
         },
       ),

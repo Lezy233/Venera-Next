@@ -271,10 +271,6 @@ abstract final class LayoutPreferences {
     max: 320,
     step: 1,
   );
-  static const readerThumbnailCollapsed = BoolPreference(
-    'readerThumbnailCollapsed',
-    false,
-  );
   static const favoritesFilterAuthorShare = NumericPreference(
     'favoritesFilterAuthorShare',
     0.5,
@@ -292,7 +288,6 @@ abstract final class LayoutPreferences {
     favoritesFilterAuthorShare,
     readerThumbnailWidth,
     readerThumbnailHeight,
-    readerThumbnailCollapsed,
   ];
 }
 
