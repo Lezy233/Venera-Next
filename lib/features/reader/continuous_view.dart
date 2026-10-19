@@ -107,6 +107,7 @@ class ContinuousModeState extends State<ReaderContinuousView>
   Timer? _scrollActivityTimer;
   ScrollPosition? _smoothPosition;
   int _smoothGeneration = 0;
+  DateTime? _lastScrollAt;
 
   ScrollController get scrollController => _scrollController!;
 
@@ -710,17 +711,44 @@ class ContinuousModeState extends State<ReaderContinuousView>
 
   void onPointerSignal(PointerSignalEvent event) {
     if (_disposed || !mounted) return;
-    if (event is PointerScrollEvent) {
-      if (!_isMouseScrolling) {
-        setState(() {
-          _isMouseScrolling = true;
-        });
-      }
-      if (isCTRLPressed) {
-        return;
-      }
-      smoothTo(event.scrollDelta.dy);
+    if (event is! PointerScrollEvent) return;
+    if (!_isMouseScrolling) {
+      setState(() {
+        _isMouseScrolling = true;
+      });
     }
+    if (isCTRLPressed) return;
+    // Horizontal continuous modes scroll with the trackpad's x axis.
+    final delta = data.vertical ? event.scrollDelta.dy : event.scrollDelta.dx;
+    if (delta == 0) return;
+    final now = DateTime.now();
+    final trackpadBurst =
+        _lastScrollAt != null &&
+        now.difference(_lastScrollAt!) < const Duration(milliseconds: 60);
+    _lastScrollAt = now;
+    if (trackpadBurst) {
+      _scrollDirect(delta);
+    } else {
+      smoothTo(delta);
+    }
+  }
+
+  /// Trackpads emit small, dense deltas. Animating each one made the view lag
+  /// behind the fingers and jump after the gesture ended, so dense input is
+  /// applied immediately while isolated wheel notches keep the smooth path.
+  void _scrollDirect(double delta) {
+    final position = _scrollController?.position;
+    if (position == null ||
+        !position.hasPixels ||
+        !position.hasContentDimensions) {
+      return;
+    }
+    _futurePosition = null;
+    final target = (position.pixels + delta * data.scrollSpeed).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if (target != position.pixels) position.jumpTo(target);
   }
 
   void _predownload(WaterfallImageRef image) {

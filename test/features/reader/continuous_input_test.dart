@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
@@ -137,6 +138,26 @@ void main() {
           expect(
             state.scrollController.position.maxScrollExtent,
             greaterThan(0),
+          );
+          // Pointer scrolling must follow the active axis: x for the
+          // horizontal continuous modes, y for the vertical/waterfall modes.
+          final beforeScroll = state.scrollController.position.pixels;
+          final pointer = TestPointer(1, PointerDeviceKind.mouse);
+          await tester.sendEventToBinding(
+            pointer.hover(tester.getCenter(find.byType(ReaderContinuousView))),
+          );
+          await tester.sendEventToBinding(
+            pointer.scroll(
+              mode == 'ltr' || mode == 'rtl'
+                  ? const Offset(120, 0)
+                  : const Offset(0, 120),
+            ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(
+            state.scrollController.position.pixels,
+            greaterThan(beforeScroll),
           );
           state.smoothTo(200);
           await tester.pump(const Duration(milliseconds: 20));
