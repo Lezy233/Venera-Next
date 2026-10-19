@@ -5,8 +5,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:venera_next/components/appbar.dart';
 import 'package:venera_next/components/settings_save_state.dart';
+import 'package:venera_next/components/sidebar_resize_handle.dart';
 import 'package:venera_next/foundation/appdata.dart';
+import 'package:venera_next/foundation/application_preferences.dart';
 import 'package:venera_next/foundation/context.dart';
+import 'package:venera_next/foundation/global_preference_store.dart';
+import 'package:venera_next/foundation/log.dart';
 import 'package:venera_next/features/comic_source/comic_source.dart';
 import 'package:venera_next/foundation/translations.dart';
 import 'package:venera_next/foundation/widget_utils.dart';
@@ -15,7 +19,9 @@ import 'package:venera_next/features/favorites/local_favorites_page.dart';
 import 'package:venera_next/features/favorites/network_favorites_page.dart';
 import 'package:venera_next/features/favorites/side_bar.dart';
 
-const _kLeftBarWidth = 256.0;
+const _kLeftBarMinWidth = 160.0;
+
+const _kLeftBarMaxWidth = 420.0;
 
 class FavoritesPage extends StatefulWidget {
   const FavoritesPage({super.key});
@@ -31,6 +37,12 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
   bool isNetwork = false;
 
   FolderList? folderList;
+
+  late double _leftBarWidth;
+
+  bool leftBarCollapsed = false;
+
+  bool _resizingLeftBar = false;
 
   void setFolder(bool isNetwork, String? folder) {
     if (!acceptsSettingsChanges) return;
@@ -59,11 +71,23 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
         !FavoritesScope.read(context).existsFolder(folder!)) {
       folder = null;
     }
+    final preferences = GlobalPreferenceStore(appdata.settings);
+    _leftBarWidth = preferences
+        .read(LayoutPreferences.favoritesSidebarWidth)
+        .toDouble();
+    leftBarCollapsed = preferences.read(
+      LayoutPreferences.favoritesSidebarCollapsed,
+    );
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
+    final twoPanel = context.width > favoritesTwoPanelChangeWidth;
+    final leftBarOffset = !twoPanel
+        ? -_leftBarWidth
+        : (leftBarCollapsed ? -_leftBarWidth : 0.0);
+    final bodyLeft = twoPanel && !leftBarCollapsed ? _leftBarWidth : 0.0;
     return protectSettings(
       Column(
         children: [
@@ -76,12 +100,12 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
               child: Stack(
                 children: [
                   AnimatedPositioned(
-                    left: context.width <= favoritesTwoPanelChangeWidth
-                        ? -_kLeftBarWidth
-                        : 0,
+                    left: leftBarOffset,
                     top: 0,
                     bottom: 0,
-                    duration: const Duration(milliseconds: 200),
+                    duration: _resizingLeftBar
+                        ? Duration.zero
+                        : const Duration(milliseconds: 200),
                     child: FavoritesFolderSidebar(
                       selectedFolder: folder,
                       isNetworkSelected: isNetwork,
@@ -89,23 +113,86 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
                       onFolderListReady: (list) {
                         folderList = list;
                       },
-                    ).fixWidth(_kLeftBarWidth),
+                    ).fixWidth(_leftBarWidth),
                   ),
                   Positioned(
                     top: 0,
-                    left: context.width <= favoritesTwoPanelChangeWidth
-                        ? 0
-                        : _kLeftBarWidth,
+                    left: bodyLeft,
                     right: 0,
                     bottom: 0,
                     child: buildBody(),
                   ),
+                  if (twoPanel)
+                    Positioned(
+                      left: leftBarCollapsed
+                          ? 0
+                          : _leftBarWidth - SidebarResizeHandle.width / 2,
+                      top: 0,
+                      bottom: 0,
+                      width: SidebarResizeHandle.width,
+                      child: SidebarResizeHandle(
+                        expanded: !leftBarCollapsed,
+                        onToggle: _toggleLeftBar,
+                        onDrag: _resizeLeftBar,
+                        onDragEnd: _finishLeftBarResize,
+                      ),
+                    ),
                 ],
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  void _toggleLeftBar() {
+    setState(() => leftBarCollapsed = !leftBarCollapsed);
+    _persistLeftBar();
+  }
+
+  void _resizeLeftBar(double delta) {
+    setState(() {
+      _resizingLeftBar = true;
+      if (leftBarCollapsed) {
+        if (delta <= 0) return;
+        leftBarCollapsed = false;
+        _leftBarWidth = _kLeftBarMinWidth;
+        return;
+      }
+      final next = _leftBarWidth + delta;
+      if (next < _kLeftBarMinWidth) {
+        leftBarCollapsed = true;
+        _leftBarWidth = _kLeftBarMinWidth;
+        return;
+      }
+      _leftBarWidth = next.clamp(_kLeftBarMinWidth, _kLeftBarMaxWidth);
+    });
+  }
+
+  void _finishLeftBarResize() {
+    if (_resizingLeftBar) {
+      setState(() => _resizingLeftBar = false);
+    }
+    _persistLeftBar();
+  }
+
+  void _persistLeftBar() {
+    final width = _leftBarWidth;
+    final collapsed = leftBarCollapsed;
+    unawaited(
+      appdata
+          .updateSettings((draft) {
+            final store = GlobalPreferenceStore(draft);
+            store.write(LayoutPreferences.favoritesSidebarWidth, width);
+            store.write(LayoutPreferences.favoritesSidebarCollapsed, collapsed);
+          })
+          .then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stack) {
+              Log.error('Favorites sidebar settings', error, stack);
+            },
+          ),
     );
   }
 

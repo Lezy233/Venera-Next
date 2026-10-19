@@ -223,6 +223,37 @@ abstract final class FavoritePreferences {
   ];
 }
 
+abstract final class LayoutPreferences {
+  static const navSidebarWidth = NumericPreference(
+    'navSidebarWidth',
+    224,
+    min: 160,
+    max: 320,
+    step: 1,
+  );
+  static const navSidebarCollapsed = BoolPreference(
+    'navSidebarCollapsed',
+    false,
+  );
+  static const favoritesSidebarWidth = NumericPreference(
+    'favoritesSidebarWidth',
+    256,
+    min: 160,
+    max: 420,
+    step: 1,
+  );
+  static const favoritesSidebarCollapsed = BoolPreference(
+    'favoritesSidebarCollapsed',
+    false,
+  );
+  static const all = <Preference<Object>>[
+    navSidebarWidth,
+    navSidebarCollapsed,
+    favoritesSidebarWidth,
+    favoritesSidebarCollapsed,
+  ];
+}
+
 abstract final class ImageProcessingPreferences {
   static const enabled = BoolPreference('enableCustomImageProcessing', false);
   static const script = StringPreference(
@@ -258,6 +289,7 @@ Map<String, Object?> get applicationPreferenceDefaults => {
     ...DiscoveryPreferences.all,
     ...KeywordPreferences.all,
     ...FavoritePreferences.all,
+    ...LayoutPreferences.all,
     ...ImageProcessingPreferences.all,
   ])
     preference.key: preference.storageDefault,

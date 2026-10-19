@@ -1,15 +1,21 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:venera_next/components/sidebar_resize_handle.dart';
 import 'package:venera_next/foundation/app.dart';
-import 'package:venera_next/routing/app_navigation.dart';
 import 'package:venera_next/foundation/app_page_route.dart';
+import 'package:venera_next/foundation/appdata.dart';
+import 'package:venera_next/foundation/application_preferences.dart';
 import 'package:venera_next/foundation/consts.dart';
 import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/foundation/edge_back_gesture.dart';
+import 'package:venera_next/foundation/global_preference_store.dart';
+import 'package:venera_next/foundation/log.dart';
 import 'package:venera_next/foundation/widget_utils.dart';
+import 'package:venera_next/routing/app_navigation.dart';
 
 import 'consts.dart';
 import 'gesture.dart';
@@ -94,6 +100,52 @@ class NaviPaneState extends State<NaviPane>
 
   void Function()? mainViewUpdateHandler;
 
+  late double _sideBarWidth;
+
+  late bool _sideBarCollapsed;
+
+  void _toggleSideBar() {
+    setState(() => _sideBarCollapsed = !_sideBarCollapsed);
+    _persistSideBar();
+  }
+
+  void _resizeSideBar(double delta) {
+    setState(() {
+      if (_sideBarCollapsed) {
+        if (delta <= 0) return;
+        _sideBarCollapsed = false;
+        _sideBarWidth = _kSideBarMinWidth;
+        return;
+      }
+      final next = _sideBarWidth + delta;
+      if (next < _kSideBarMinWidth) {
+        _sideBarCollapsed = true;
+        _sideBarWidth = _kSideBarMinWidth;
+        return;
+      }
+      _sideBarWidth = next.clamp(_kSideBarMinWidth, _kSideBarMaxWidth);
+    });
+  }
+
+  void _persistSideBar() {
+    final width = _sideBarWidth;
+    final collapsed = _sideBarCollapsed;
+    unawaited(
+      appdata
+          .updateSettings((draft) {
+            final store = GlobalPreferenceStore(draft);
+            store.write(LayoutPreferences.navSidebarWidth, width);
+            store.write(LayoutPreferences.navSidebarCollapsed, collapsed);
+          })
+          .then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stack) {
+              Log.error('Navigation sidebar settings', error, stack);
+            },
+          ),
+    );
+  }
+
   late AnimationController controller;
 
   final _naviItemTapListeners = <NaviItemTapListener>[];
@@ -111,6 +163,10 @@ class NaviPaneState extends State<NaviPane>
   static const _kFoldedSideBarWidth = 72.0;
 
   static const _kSideBarWidth = 224.0;
+
+  static const _kSideBarMinWidth = 160.0;
+
+  static const _kSideBarMaxWidth = 320.0;
 
   static const _kTopBarHeight = 48.0;
 
@@ -143,6 +199,11 @@ class NaviPaneState extends State<NaviPane>
       vsync: this,
     );
     widget.observer.addListener(onNavigatorStateChange);
+    final preferences = GlobalPreferenceStore(appdata.settings);
+    _sideBarWidth = preferences
+        .read(LayoutPreferences.navSidebarWidth)
+        .toDouble();
+    _sideBarCollapsed = preferences.read(LayoutPreferences.navSidebarCollapsed);
     super.initState();
   }
 
@@ -223,21 +284,42 @@ class NaviPaneState extends State<NaviPane>
         animation: controller,
         builder: (context, child) {
           final value = controller.value;
+          final manual = MediaQuery.of(context).size.width > changePoint;
+          final sideBarWidth = manual
+              ? (_sideBarCollapsed ? _kFoldedSideBarWidth : _sideBarWidth)
+              : _kFoldedSideBarWidth +
+                    (_kSideBarWidth - _kFoldedSideBarWidth) *
+                        ((value - 2).clamp(0, 1));
+          final sideBarLeft = manual
+              ? 0.0
+              : _kFoldedSideBarWidth * ((value - 2.0).clamp(-1.0, 0.0));
+          final mainViewLeft = manual
+              ? sideBarWidth
+              : _kFoldedSideBarWidth * ((value - 1).clamp(0, 1)) +
+                    (_kSideBarWidth - _kFoldedSideBarWidth) *
+                        ((value - 2).clamp(0, 1));
           Widget content = Stack(
             children: [
               Positioned(
-                left: _kFoldedSideBarWidth * ((value - 2.0).clamp(-1.0, 0.0)),
+                left: sideBarLeft,
                 top: 0,
                 bottom: 0,
-                child: buildLeft(),
+                child: buildLeft(sideBarWidth),
               ),
-              Positioned.fill(
-                left:
-                    _kFoldedSideBarWidth * ((value - 1).clamp(0, 1)) +
-                    (_kSideBarWidth - _kFoldedSideBarWidth) *
-                        ((value - 2).clamp(0, 1)),
-                child: buildMainView(),
-              ),
+              Positioned.fill(left: mainViewLeft, child: buildMainView()),
+              if (manual)
+                Positioned(
+                  left: sideBarWidth - SidebarResizeHandle.width / 2,
+                  top: 0,
+                  bottom: 0,
+                  width: SidebarResizeHandle.width,
+                  child: SidebarResizeHandle(
+                    expanded: !_sideBarCollapsed,
+                    onToggle: _toggleSideBar,
+                    onDrag: _resizeSideBar,
+                    onDragEnd: _persistSideBar,
+                  ),
+                ),
             ],
           );
           if (sideInsets != EdgeInsets.zero) {
@@ -348,16 +430,14 @@ class NaviPaneState extends State<NaviPane>
     );
   }
 
-  Widget buildLeft() {
-    final value = controller.value;
+  Widget buildLeft(double width) {
+    final showTitle = width >= _kSideBarMinWidth;
     final topPadding = MediaQuery.paddingOf(context).top;
     final dividerColor = Theme.of(context).colorScheme.outlineVariant;
     const paddingHorizontal = 12.0;
     return Material(
       child: SizedBox(
-        width:
-            _kFoldedSideBarWidth +
-            (_kSideBarWidth - _kFoldedSideBarWidth) * ((value - 2).clamp(0, 1)),
+        width: width,
         height: double.infinity,
         child: Stack(
           children: [
@@ -374,7 +454,7 @@ class NaviPaneState extends State<NaviPane>
                     (index) => _SideNaviWidget(
                       enabled: currentPage == index,
                       entry: widget.paneItems[index],
-                      showTitle: value == 3,
+                      showTitle: showTitle,
                       onTap: () {
                         updatePage(index);
                       },
@@ -386,7 +466,7 @@ class NaviPaneState extends State<NaviPane>
                     widget.paneActions.length,
                     (index) => _PaneActionWidget(
                       entry: widget.paneActions[index],
-                      showTitle: value == 3,
+                      showTitle: showTitle,
                       key: ValueKey(index + widget.paneItems.length),
                     ),
                   ),
@@ -444,7 +524,13 @@ class _SideNaviWidget extends StatelessWidget {
         ),
         child: showTitle
             ? Row(
-                children: [icon, const SizedBox(width: 12), Text(entry.label)],
+                children: [
+                  icon,
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(entry.label, overflow: TextOverflow.ellipsis),
+                  ),
+                ],
               )
             : Align(alignment: Alignment.centerLeft, child: icon),
       ),
@@ -475,7 +561,13 @@ class _PaneActionWidget extends StatelessWidget {
         height: 38,
         child: showTitle
             ? Row(
-                children: [icon, const SizedBox(width: 12), Text(entry.label)],
+                children: [
+                  icon,
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(entry.label, overflow: TextOverflow.ellipsis),
+                  ),
+                ],
               )
             : Align(alignment: Alignment.centerLeft, child: icon),
       ),
