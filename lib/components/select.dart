@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:venera_next/foundation/app.dart';
 import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/foundation/widget_utils.dart';
 
@@ -28,61 +27,95 @@ class Select extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = context.colorScheme;
+    final textMinWidth = math.max(0.0, (minWidth ?? 96) - 34);
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: context.colorScheme.outlineVariant),
+        color: colorScheme.surfaceContainerHigh,
+        border: Border.all(color: colorScheme.outline),
         borderRadius: BorderRadius.circular(4),
       ),
       child: ClickInkWell(
-        onTap: () {
-          var renderBox = context.findRenderObject() as RenderBox;
-          var offset = renderBox.localToGlobal(Offset.zero);
-          var size = renderBox.size;
-          showMenu(
-            elevation: 3,
-            color: context.brightness == Brightness.light
-                ? const Color(0xFFF6F6F6)
-                : const Color(0xFF1E1E1E),
-            context: context,
-            useRootNavigator: true,
-            constraints: BoxConstraints(
-              minWidth: size.width,
-              maxWidth: size.width,
-            ),
-            position: RelativeRect.fromLTRB(
-              offset.dx,
-              offset.dy + size.height + 2,
-              offset.dx + size.height + 2,
-              offset.dy,
-            ),
-            items: values
-                .map(
-                  (e) => PopupMenuItem(
-                    height: App.isMobile ? 46 : 40,
-                    value: e,
-                    child: Text(e),
+        borderRadius: BorderRadius.circular(4),
+        onTap: onTap == null
+            ? null
+            : () async {
+                final renderBox = context.findRenderObject() as RenderBox;
+                final offset = renderBox.localToGlobal(Offset.zero);
+                final size = renderBox.size;
+                final selected = await showMenu<String>(
+                  context: context,
+                  useRootNavigator: true,
+                  elevation: 3,
+                  color: colorScheme.surfaceContainerHigh,
+                  constraints: const BoxConstraints(
+                    minWidth: 120,
+                    maxWidth: 280,
                   ),
-                )
-                .toList(),
-          ).then((value) {
-            if (value != null) {
-              onTap?.call(values.indexOf(value));
-            }
-          });
-        },
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                    side: BorderSide(color: colorScheme.outlineVariant),
+                  ),
+                  position: RelativeRect.fromLTRB(
+                    offset.dx,
+                    offset.dy + size.height + 2,
+                    offset.dx + size.width,
+                    offset.dy,
+                  ),
+                  items: [
+                    for (var index = 0; index < values.length; index++)
+                      PopupMenuItem<String>(
+                        value: values[index],
+                        height: 28,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 18,
+                              child: values[index] == current
+                                  ? Icon(
+                                      Icons.check,
+                                      size: 14,
+                                      color: colorScheme.onSurface,
+                                    )
+                                  : null,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              values[index],
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                );
+                if (selected != null) {
+                  final index = values.indexOf(selected);
+                  if (index >= 0) onTap?.call(index);
+                }
+              },
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             ConstrainedBox(
               constraints: BoxConstraints(
-                minWidth: minWidth != null ? (minWidth! - 32) : 0,
+                minWidth: textMinWidth,
+                maxWidth: 180,
               ),
-              child: Text(current ?? ' ', style: ts.s14),
+              child: Text(
+                current ?? ' ',
+                style: const TextStyle(fontSize: 13),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            const SizedBox(width: 8),
-            Icon(Icons.arrow_drop_down, color: context.colorScheme.primary),
+            Icon(
+              Icons.arrow_drop_down,
+              size: 18,
+              color: colorScheme.onSurfaceVariant,
+            ),
           ],
-        ).padding(const EdgeInsets.symmetric(horizontal: 12, vertical: 4)),
+        ).padding(const EdgeInsets.fromLTRB(10, 5, 4, 5)),
       ),
     );
   }

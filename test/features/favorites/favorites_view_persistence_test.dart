@@ -201,16 +201,16 @@ void main() {
       );
       await tester.tap(find.byTooltip('Filter'));
       await tester.pumpAndSettle();
-      // The editor now also exposes a sort dropdown; open the reading status
-      // menu explicitly and pick "Completed".
-      await tester.tap(
-        find.descendant(
-          of: find.widgetWithText(ListTile, 'Filter reading status'),
-          matching: find.byType(PopupMenuButton<int>),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(PopupMenuItem<int>, 'Completed'));
+      // The editor also exposes a sort dropdown; target the reading status one
+      // explicitly.
+      tester
+          .widget<Select>(
+            find.descendant(
+              of: find.widgetWithText(ListTile, 'Filter reading status'),
+              matching: find.byType(Select),
+            ),
+          )
+          .onTap!(2);
       await tester.pump();
       final release = Completer<void>();
       final exclusive = AppDataOperations.instance.run(() => release.future);

@@ -2050,78 +2050,18 @@ class _FilterSelectRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final selectedIndex = values.indexOf(current);
     return ListTile(
       contentPadding: EdgeInsets.zero,
       minTileHeight: 48,
       title: Text(title.tl, style: _kFilterHeadingStyle),
-      trailing: PopupMenuButton<int>(
-        enabled: enabled,
-        tooltip: '',
-        padding: EdgeInsets.zero,
-        position: PopupMenuPosition.under,
-        color: colorScheme.surfaceContainerHigh,
-        menuPadding: const EdgeInsets.symmetric(vertical: 4),
-        constraints: const BoxConstraints(minWidth: 160, maxWidth: 260),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(6),
-          side: BorderSide(color: colorScheme.outlineVariant),
-        ),
-        itemBuilder: (context) => [
-          for (var index = 0; index < values.length; index++)
-            PopupMenuItem<int>(
-              value: index,
-              height: 28,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 18,
-                    child: index == selectedIndex
-                        ? Icon(
-                            Icons.check,
-                            size: 14,
-                            color: colorScheme.onSurface,
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(values[index].tl, style: const TextStyle(fontSize: 13)),
-                ],
-              ),
-            ),
-        ],
-        onSelected: (index) {
+      trailing: Select(
+        current: current.tl,
+        values: values.map((value) => value.tl).toList(),
+        minWidth: 96,
+        onTap: (index) {
           if (!enabled || index < 0 || index >= values.length) return;
           onSelected(index);
         },
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(10, 5, 4, 5),
-          decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: colorScheme.outline),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 150),
-                child: Text(
-                  current.tl,
-                  style: const TextStyle(fontSize: 13),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Icon(
-                Icons.arrow_drop_down,
-                size: 18,
-                color: colorScheme.onSurfaceVariant,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
