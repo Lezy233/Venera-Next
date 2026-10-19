@@ -1,6 +1,7 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:venera_next/components/input_dialog.dart';
-import 'package:venera_next/components/message.dart';
 import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/foundation/translations.dart';
 
@@ -137,71 +138,93 @@ class _AuthorManagementDialogState extends State<_AuthorManagementDialog> {
   @override
   Widget build(BuildContext context) {
     final visible = _visibleAuthors;
-    return ContentDialog(
-      title: 'Manage authors'.tl,
-      content: SizedBox(
-        width: 420,
+    // Not ContentDialog: it wraps content in IntrinsicWidth, which a lazy
+    // shrink-wrapped ListView cannot measure during layout.
+    final height = math.min(560.0, MediaQuery.sizeOf(context).height - 96);
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      child: SizedBox(
+        width: 440,
+        height: height,
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
-              controller: searchController,
-              decoration: InputDecoration(
-                hintText: 'Search'.tl,
-                prefixIcon: const Icon(Icons.search),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Manage authors'.tl,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    tooltip: 'Close'.tl,
+                    onPressed: () => Navigator.of(context).maybePop(),
+                  ),
+                ],
               ),
-              onChanged: (value) => setState(() => query = value),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                controller: searchController,
+                decoration: InputDecoration(
+                  hintText: 'Search'.tl,
+                  prefixIcon: const Icon(Icons.search),
+                ),
+                onChanged: (value) => setState(() => query = value),
+              ),
             ),
             const SizedBox(height: 8),
-            if (visible.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Text('No matching authors'.tl),
-              )
-            else
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 360),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: visible.length,
-                  itemBuilder: (context, index) {
-                    final raw = visible[index];
-                    final canonical = _displayName(raw);
-                    return CheckboxListTile(
-                      dense: true,
-                      value: selected.contains(raw),
-                      onChanged: (value) {
-                        setState(() {
-                          if (value == true) {
-                            selected.add(raw);
-                          } else {
-                            selected.remove(raw);
-                          }
-                        });
+            Expanded(
+              child: visible.isEmpty
+                  ? Center(child: Text('No matching authors'.tl))
+                  : ListView.builder(
+                      itemCount: visible.length,
+                      itemBuilder: (context, index) {
+                        final raw = visible[index];
+                        final canonical = _displayName(raw);
+                        return CheckboxListTile(
+                          dense: true,
+                          value: selected.contains(raw),
+                          onChanged: (value) {
+                            setState(() {
+                              if (value == true) {
+                                selected.add(raw);
+                              } else {
+                                selected.remove(raw);
+                              }
+                            });
+                          },
+                          title: Text(canonical),
+                          subtitle: canonical == raw ? null : Text(raw),
+                        );
                       },
-                      title: Text(canonical),
-                      subtitle: canonical == raw ? null : Text(raw),
-                    );
-                  },
-                ),
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: selected.isEmpty ? null : _reset,
+                    child: Text('Reset alias'.tl),
+                  ),
+                  const SizedBox(width: 8),
+                  FilledButton(
+                    onPressed: selected.isEmpty ? null : _merge,
+                    child: Text('Merge'.tl),
+                  ),
+                ],
               ),
+            ),
           ],
         ),
       ),
-      actions: [
-        TextButton(
-          onPressed: selected.isEmpty ? null : _reset,
-          child: Text('Reset alias'.tl),
-        ),
-        FilledButton(
-          onPressed: selected.isEmpty ? null : _merge,
-          child: Text('Merge'.tl),
-        ),
-        TextButton(
-          onPressed: () => Navigator.of(context).maybePop(),
-          child: Text('Close'.tl),
-        ),
-      ],
     );
   }
 }
