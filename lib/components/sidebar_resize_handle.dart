@@ -17,6 +17,7 @@ class SidebarResizeHandle extends StatefulWidget {
     required this.onDrag,
     required this.onDragEnd,
     this.enabled = true,
+    this.mirror = false,
   });
 
   /// Width of the interactive strip. Parents position it so that it straddles
@@ -37,6 +38,9 @@ class SidebarResizeHandle extends StatefulWidget {
 
   /// When false the handle stays hidden and ignores pointers.
   final bool enabled;
+
+  /// Flips the chevrons for sidebars anchored to the trailing edge.
+  final bool mirror;
 
   @override
   State<SidebarResizeHandle> createState() => _SidebarResizeHandleState();
@@ -149,9 +153,13 @@ class _SidebarResizeHandleState extends State<SidebarResizeHandle> {
                       width: 12,
                       height: 48,
                       child: Icon(
-                        widget.expanded
-                            ? Icons.chevron_left
-                            : Icons.chevron_right,
+                        widget.mirror
+                            ? (widget.expanded
+                                  ? Icons.chevron_right
+                                  : Icons.chevron_left)
+                            : (widget.expanded
+                                  ? Icons.chevron_left
+                                  : Icons.chevron_right),
                         size: 16,
                         color: colorScheme.onSurfaceVariant,
                       ),

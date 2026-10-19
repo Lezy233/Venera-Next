@@ -18,6 +18,7 @@ import 'package:venera_next/components/message.dart';
 import 'package:venera_next/components/scroll.dart';
 import 'package:venera_next/components/select.dart';
 import 'package:venera_next/components/settings_save_state.dart';
+import 'package:venera_next/components/sidebar_resize_handle.dart';
 import 'package:venera_next/components/window_selection_task.dart';
 import 'package:venera_next/features/comic_details/comic_details.dart';
 import 'package:venera_next/features/comic_source/comic_source.dart';
@@ -129,6 +130,16 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
   late Set<String> tagFilters;
 
   late String sortMode;
+
+  late double _filterPanelWidth;
+
+  late bool _filterPanelOpen;
+
+  bool _resizingFilterPanel = false;
+
+  static const _kFilterPanelBreakpoint = 900.0;
+  static const _kFilterPanelMinWidth = 260.0;
+  static const _kFilterPanelMaxWidth = 460.0;
 
   static Set<String> _readFilterValues(Object? value) =>
       value is List ? value.whereType<String>().toSet() : <String>{};
@@ -274,6 +285,254 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
     );
   }
 
+  void _persistSortMode() {
+    final folder = widget.folder;
+    final mode = sortMode;
+    final stored = appdata.implicitData['local_favorites_sort_modes'];
+    final modes = <String, Object?>{
+      if (stored is Map)
+        for (final entry in stored.entries) '${entry.key}': entry.value,
+      folder: mode,
+    };
+    unawaited(
+      appdata
+          .updateImplicit((draft) {
+            draft['local_favorites_sort_modes'] = modes;
+          })
+          .then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stack) {
+              Log.error('Favorites sort mode', error, stack);
+            },
+          ),
+    );
+  }
+
+  void _setReadFilter(String value) {
+    setState(() => readFilterSelect = value);
+    _persistFilters();
+    updateComics();
+  }
+
+  void _setSortMode(String value) {
+    setState(() => sortMode = value);
+    _persistSortMode();
+  }
+
+  void _toggleAuthorFilter(String value) {
+    setState(() {
+      if (!authorFilters.remove(value)) authorFilters.add(value);
+    });
+    _persistFilters();
+  }
+
+  void _toggleTagFilter(String value) {
+    setState(() {
+      if (!tagFilters.remove(value)) tagFilters.add(value);
+    });
+    _persistFilters();
+  }
+
+  void _toggleFilterPanel() {
+    setState(() => _filterPanelOpen = !_filterPanelOpen);
+    _persistFilterPanel();
+  }
+
+  void _resizeFilterPanel(double delta) {
+    setState(() {
+      _resizingFilterPanel = true;
+      if (!_filterPanelOpen) {
+        if (delta >= 0) return;
+        _filterPanelOpen = true;
+        _filterPanelWidth = _kFilterPanelMinWidth;
+        return;
+      }
+      final next = _filterPanelWidth - delta;
+      if (next < _kFilterPanelMinWidth) {
+        _filterPanelOpen = false;
+        _filterPanelWidth = _kFilterPanelMinWidth;
+        return;
+      }
+      _filterPanelWidth = next.clamp(
+        _kFilterPanelMinWidth,
+        _kFilterPanelMaxWidth,
+      );
+    });
+  }
+
+  void _finishFilterPanelResize() {
+    if (_resizingFilterPanel) {
+      setState(() => _resizingFilterPanel = false);
+    }
+    _persistFilterPanel();
+  }
+
+  void _persistFilterPanel() {
+    final width = _filterPanelWidth;
+    final open = _filterPanelOpen;
+    unawaited(
+      appdata
+          .updateSettings((draft) {
+            final store = GlobalPreferenceStore(draft);
+            store.write(LayoutPreferences.favoritesFilterPanelWidth, width);
+            store.write(LayoutPreferences.favoritesFilterPanelOpen, open);
+          })
+          .then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stack) {
+              Log.error('Favorites filter panel', error, stack);
+            },
+          ),
+    );
+  }
+
+  List<String> _availableAuthors() => _collectFilterValues([
+    for (final comic in comics) ...favoriteAuthorValues(comic),
+  ]);
+
+  List<String> _availableTags() => _collectFilterValues([
+    for (final comic in comics)
+      for (final tag in comic.tags) favoriteTagLabel(tag),
+  ]);
+
+  Widget _buildFilterPanel() {
+    return Material(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    "Filter".tl,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: _toggleFilterPanel,
+                  tooltip: "Close".tl,
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: _FavoriteFilterEditor(
+                readFilter: readFilterSelect,
+                sortMode: sortMode,
+                authors: authorFilters,
+                tags: tagFilters,
+                authorOptions: _availableAuthors(),
+                tagOptions: _availableTags(),
+                editable: true,
+                onReadFilter: _setReadFilter,
+                onSortMode: _setSortMode,
+                onAuthorToggle: _toggleAuthorFilter,
+                onTagToggle: _toggleTagFilter,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBodyWithFilterPanel(Widget body) {
+    if (context.width <= _kFilterPanelBreakpoint) return body;
+    final open = _filterPanelOpen;
+    return Stack(
+      children: [
+        Positioned.fill(right: open ? _filterPanelWidth : 0, child: body),
+        if (open)
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: _filterPanelWidth,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border(
+                  left: BorderSide(
+                    color: context.colorScheme.outlineVariant,
+                    width: 0.6,
+                  ),
+                ),
+              ),
+              child: _buildFilterPanel(),
+            ),
+          ),
+        Positioned(
+          right: open ? _filterPanelWidth - SidebarResizeHandle.width / 2 : 0,
+          top: 0,
+          bottom: 0,
+          width: SidebarResizeHandle.width,
+          child: SidebarResizeHandle(
+            mirror: true,
+            expanded: open,
+            onToggle: _toggleFilterPanel,
+            onDrag: _resizeFilterPanel,
+            onDragEnd: _finishFilterPanelResize,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showFilterSheet() {
+    final folder = widget.folder;
+    final request = ++_filterRequest;
+    bool isCurrent() =>
+        mounted && widget.folder == folder && request == _filterRequest;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              child: _FavoriteFilterEditor(
+                readFilter: readFilterSelect,
+                sortMode: sortMode,
+                authors: authorFilters,
+                tags: tagFilters,
+                authorOptions: _availableAuthors(),
+                tagOptions: _availableTags(),
+                editable: true,
+                onReadFilter: (value) {
+                  if (!isCurrent()) return;
+                  _setReadFilter(value);
+                },
+                onSortMode: (value) {
+                  if (!isCurrent()) return;
+                  _setSortMode(value);
+                },
+                onAuthorToggle: (value) {
+                  if (!isCurrent()) return;
+                  _toggleAuthorFilter(value);
+                },
+                onTagToggle: (value) {
+                  if (!isCurrent()) return;
+                  _toggleTagFilter(value);
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   bool matchKeyword(String keyword, FavoriteItem comic) {
     var list = keyword.split(" ");
     for (var k in list) {
@@ -351,6 +610,11 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
       appdata.implicitData['local_favorites_tag_filter'],
     );
     sortMode = _storedSortMode();
+    final layout = GlobalPreferenceStore(appdata.settings);
+    _filterPanelWidth = layout
+        .read(LayoutPreferences.favoritesFilterPanelWidth)
+        .toDouble();
+    _filterPanelOpen = layout.read(LayoutPreferences.favoritesFilterPanelOpen);
     if (!isAllFolder) {
       var (a, b) = _observedManager.findLinked(widget.folder);
       networkSource = a;
@@ -594,6 +858,14 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                       ? context.colorScheme.primaryContainer
                       : null,
                   onPressed: () {
+                    if (context.width > _kFilterPanelBreakpoint) {
+                      _toggleFilterPanel();
+                      return;
+                    }
+                    if (App.isMobile) {
+                      _showFilterSheet();
+                      return;
+                    }
                     final folder = widget.folder;
                     final request = ++_filterRequest;
                     final availableAuthors = _collectFilterValues([
@@ -1154,7 +1426,7 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
           });
         }
       },
-      child: body,
+      child: _buildBodyWithFilterPanel(body),
     );
   }
 
@@ -1394,45 +1666,6 @@ class _LocalFavoritesFilterDialogState
     return values;
   }
 
-  Widget _selector({
-    required String title,
-    required List<String> options,
-    required Set<String> selected,
-  }) {
-    if (options.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 12, bottom: 4),
-          child: Text(title.tl),
-        ),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: [
-            for (final option in options)
-              FilterChip(
-                label: Text(option),
-                selected: selected.contains(option),
-                onSelected: _editable
-                    ? (value) {
-                        setState(() {
-                          if (value) {
-                            selected.add(option);
-                          } else {
-                            selected.remove(option);
-                          }
-                        });
-                      }
-                    : null,
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final authorOptions = _options(widget.availableAuthors, authors);
@@ -1454,74 +1687,22 @@ class _LocalFavoritesFilterDialogState
               tabBar,
               TabViewBody(
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 12, bottom: 4),
-                        child: Text("Sort".tl),
-                      ),
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          for (final mode in favoriteSortModes)
-                            ChoiceChip(
-                              label: Text(
-                                (favoriteSortModeLabels[mode] ?? 'Manual').tl,
-                              ),
-                              selected: sortMode == mode,
-                              onSelected: _editable
-                                  ? (selected) {
-                                      if (!selected) return;
-                                      setState(() {
-                                        sortMode = mode;
-                                      });
-                                    }
-                                  : null,
-                            ),
-                        ],
-                      ),
-                      ListTile(
-                        title: Text("Filter reading status".tl),
-                        trailing: Select(
-                          current: readFilter.tl,
-                          values: readFilterList.map((e) => e.tl).toList(),
-                          minWidth: 64,
-                          onTap: (index) {
-                            if (!mounted ||
-                                !_editable ||
-                                index < 0 ||
-                                index >= readFilterList.length) {
-                              return;
-                            }
-                            setState(() {
-                              readFilter = readFilterList[index];
-                            });
-                          },
-                        ),
-                      ),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 320),
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _selector(
-                                title: "Author",
-                                options: authorOptions,
-                                selected: authors,
-                              ),
-                              _selector(
-                                title: "Tag",
-                                options: tagOptions,
-                                selected: tags,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+                  _FavoriteFilterEditor(
+                    readFilter: readFilter,
+                    sortMode: sortMode,
+                    authors: authors,
+                    tags: tags,
+                    authorOptions: authorOptions,
+                    tagOptions: tagOptions,
+                    editable: _editable,
+                    onReadFilter: (value) => setState(() => readFilter = value),
+                    onSortMode: (value) => setState(() => sortMode = value),
+                    onAuthorToggle: (value) => setState(() {
+                      if (!authors.remove(value)) authors.add(value);
+                    }),
+                    onTagToggle: (value) => setState(() {
+                      if (!tags.remove(value)) tags.add(value);
+                    }),
                   ),
                 ],
               ),
@@ -1585,6 +1766,157 @@ class _LocalFavoritesFilterDialogState
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Shared presentation for the filter dialog, the right side panel and the
+/// mobile bottom sheet. Hosts own persistence; this widget only edits values.
+class _FavoriteFilterEditor extends StatelessWidget {
+  const _FavoriteFilterEditor({
+    required this.readFilter,
+    required this.sortMode,
+    required this.authors,
+    required this.tags,
+    required this.authorOptions,
+    required this.tagOptions,
+    required this.editable,
+    required this.onReadFilter,
+    required this.onSortMode,
+    required this.onAuthorToggle,
+    required this.onTagToggle,
+  });
+
+  final String readFilter;
+  final String sortMode;
+  final Set<String> authors;
+  final Set<String> tags;
+  final List<String> authorOptions;
+  final List<String> tagOptions;
+  final bool editable;
+  final ValueChanged<String> onReadFilter;
+  final ValueChanged<String> onSortMode;
+  final ValueChanged<String> onAuthorToggle;
+  final ValueChanged<String> onTagToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 12, bottom: 4),
+          child: _FilterSectionTitle('Sort'),
+        ),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final mode in favoriteSortModes)
+              ChoiceChip(
+                label: Text((favoriteSortModeLabels[mode] ?? 'Manual').tl),
+                selected: sortMode == mode,
+                onSelected: editable
+                    ? (selected) {
+                        if (selected) onSortMode(mode);
+                      }
+                    : null,
+              ),
+          ],
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text("Filter reading status".tl),
+          trailing: Select(
+            current: readFilter.tl,
+            values: readFilterList.map((e) => e.tl).toList(),
+            minWidth: 64,
+            onTap: (index) {
+              if (!editable || index < 0 || index >= readFilterList.length) {
+                return;
+              }
+              onReadFilter(readFilterList[index]);
+            },
+          ),
+        ),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 320),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _FilterChipsSection(
+                  title: "Author",
+                  options: authorOptions,
+                  selected: authors,
+                  editable: editable,
+                  onToggle: onAuthorToggle,
+                ),
+                _FilterChipsSection(
+                  title: "Tag",
+                  options: tagOptions,
+                  selected: tags,
+                  editable: editable,
+                  onToggle: onTagToggle,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FilterSectionTitle extends StatelessWidget {
+  const _FilterSectionTitle(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(title.tl);
+  }
+}
+
+class _FilterChipsSection extends StatelessWidget {
+  const _FilterChipsSection({
+    required this.title,
+    required this.options,
+    required this.selected,
+    required this.editable,
+    required this.onToggle,
+  });
+
+  final String title;
+  final List<String> options;
+  final Set<String> selected;
+  final bool editable;
+  final ValueChanged<String> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    if (options.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 12, bottom: 4),
+          child: _FilterSectionTitle(title),
+        ),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final option in options)
+              FilterChip(
+                label: Text(option),
+                selected: selected.contains(option),
+                onSelected: editable ? (_) => onToggle(option) : null,
+              ),
+          ],
+        ),
+      ],
     );
   }
 }

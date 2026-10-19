@@ -9,6 +9,7 @@ Widget _host({
   required ValueChanged<double> onDrag,
   required VoidCallback onDragEnd,
   bool enabled = true,
+  bool mirror = false,
 }) {
   return MaterialApp(
     home: Scaffold(
@@ -21,6 +22,7 @@ Widget _host({
             child: SidebarResizeHandle(
               expanded: expanded,
               enabled: enabled,
+              mirror: mirror,
               onToggle: onToggle,
               onDrag: onDrag,
               onDragEnd: onDragEnd,
@@ -104,5 +106,32 @@ void main() {
     expect(toggles, 0);
     expect(ended, 0);
     expect(opacityOf(tester), 0);
+  });
+
+  testWidgets('mirrored handle points towards its trailing edge', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        expanded: true,
+        mirror: true,
+        onToggle: () {},
+        onDrag: (_) {},
+        onDragEnd: () {},
+      ),
+    );
+    expect(find.byIcon(Icons.chevron_right), findsOneWidget);
+    expect(find.byIcon(Icons.chevron_left), findsNothing);
+
+    await tester.pumpWidget(
+      _host(
+        expanded: false,
+        mirror: true,
+        onToggle: () {},
+        onDrag: (_) {},
+        onDragEnd: () {},
+      ),
+    );
+    expect(find.byIcon(Icons.chevron_left), findsOneWidget);
   });
 }

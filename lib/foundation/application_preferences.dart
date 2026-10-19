@@ -246,11 +246,24 @@ abstract final class LayoutPreferences {
     'favoritesSidebarCollapsed',
     false,
   );
+  static const favoritesFilterPanelWidth = NumericPreference(
+    'favoritesFilterPanelWidth',
+    320,
+    min: 260,
+    max: 460,
+    step: 1,
+  );
+  static const favoritesFilterPanelOpen = BoolPreference(
+    'favoritesFilterPanelOpen',
+    false,
+  );
   static const all = <Preference<Object>>[
     navSidebarWidth,
     navSidebarCollapsed,
     favoritesSidebarWidth,
     favoritesSidebarCollapsed,
+    favoritesFilterPanelWidth,
+    favoritesFilterPanelOpen,
   ];
 }
 
