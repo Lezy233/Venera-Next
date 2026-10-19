@@ -159,6 +159,36 @@ void main() {
             state.scrollController.position.pixels,
             greaterThan(beforeScroll),
           );
+          // Trackpad pan events must also follow the active axis; macOS
+          // reports two-finger scrolling as pan/zoom with scale == 1.
+          state.scrollController.jumpTo(
+            state.scrollController.position.minScrollExtent,
+          );
+          await tester.pump();
+          final beforePan = state.scrollController.position.pixels;
+          final panPointer = 2;
+          final center = tester.getCenter(find.byType(ReaderContinuousView));
+          await tester.sendEventToBinding(
+            PointerPanZoomStartEvent(pointer: panPointer, position: center),
+          );
+          await tester.sendEventToBinding(
+            PointerPanZoomUpdateEvent(
+              pointer: panPointer,
+              position: center,
+              panDelta: mode == 'ltr' || mode == 'rtl'
+                  ? const Offset(-120, 0)
+                  : const Offset(0, -120),
+              scale: 1,
+            ),
+          );
+          await tester.pump();
+          expect(
+            state.scrollController.position.pixels,
+            greaterThan(beforePan),
+          );
+          await tester.sendEventToBinding(
+            PointerPanZoomEndEvent(pointer: panPointer, position: center),
+          );
           state.smoothTo(200);
           await tester.pump(const Duration(milliseconds: 20));
           await tester.pumpWidget(const SizedBox());

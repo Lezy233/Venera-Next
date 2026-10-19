@@ -107,7 +107,6 @@ class ContinuousModeState extends State<ReaderContinuousView>
   Timer? _scrollActivityTimer;
   ScrollPosition? _smoothPosition;
   int _smoothGeneration = 0;
-  DateTime? _lastScrollAt;
 
   ScrollController get scrollController => _scrollController!;
 
@@ -712,25 +711,19 @@ class ContinuousModeState extends State<ReaderContinuousView>
   void onPointerSignal(PointerSignalEvent event) {
     if (_disposed || !mounted) return;
     if (event is! PointerScrollEvent) return;
+    if (disableScroll) return;
     if (!_isMouseScrolling) {
       setState(() {
         _isMouseScrolling = true;
       });
     }
     if (isCTRLPressed) return;
-    // Horizontal continuous modes scroll with the trackpad's x axis.
+    // Other screens let Flutter's Scrollable apply trackpad deltas directly.
+    // This view disables drag physics while pointer-scrolling and used to
+    // animate every event, which made the page lag behind the fingers and
+    // jump when the gesture ended. Apply the axis delta immediately instead.
     final delta = data.vertical ? event.scrollDelta.dy : event.scrollDelta.dx;
-    if (delta == 0) return;
-    final now = DateTime.now();
-    final trackpadBurst =
-        _lastScrollAt != null &&
-        now.difference(_lastScrollAt!) < const Duration(milliseconds: 60);
-    _lastScrollAt = now;
-    if (trackpadBurst) {
-      _scrollDirect(delta);
-    } else {
-      smoothTo(delta);
-    }
+    if (delta != 0) _scrollDirect(delta);
   }
 
   /// Trackpads emit small, dense deltas. Animating each one made the view lag
@@ -1049,9 +1042,14 @@ class ContinuousModeState extends State<ReaderContinuousView>
         }
       },
       onPointerPanZoomUpdate: (event) {
-        if (event.scale == 1.0) {
-          smoothTo(0 - event.panDelta.dy);
-        }
+        // macOS trackpads report two-finger scrolling as pan/zoom with
+        // scale == 1. Apply the movement on the active axis immediately so it
+        // follows the fingers instead of animating behind them.
+        if (event.scale != 1.0 || disableScroll || isCTRLPressed) return;
+        final delta = data.vertical
+            ? 0 - event.panDelta.dy
+            : 0 - event.panDelta.dx;
+        if (delta != 0) _scrollDirect(delta);
       },
       onPointerMove: (event) {
         Offset value = event.delta;
