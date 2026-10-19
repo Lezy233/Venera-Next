@@ -35,6 +35,10 @@ import 'package:venera_next/features/reader/settings_effects.dart';
 import 'package:venera_next/features/reader/settings_panel.dart';
 import 'package:venera_next/features/reader/image_selection.dart';
 import 'package:venera_next/features/reader/image_picker.dart';
+import 'package:venera_next/components/sidebar_resize_handle.dart';
+import 'package:venera_next/foundation/appdata.dart';
+import 'package:venera_next/foundation/application_preferences.dart';
+import 'package:venera_next/foundation/global_preference_store.dart';
 import 'package:venera_next/foundation/log.dart';
 import 'package:venera_next/foundation/translations.dart';
 import 'package:venera_next/routing/settings.dart';
@@ -94,6 +98,10 @@ class ReaderScaffold extends StatefulWidget {
 class ReaderScaffoldState extends State<ReaderScaffold> {
   var _brightnessPreview = ReaderBrightnessPreview();
 
+  late double _thumbnailWidth;
+  late double _thumbnailHeight;
+  late bool _thumbnailCollapsed;
+
   bool _isOpen = false;
 
   bool _brightnessPanelOpen = false;
@@ -126,6 +134,16 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
   @override
   void initState() {
     super.initState();
+    final layout = GlobalPreferenceStore(appdata.settings);
+    _thumbnailWidth = layout
+        .read(LayoutPreferences.readerThumbnailWidth)
+        .toDouble();
+    _thumbnailHeight = layout
+        .read(LayoutPreferences.readerThumbnailHeight)
+        .toDouble();
+    _thumbnailCollapsed = layout.read(
+      LayoutPreferences.readerThumbnailCollapsed,
+    );
     _brightnessPreview.addListener(update);
     widget.favoriteChanges.addListener(_imageFavoritesChanged);
   }
@@ -214,6 +232,224 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
     _eInkRefreshController.reset();
   }
 
+  void _persistThumbnailSettings() {
+    final width = _thumbnailWidth;
+    final height = _thumbnailHeight;
+    final collapsed = _thumbnailCollapsed;
+    unawaited(
+      appdata
+          .updateSettings((draft) {
+            final store = GlobalPreferenceStore(draft);
+            store.write(LayoutPreferences.readerThumbnailWidth, width);
+            store.write(LayoutPreferences.readerThumbnailHeight, height);
+            store.write(LayoutPreferences.readerThumbnailCollapsed, collapsed);
+          })
+          .then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stack) {
+              Log.error('Reader thumbnail settings', error, stack);
+            },
+          ),
+    );
+  }
+
+  void _toggleThumbnail() {
+    setState(() => _thumbnailCollapsed = !_thumbnailCollapsed);
+    _persistThumbnailSettings();
+  }
+
+  void _resizeThumbnails({required bool vertical, required double delta}) {
+    setState(() {
+      if (vertical) {
+        if (_thumbnailCollapsed && delta > 0) {
+          _thumbnailCollapsed = false;
+        }
+        final next = (_thumbnailWidth + delta).clamp(120.0, 480.0);
+        if (next <= 130) {
+          _thumbnailCollapsed = true;
+        } else {
+          _thumbnailWidth = next;
+        }
+      } else {
+        if (_thumbnailCollapsed && delta > 0) {
+          _thumbnailCollapsed = false;
+        }
+        final next = (_thumbnailHeight + delta).clamp(100.0, 320.0);
+        if (next <= 110) {
+          _thumbnailCollapsed = true;
+        } else {
+          _thumbnailHeight = next;
+        }
+      }
+    });
+  }
+
+  void _finishThumbnailResize() => _persistThumbnailSettings();
+
+  Widget _buildBody() {
+    final content = AbsorbPointer(
+      absorbing: widget.data.animating,
+      child: widget.child,
+    );
+    // Thumbnail strips target wide (desktop) layouts; narrow readers keep the
+    // full page area and no overlay.
+    if (context.width < 900 || widget.data.onCommentsPage) return content;
+    final request = widget.createThumbnails?.call();
+    if (request == null || request.isEmpty) return content;
+    final settings = widget.data.preferences;
+    final position = settings.readerThumbnailPosition;
+    final vertical = position != 'bottom';
+    final floating = settings.readerThumbnailMode == 'floating';
+    final readingReversed =
+        settings.readerMode == 'galleryRightToLeft' ||
+        settings.readerMode == 'continuousRightToLeft';
+    // Bottom strips follow the reading order; top-to-bottom reading can choose
+    // its own horizontal direction.
+    final reverse =
+        !vertical &&
+        (widget.data.vertical
+            ? settings.readerThumbnailScrollDirection == 'rightToLeft'
+            : readingReversed);
+    final size = vertical ? _thumbnailWidth : _thumbnailHeight;
+    final collapsed = _thumbnailCollapsed;
+
+    void select(int page) {
+      if (!request.isCurrent()) return;
+      request.select(page);
+    }
+
+    Widget handle({required bool expanded}) {
+      if (vertical) {
+        return SidebarResizeHandle(
+          expanded: expanded,
+          mirror: position == 'right',
+          onToggle: _toggleThumbnail,
+          onDrag: (delta) => _resizeThumbnails(
+            vertical: true,
+            delta: position == 'right' ? -delta : delta,
+          ),
+          onDragEnd: _finishThumbnailResize,
+        );
+      }
+      return _BottomResizeHandle(
+        expanded: expanded,
+        onToggle: _toggleThumbnail,
+        onDrag: (delta) => _resizeThumbnails(vertical: false, delta: delta),
+        onDragEnd: _finishThumbnailResize,
+      );
+    }
+
+    if (collapsed) {
+      return Stack(
+        children: [
+          Positioned.fill(child: content),
+          if (vertical)
+            Positioned(
+              left: position == 'left' ? 0 : null,
+              right: position == 'right' ? 0 : null,
+              top: 0,
+              bottom: 0,
+              child: handle(expanded: false),
+            )
+          else
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 14,
+              child: handle(expanded: false),
+            ),
+        ],
+      );
+    }
+
+    final panel = ReaderThumbnailsView(
+      request: request,
+      vertical: vertical,
+      reverse: reverse,
+      size: size,
+      onSelect: select,
+    );
+
+    if (floating) {
+      return Stack(
+        children: [
+          Positioned.fill(child: content),
+          Positioned(
+            left: position == 'left' ? 0 : null,
+            right: position == 'right' ? 0 : null,
+            top: vertical ? 0 : null,
+            bottom: 0,
+            width: vertical ? size : null,
+            height: vertical ? null : size,
+            child: panel,
+          ),
+          if (vertical)
+            Positioned(
+              left: position == 'left' ? size - 7 : null,
+              right: position == 'right' ? size - 7 : null,
+              top: 0,
+              bottom: 0,
+              child: handle(expanded: true),
+            )
+          else
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: size - 7,
+              height: 14,
+              child: handle(expanded: true),
+            ),
+        ],
+      );
+    }
+
+    final Widget fixed;
+    if (position == 'left') {
+      fixed = Row(
+        children: [
+          SizedBox(width: size, child: panel),
+          Expanded(child: content),
+        ],
+      );
+    } else if (position == 'right') {
+      fixed = Row(
+        children: [
+          Expanded(child: content),
+          SizedBox(width: size, child: panel),
+        ],
+      );
+    } else {
+      fixed = Column(
+        children: [
+          Expanded(child: content),
+          SizedBox(height: size, child: panel),
+        ],
+      );
+    }
+    return Stack(
+      children: [
+        Positioned.fill(child: fixed),
+        if (vertical)
+          Positioned(
+            left: position == 'left' ? size - 7 : null,
+            right: position == 'right' ? size - 7 : null,
+            top: 0,
+            bottom: 0,
+            child: handle(expanded: true),
+          )
+        else
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: size - 7,
+            height: 14,
+            child: handle(expanded: true),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isOnChapterCommentsPage = widget.data.onCommentsPage;
@@ -228,12 +464,7 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
     final topBarHeight = kTopBarHeight * titleScale;
     return Stack(
       children: [
-        Positioned.fill(
-          child: AbsorbPointer(
-            absorbing: widget.data.animating,
-            child: widget.child,
-          ),
-        ),
+        Positioned.fill(child: _buildBody()),
         if (!isOnChapterCommentsPage)
           Positioned.fill(
             child: ReaderBrightnessOverlay(
@@ -302,14 +533,6 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
     chapterTitle: widget.data.chapterTitle,
     onBack: () => unawaited(widget.onExit()),
     actions: [
-      if (widget.data.gallery && widget.createThumbnails != null)
-        Tooltip(
-          message: "Thumbnails".tl,
-          child: IconButton(
-            icon: const Icon(Icons.grid_view_outlined),
-            onPressed: openThumbnails,
-          ),
-        ),
       if (shouldShowChapterComments())
         Tooltip(
           message: "Chapter Comments".tl,
@@ -602,26 +825,6 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
     return widget.createChapterComments() != null;
   }
 
-  void openThumbnails() {
-    final request = widget.createThumbnails?.call();
-    if (request == null || request.isEmpty || !request.isCurrent()) return;
-    ReaderSidebarHandle? handle;
-    handle = _sidebarBinding.show(
-      context,
-      ReaderThumbnailsView(
-        request: request,
-        onSelect: (page) {
-          if (handle?.isCurrent != true) return;
-          request.select(page);
-          handle?.close();
-        },
-        onClose: () => handle?.close(),
-      ),
-      width: 240,
-      isRequestCurrent: request.isCurrent,
-    );
-  }
-
   void openChapterComments() {
     final request = widget.createChapterComments();
     if (request == null || !request.isCurrent()) return;
@@ -648,5 +851,46 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
   Future<Offset?> _showSelectImageOverlay() {
     if (_isOpen) openOrClose();
     return _selectionOverlay.show(context);
+  }
+}
+
+class _BottomResizeHandle extends StatelessWidget {
+  const _BottomResizeHandle({
+    required this.expanded,
+    required this.onToggle,
+    required this.onDrag,
+    required this.onDragEnd,
+  });
+
+  final bool expanded;
+  final VoidCallback onToggle;
+  final ValueChanged<double> onDrag;
+  final VoidCallback onDragEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.outlineVariant;
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeUpDown,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onToggle,
+        onVerticalDragUpdate: (details) => onDrag(-details.delta.dy),
+        onVerticalDragEnd: (_) => onDragEnd(),
+        child: SizedBox(
+          height: 14,
+          child: Center(
+            child: Container(
+              width: 40,
+              height: 3,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

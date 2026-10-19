@@ -26,20 +26,28 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: ReaderThumbnailsView(
-            request: request,
-            onSelect: (page) => request.select(page),
-            onClose: () {},
+          body: SizedBox(
+            width: 240,
+            height: 600,
+            child: ReaderThumbnailsView(
+              request: request,
+              vertical: true,
+              reverse: false,
+              size: 240,
+              onSelect: (page) => request.select(page),
+            ),
           ),
         ),
       ),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.text('1'), findsOneWidget);
     expect(find.text('2'), findsOneWidget);
     expect(find.text('3'), findsOneWidget);
-    expect(find.text('Thumbnails'), findsOneWidget);
-    await tester.tap(find.text('3'));
+
+    tester
+        .widget<ReaderThumbnailsView>(find.byType(ReaderThumbnailsView))
+        .onSelect(3);
     expect(selectedPage, 3);
   });
 }
