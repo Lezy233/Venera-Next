@@ -101,7 +101,7 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
 
   DesktopChromeController? _chrome;
   late final VoidCallback _toggleRightCallback = _toggleFilterPanel;
-  late final VoidCallback _searchCallback = _focusSearch;
+  late final ValueChanged<String> _searchQueryCallback = _applySearchQuery;
 
   int? lastSelectedIndex;
 
@@ -594,13 +594,16 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
   Widget _buildBodyWithFilterPanel(Widget body) {
     if (context.width <= _kFilterPanelBreakpoint) return body;
     final open = _filterPanelOpen;
+    // The custom window title bar overlays the page; keep the panel and its
+    // handle below it so the top bar controls never cover the panel content.
+    final topInset = context.padding.top;
     return Stack(
       children: [
         Positioned.fill(right: open ? _filterPanelWidth : 0, child: body),
         if (open)
           Positioned(
             right: 0,
-            top: 0,
+            top: topInset,
             bottom: 0,
             width: _filterPanelWidth,
             child: DecoratedBox(
@@ -617,13 +620,12 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
           ),
         Positioned(
           right: open ? _filterPanelWidth - SidebarResizeHandle.width / 2 : 0,
-          top: 0,
+          top: topInset,
           bottom: 0,
           width: SidebarResizeHandle.width,
           child: SidebarResizeHandle(
             mirror: true,
             expanded: open,
-            onToggle: _toggleFilterPanel,
             onDrag: _resizeFilterPanel,
             onDragEnd: _finishFilterPanelResize,
           ),
@@ -828,7 +830,7 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
   @override
   void dispose() {
     _chrome?.setRightSidebar(available: false, expanded: false);
-    _chrome?.setFavoritesSearch(null);
+    _chrome?.setFavoritesSearchQuery(null);
     _cancelMetadataUpdates();
     _retireUpdateFlyout();
     _observedManager.removeListener(updateComics);
@@ -917,12 +919,17 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
       expanded: _filterPanelOpen,
       toggle: _toggleRightCallback,
     );
-    chrome.setFavoritesSearch(_searchCallback);
+    chrome.setFavoritesSearchQuery(_searchQueryCallback);
   }
 
-  void _focusSearch() {
-    if (!mounted || searchMode) return;
-    setState(() => searchMode = true);
+  void _applySearchQuery(String query) {
+    if (!mounted) return;
+    setState(() {
+      keyword = query;
+      searchHasUpper = keyword.contains(RegExp(r'[A-Z]'));
+      searchMode = true;
+    });
+    updateSearchResult();
   }
 
   @override
@@ -1383,26 +1390,27 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
               child: IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () {
+                  _chrome?.searchController.clear();
                   setState(() {
-                    setState(() {
-                      searchMode = false;
-                    });
+                    searchMode = false;
                   });
                 },
               ),
             ),
-            title: TextField(
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: "Search".tl,
-                border: UnderlineInputBorder(),
-              ),
-              onChanged: (v) {
-                keyword = v;
-                searchHasUpper = keyword.contains(RegExp(r'[A-Z]'));
-                updateSearchResult();
-              },
-            ).paddingBottom(8).paddingRight(8),
+            title: context.width > _kFilterPanelBreakpoint
+                ? Text("Search".tl)
+                : TextField(
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: "Search".tl,
+                      border: UnderlineInputBorder(),
+                    ),
+                    onChanged: (v) {
+                      keyword = v;
+                      searchHasUpper = keyword.contains(RegExp(r'[A-Z]'));
+                      updateSearchResult();
+                    },
+                  ).paddingBottom(8).paddingRight(8),
           ),
         if (_loadError != null)
           SliverToBoxAdapter(

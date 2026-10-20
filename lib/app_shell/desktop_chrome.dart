@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:venera_next/foundation/app.dart';
@@ -25,7 +26,7 @@ class DesktopChromeController extends ChangeNotifier {
   bool _rightAvailable = false;
   bool _rightExpanded = false;
   VoidCallback? _toggleRight;
-  VoidCallback? _favoritesSearch;
+  ValueChanged<String>? _favoritesSearchQuery;
   DesktopReaderActions? _readerActions;
 
   VoidCallback? _openSettings;
@@ -78,9 +79,9 @@ class DesktopChromeController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setFavoritesSearch(VoidCallback? search) {
-    if (search == _favoritesSearch) return;
-    _favoritesSearch = search;
+  void setFavoritesSearchQuery(ValueChanged<String>? search) {
+    if (search == _favoritesSearchQuery) return;
+    _favoritesSearchQuery = search;
     notifyListeners();
   }
 
@@ -116,6 +117,13 @@ class DesktopChromeController extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
+  void dispose() {
+    searchController.dispose();
+    searchFocusNode.dispose();
+    super.dispose();
+  }
+
   void toggleLeftSidebar() => _toggleLeft?.call();
 
   void toggleRightSidebar() => _toggleRight?.call();
@@ -124,10 +132,38 @@ class DesktopChromeController extends ChangeNotifier {
   void openSettingsAction() =>
       (_readerActions?.openSettings ?? _openSettings)?.call();
 
-  /// Cmd+F: chapter list in the reader, local search in favorites, global
-  /// search elsewhere.
-  void openSearchAction() =>
-      (_readerActions?.openChapters ?? _favoritesSearch ?? _openSearch)?.call();
+  final TextEditingController searchController = TextEditingController();
+  final FocusNode searchFocusNode = FocusNode(debugLabel: 'desktop search');
+
+  /// Cmd+F / clicking the search box: focus the top bar search field. In the
+  /// reader the search target is the chapter list.
+  void focusSearch() {
+    final reader = _readerActions;
+    if (reader != null) {
+      reader.openChapters();
+      return;
+    }
+    searchFocusNode.requestFocus();
+    searchController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: searchController.text.length,
+    );
+  }
+
+  void openSearchAction() => focusSearch();
+
+  /// Live typing for pages that can filter as the user types (favorites).
+  void updateSearchQuery(String value) => _favoritesSearchQuery?.call(value);
+
+  /// Submitted text: filter favorites locally, otherwise open global search.
+  void submitSearch(String value) {
+    final favorites = _favoritesSearchQuery;
+    if (favorites != null) {
+      favorites(value);
+      return;
+    }
+    _openSearch?.call();
+  }
 
   void navigateTo(int index) => _navigate?.call(index);
 

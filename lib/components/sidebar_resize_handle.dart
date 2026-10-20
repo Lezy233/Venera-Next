@@ -13,7 +13,7 @@ class SidebarResizeHandle extends StatefulWidget {
   const SidebarResizeHandle({
     super.key,
     required this.expanded,
-    required this.onToggle,
+    this.onToggle,
     required this.onDrag,
     required this.onDragEnd,
     this.enabled = true,
@@ -27,8 +27,9 @@ class SidebarResizeHandle extends StatefulWidget {
   /// Whether the sidebar is currently expanded.
   final bool expanded;
 
-  /// Called when the handle is tapped.
-  final VoidCallback onToggle;
+  /// Called when the handle is tapped. Null hides the toggle pill while
+  /// keeping width-drag collapsing available.
+  final VoidCallback? onToggle;
 
   /// Called with the horizontal drag delta while resizing.
   final ValueChanged<double> onDrag;
@@ -54,7 +55,8 @@ class _SidebarResizeHandleState extends State<SidebarResizeHandle> {
   bool _hovering = false;
   bool _dragging = false;
 
-  bool get _visible => widget.enabled && (_hovering || _dragging);
+  bool get _visible =>
+      widget.enabled && widget.onToggle != null && (_hovering || _dragging);
 
   @override
   void didUpdateWidget(covariant SidebarResizeHandle oldWidget) {

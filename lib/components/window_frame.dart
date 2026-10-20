@@ -6,8 +6,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:venera_next/foundation/app.dart';
-import 'package:venera_next/foundation/consts.dart';
-import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/foundation/navigation_admission.dart';
 import 'package:venera_next/foundation/translations.dart';
 import 'package:venera_next/app_shell/desktop_top_bar.dart';
@@ -392,65 +390,65 @@ class _WindowFrameState extends State<WindowFrame> with WindowListener {
             top: 0,
             left: 0,
             right: 0,
-            child: Material(
-              color: Colors.transparent,
-              child: Theme(
-                data: Theme.of(
-                  context,
-                ).copyWith(brightness: useDarkTheme ? Brightness.dark : null),
-                child: Builder(
-                  builder: (context) {
-                    return SizedBox(
-                      height: _kTitleBarHeight,
-                      child: Row(
-                        children: [
-                          if (App.isMacOS)
-                            const DragToMoveArea(
-                              child: SizedBox(
-                                height: double.infinity,
-                                width: 16,
-                              ),
-                            ).paddingRight(52)
-                          else
-                            const SizedBox(width: 8),
-                          if (!App.isMacOS) const DesktopInlineMenuBar(),
-                          if (App.isMacOS) const SizedBox(width: 12),
-                          DragToMoveArea(
-                            child: _WindowBrand(
-                              showTitle: context.width >= changePoint2,
-                              dark:
-                                  useDarkTheme ||
-                                  context.brightness == Brightness.dark,
-                            ),
-                          ),
-                          Expanded(
-                            child: Row(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                  ),
+                ),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: Theme(
+                  data: Theme.of(
+                    context,
+                  ).copyWith(brightness: useDarkTheme ? Brightness.dark : null),
+                  child: Builder(
+                    builder: (context) {
+                      return SizedBox(
+                        height: _kTitleBarHeight,
+                        child: Stack(
+                          children: [
+                            Row(
                               children: [
-                                Expanded(
+                                if (App.isMacOS)
+                                  const DragToMoveArea(
+                                    child: SizedBox(
+                                      height: double.infinity,
+                                      width: 16,
+                                    ),
+                                  ).paddingRight(52)
+                                else
+                                  const SizedBox(width: 8),
+                                if (!App.isMacOS) const DesktopInlineMenuBar(),
+                                if (App.isMacOS) const SizedBox(width: 12),
+                                const Expanded(
                                   child: DragToMoveArea(
-                                    child: const SizedBox.expand(),
+                                    child: SizedBox.expand(),
                                   ),
                                 ),
-                                const DesktopSearchBox(),
-                                Expanded(
-                                  child: DragToMoveArea(
-                                    child: const SizedBox.expand(),
+                                const DesktopLayoutControls(),
+                                if (kDebugMode && widget.debugAction != null)
+                                  TextButton(
+                                    onPressed: widget.debugAction,
+                                    child: Text('Debug'),
                                   ),
-                                ),
+                                if (!App.isMacOS)
+                                  _WindowButtons(onClose: _onClose),
                               ],
                             ),
-                          ),
-                          const DesktopLayoutControls(),
-                          if (kDebugMode && widget.debugAction != null)
-                            TextButton(
-                              onPressed: widget.debugAction,
-                              child: Text('Debug'),
+                            // Keep the command center at the exact window
+                            // centre instead of centring inside the remaining
+                            // space after the menus/buttons.
+                            const Positioned.fill(
+                              child: Center(child: DesktopSearchBox()),
                             ),
-                          if (!App.isMacOS) _WindowButtons(onClose: _onClose),
-                        ],
-                      ),
-                    );
-                  },
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
@@ -551,50 +549,6 @@ class _WindowFrameState extends State<WindowFrame> with WindowListener {
                     ),
                   ),
                 ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WindowBrand extends StatelessWidget {
-  const _WindowBrand({required this.showTitle, required this.dark});
-
-  final bool showTitle;
-  final bool dark;
-
-  @override
-  Widget build(BuildContext context) {
-    final foreground = dark ? Colors.white : Colors.black;
-    final title = Text(
-      'VeneraNext-Dev',
-      style: TextStyle(fontSize: 13, color: foreground),
-      overflow: TextOverflow.ellipsis,
-      maxLines: 1,
-    );
-    final logo = Image.asset(
-      'assets/app_icon.png',
-      width: 24,
-      height: 24,
-      filterQuality: FilterQuality.medium,
-    );
-
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Semantics(
-        label: 'VeneraNext-Dev',
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 32),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              logo,
-              if (showTitle) ...[
-                const SizedBox(width: 8),
-                Flexible(child: title),
-              ],
             ],
           ),
         ),

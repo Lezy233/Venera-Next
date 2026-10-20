@@ -32,15 +32,15 @@ void main() {
     expect(find.byType(Image), findsNWidgets(2));
   });
 
-  testWidgets('search box runs the context search action', (tester) async {
+  testWidgets('search box accepts text and reports the query', (tester) async {
     tester.view.physicalSize = const Size(1400, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final chrome = DesktopChromeController();
     addTearDown(chrome.dispose);
-    var tapped = 0;
-    chrome.setFavoritesSearch(() => tapped++);
+    final queries = <String>[];
+    chrome.setFavoritesSearchQuery(queries.add);
 
     await tester.pumpWidget(
       DesktopChromeScope(
@@ -51,8 +51,11 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('Search'), findsOneWidget);
-    await tester.tap(find.byType(InkWell));
-    expect(tapped, 1);
+    final field = find.byType(TextField);
+    expect(field, findsOneWidget);
+    await tester.enterText(field, 'hello');
+    expect(queries.last, 'hello');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    expect(queries.last, 'hello');
   });
 }

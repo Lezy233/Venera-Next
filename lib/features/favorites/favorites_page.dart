@@ -157,7 +157,6 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
                       width: SidebarResizeHandle.width,
                       child: SidebarResizeHandle(
                         expanded: !leftBarCollapsed,
-                        onToggle: _toggleLeftBar,
                         onDrag: _resizeLeftBar,
                         onDragEnd: _finishLeftBarResize,
                       ),

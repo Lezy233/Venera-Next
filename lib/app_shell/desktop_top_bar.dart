@@ -105,28 +105,43 @@ class DesktopSearchBox extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Material(
-        color: scheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(13),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(13),
-          onTap: chrome.openSearchAction,
-          child: Container(
-            width: 320,
-            height: 26,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Row(
-              children: [
-                Icon(Icons.search, size: 14, color: scheme.onSurfaceVariant),
-                const SizedBox(width: 6),
-                Text(
-                  'Search'.tl,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
+      child: SizedBox(
+        width: 320,
+        height: 26,
+        child: TextField(
+          controller: chrome.searchController,
+          focusNode: chrome.searchFocusNode,
+          style: const TextStyle(fontSize: 12),
+          textInputAction: TextInputAction.search,
+          onChanged: chrome.updateSearchQuery,
+          onSubmitted: chrome.submitSearch,
+          // The title bar has no Overlay ancestor; disable the desktop
+          // selection toolbar/magnifier so typing never needs one.
+          contextMenuBuilder: (context, editableTextState) =>
+              const SizedBox.shrink(),
+          magnifierConfiguration: TextMagnifierConfiguration.disabled,
+          decoration: InputDecoration(
+            isDense: true,
+            filled: true,
+            fillColor: scheme.surfaceContainerHigh,
+            hintText: 'Search'.tl,
+            hintStyle: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+            prefixIcon: Icon(
+              Icons.search,
+              size: 14,
+              color: scheme.onSurfaceVariant,
+            ),
+            prefixIconConstraints: const BoxConstraints(
+              minWidth: 28,
+              minHeight: 24,
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 4,
+              horizontal: 8,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(13),
+              borderSide: BorderSide.none,
             ),
           ),
         ),

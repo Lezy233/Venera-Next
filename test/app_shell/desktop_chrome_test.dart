@@ -5,21 +5,19 @@ void main() {
   test('search shortcut prefers reader, then favorites, then global', () {
     final chrome = DesktopChromeController();
     var global = 0;
-    var favorites = 0;
     var reader = 0;
+    final queries = <String>[];
     chrome.bindGlobalActions(
       openSettings: () {},
       openSearch: () => global++,
       navigate: (_) {},
       back: () {},
     );
-    chrome.openSearchAction();
-    expect(global, 1);
 
-    chrome.setFavoritesSearch(() => favorites++);
-    chrome.openSearchAction();
-    expect(global, 1);
-    expect(favorites, 1);
+    chrome.setFavoritesSearchQuery(queries.add);
+    chrome.submitSearch('favorites');
+    expect(queries, ['favorites']);
+    expect(global, 0);
 
     chrome.setReaderActions(
       DesktopReaderActions(
@@ -30,11 +28,13 @@ void main() {
     );
     chrome.openSearchAction();
     expect(reader, 1);
-    expect(favorites, 1);
+    chrome.submitSearch('still-favorites');
+    expect(queries.last, 'still-favorites');
 
+    chrome.setFavoritesSearchQuery(null);
+    chrome.submitSearch('global');
+    expect(global, 1);
     chrome.setReaderActions(null);
-    chrome.openSearchAction();
-    expect(favorites, 2);
   });
 
   test('settings shortcut prefers reader settings', () {
