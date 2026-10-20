@@ -534,22 +534,6 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    "Filter".tl,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
           Expanded(
             child: Column(
               children: [
@@ -1046,75 +1030,75 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                   ),
                 ),
               const FavoriteDisplayButton(),
-              Tooltip(
-                message: "Filter".tl,
-                child: IconButton(
-                  icon: const Icon(Icons.sort_rounded),
-                  color:
-                      readFilterSelect != readFilterList[0] ||
-                          authorFilters.isNotEmpty ||
-                          tagFilters.isNotEmpty ||
-                          !isManualFavoriteSort(sortMode)
-                      ? context.colorScheme.primaryContainer
-                      : null,
-                  onPressed: () {
-                    if (context.width > _kFilterPanelBreakpoint) {
-                      _toggleFilterPanel();
-                      return;
-                    }
-                    if (App.isMobile) {
-                      _showFilterSheet();
-                      return;
-                    }
-                    final folder = widget.folder;
-                    final request = ++_filterRequest;
-                    final availableAuthors = _availableAuthors();
-                    final availableTags = _availableTags();
-                    showDialog(
-                      context: context,
-                      builder: (context) {
-                        return _LocalFavoritesFilterDialog(
-                          folder: folder,
-                          initReadFilterSelect: readFilterSelect,
-                          initSortMode: sortMode,
-                          initAuthors: authorFilters,
-                          initTags: tagFilters,
-                          availableAuthors: availableAuthors,
-                          availableTags: availableTags,
-                          updateConfig:
-                              (readFilter, nextSortMode, authors, tags) {
-                                if (!mounted ||
-                                    widget.folder != folder ||
-                                    request != _filterRequest) {
-                                  return;
-                                }
-                                setState(() {
-                                  readFilterSelect = readFilter;
-                                  sortMode = nextSortMode;
-                                  authorFilters = authors;
-                                  tagFilters = tags;
-                                });
-                                updateComics();
-                              },
-                        );
-                      },
-                    );
-                  },
+              // Narrow layouts no longer have the top-bar search box/panel
+              // toggle, so keep the original inline actions there.
+              if (context.width <= _kFilterPanelBreakpoint)
+                Tooltip(
+                  message: "Filter".tl,
+                  child: IconButton(
+                    icon: const Icon(Icons.sort_rounded),
+                    color:
+                        readFilterSelect != readFilterList[0] ||
+                            authorFilters.isNotEmpty ||
+                            tagFilters.isNotEmpty ||
+                            !isManualFavoriteSort(sortMode)
+                        ? context.colorScheme.primaryContainer
+                        : null,
+                    onPressed: () {
+                      if (App.isMobile) {
+                        _showFilterSheet();
+                        return;
+                      }
+                      final folder = widget.folder;
+                      final request = ++_filterRequest;
+                      final availableAuthors = _availableAuthors();
+                      final availableTags = _availableTags();
+                      showDialog(
+                        context: context,
+                        builder: (context) {
+                          return _LocalFavoritesFilterDialog(
+                            folder: folder,
+                            initReadFilterSelect: readFilterSelect,
+                            initSortMode: sortMode,
+                            initAuthors: authorFilters,
+                            initTags: tagFilters,
+                            availableAuthors: availableAuthors,
+                            availableTags: availableTags,
+                            updateConfig:
+                                (readFilter, nextSortMode, authors, tags) {
+                                  if (!mounted ||
+                                      widget.folder != folder ||
+                                      request != _filterRequest) {
+                                    return;
+                                  }
+                                  setState(() {
+                                    readFilterSelect = readFilter;
+                                    sortMode = nextSortMode;
+                                    authorFilters = authors;
+                                    tagFilters = tags;
+                                  });
+                                  updateComics();
+                                },
+                          );
+                        },
+                      );
+                    },
+                  ),
                 ),
-              ),
-              Tooltip(
-                message: "Search".tl,
-                child: IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: () {
-                    setState(() {
-                      keyword = "";
-                      searchMode = true;
-                      updateSearchResult();
-                    });
-                  },
+              if (context.width <= _kFilterPanelBreakpoint)
+                Tooltip(
+                  message: "Search".tl,
+                  child: IconButton(
+                    icon: const Icon(Icons.search),
+                    onPressed: () {
+                      setState(() {
+                        keyword = "";
+                        searchMode = true;
+                        updateSearchResult();
+                      });
+                    },
+                  ),
                 ),
-              ),
               if (!isAllFolder)
                 MenuButton(
                   entries: [

@@ -124,14 +124,6 @@ class _MainPageState extends State<MainPage> {
         });
       },
       paneActions: [
-        if (index != 0)
-          PaneActionEntry(
-            icon: Icons.search,
-            label: "Search".tl,
-            onTap: () {
-              to(() => const SearchPage(), preventDuplicate: true);
-            },
-          ),
         PaneActionEntry(
           icon: Icons.settings,
           label: "Settings".tl,

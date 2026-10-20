@@ -415,14 +415,29 @@ class _WindowFrameState extends State<WindowFrame> with WindowListener {
                             const SizedBox(width: 8),
                           if (!App.isMacOS) const DesktopInlineMenuBar(),
                           if (App.isMacOS) const SizedBox(width: 12),
+                          DragToMoveArea(
+                            child: _WindowBrand(
+                              showTitle: context.width >= changePoint2,
+                              dark:
+                                  useDarkTheme ||
+                                  context.brightness == Brightness.dark,
+                            ),
+                          ),
                           Expanded(
-                            child: DragToMoveArea(
-                              child: _WindowBrand(
-                                showTitle: context.width >= changePoint2,
-                                dark:
-                                    useDarkTheme ||
-                                    context.brightness == Brightness.dark,
-                              ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: DragToMoveArea(
+                                    child: const SizedBox.expand(),
+                                  ),
+                                ),
+                                const DesktopSearchBox(),
+                                Expanded(
+                                  child: DragToMoveArea(
+                                    child: const SizedBox.expand(),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           const DesktopLayoutControls(),

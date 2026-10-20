@@ -29,7 +29,30 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    expect(find.byIcon(Icons.dashboard_customize_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.vertical_split), findsNWidgets(2));
+    expect(find.byType(Image), findsNWidgets(2));
+  });
+
+  testWidgets('search box runs the context search action', (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final chrome = DesktopChromeController();
+    addTearDown(chrome.dispose);
+    var tapped = 0;
+    chrome.setFavoritesSearch(() => tapped++);
+
+    await tester.pumpWidget(
+      DesktopChromeScope(
+        controller: chrome,
+        child: const MaterialApp(
+          home: Scaffold(body: Center(child: DesktopSearchBox())),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Search'), findsOneWidget);
+    await tester.tap(find.byType(InkWell));
+    expect(tapped, 1);
   });
 }

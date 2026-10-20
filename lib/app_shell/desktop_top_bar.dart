@@ -19,11 +19,13 @@ class DesktopLayoutControls extends StatelessWidget {
     return ListenableBuilder(
       listenable: chrome,
       builder: (context, _) {
-        if (!chrome.favoritesActive) return const SizedBox.shrink();
+        if (!chrome.favoritesActive ||
+            (!chrome.leftAvailable && !chrome.rightAvailable)) {
+          return const SizedBox.shrink();
+        }
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _LayoutMenuButton(chrome: chrome),
             if (chrome.leftAvailable)
               _SidebarToggleButton(
                 tooltip: 'Toggle left sidebar'.tl,
@@ -63,13 +65,18 @@ class _SidebarToggleButton extends StatelessWidget {
     final color = expanded
         ? Theme.of(context).colorScheme.primary
         : Theme.of(context).colorScheme.onSurfaceVariant;
-    final icon = Icon(
-      Icons.vertical_split,
-      size: _kTopBarIconSize,
+    final icon = Image.asset(
+      mirrored
+          ? 'assets/vscode_layout_sidebar_right.png'
+          : 'assets/vscode_layout_sidebar_left.png',
+      width: _kTopBarIconSize,
+      height: _kTopBarIconSize,
       color: color,
+      colorBlendMode: BlendMode.srcIn,
+      filterQuality: FilterQuality.high,
     );
-    // The title bar sits above MaterialApp's Overlay, so Tooltip (and tooltips
-    // on PopupMenuButton) cannot be used here.
+    // The title bar sits above MaterialApp's Overlay, so Tooltip cannot be
+    // used here.
     return Semantics(
       label: tooltip,
       button: true,
@@ -78,43 +85,52 @@ class _SidebarToggleButton extends StatelessWidget {
         constraints: const BoxConstraints.tightFor(width: 30, height: 30),
         iconSize: _kTopBarIconSize,
         onPressed: onTap,
-        icon: mirrored ? Transform.flip(flipX: true, child: icon) : icon,
+        icon: icon,
       ),
     );
   }
 }
 
-class _LayoutMenuButton extends StatelessWidget {
-  const _LayoutMenuButton({required this.chrome});
-
-  final DesktopChromeController chrome;
+/// VSCode-style command center placeholder. Clicking it runs the context
+/// search action (favorites search, reader chapter list or global search).
+class DesktopSearchBox extends StatelessWidget {
+  const DesktopSearchBox({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<int>(
-      tooltip: '',
-      padding: EdgeInsets.zero,
-      iconSize: _kTopBarIconSize,
-      icon: const Icon(Icons.dashboard_customize_outlined),
-      constraints: const BoxConstraints(minWidth: 180),
-      onSelected: (value) {
-        if (value == 0) chrome.toggleLeftSidebar();
-        if (value == 1) chrome.toggleRightSidebar();
-      },
-      itemBuilder: (context) => [
-        CheckedPopupMenuItem(
-          value: 0,
-          enabled: chrome.leftAvailable,
-          checked: chrome.leftExpanded,
-          child: Text('Left sidebar'.tl),
+    final chrome = DesktopChromeScope.maybeOf(context);
+    if (chrome == null || MediaQuery.sizeOf(context).width < 900) {
+      return const SizedBox.shrink();
+    }
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Material(
+        color: scheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(13),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(13),
+          onTap: chrome.openSearchAction,
+          child: Container(
+            width: 320,
+            height: 26,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Row(
+              children: [
+                Icon(Icons.search, size: 14, color: scheme.onSurfaceVariant),
+                const SizedBox(width: 6),
+                Text(
+                  'Search'.tl,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        CheckedPopupMenuItem(
-          value: 1,
-          enabled: chrome.rightAvailable,
-          checked: chrome.rightExpanded,
-          child: Text('Right sidebar'.tl),
-        ),
-      ],
+      ),
     );
   }
 }
