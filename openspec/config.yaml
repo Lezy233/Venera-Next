@@ -1,0 +1,57 @@
+schema: spec-driven
+
+context: |
+  Language: zh-CN
+  All artifacts must be written in zh-CN.
+  Keep OpenSpec structural headings and SHALL/MUST keywords in English.
+  Project: Venera-Next, a Flutter comic reader forked from venera-next.
+  This fork has DIVERGED from upstream: do not preserve upstream file structure
+  or behavior for its own sake; restructuring is allowed and expected.
+  Primary target platform is desktop (Windows/macOS/Linux); mobile layouts
+  must keep working but are no longer the design center.
+  Team workflow: Kimi plans changes (propose/spec/design/tasks), the executor
+  agent (dsh / deepseek-v4.1f) implements and debugs (apply), the human owner
+  accepts and archives. Executor agents MUST NOT modify proposal/spec/design
+  artifacts without the planner's approval; update tasks.md checkboxes as work
+  progresses; run `flutter analyze` before reporting done.
+  UI strings must go through the `.tl` translation system and add zh_CN/zh_TW
+  entries in assets/translation.json for every new user-visible string.
+
+rules:
+  tasks:
+    - Break tasks into chunks executable by a coding agent in one session
+    - Mark finished tasks with [x] immediately; do not batch updates
+  proposal:
+    - Always state what is out of scope
+
+operations:
+  apply:
+    guidance:
+      - Run `flutter analyze` on changed files before reporting a task done
+      - Keep unrelated refactors out of the change; note them for a future change
+  archive:
+    guidance:
+      - Summarize the archive outcome before finishing
+      - Confirm the human owner has accepted the change before archiving
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
