@@ -103,6 +103,12 @@ class DesktopSearchBox extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final scheme = Theme.of(context).colorScheme;
+    final isReader = chrome.readerActions != null;
+    final hint = isReader
+        ? "Search chapters".tl
+        : chrome.favoritesActive
+        ? "Search favorites".tl
+        : "Search".tl;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: SizedBox(
@@ -119,7 +125,7 @@ class DesktopSearchBox extends StatelessWidget {
             isDense: true,
             filled: true,
             fillColor: scheme.surfaceContainerHigh,
-            hintText: 'Search'.tl,
+            hintText: hint,
             hintStyle: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
             prefixIcon: Icon(
               Icons.search,

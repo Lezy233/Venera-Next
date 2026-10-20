@@ -64,11 +64,18 @@ class _SettingsPageState extends State<SettingsPage> {
     return Material(child: buildBody());
   }
 
+  /// In desktop two-pane mode always land on a category instead of a blank pane.
+  int get _effectivePage => enableTwoViews && currentPage == -1 ? 0 : currentPage;
+
   Widget buildBody() {
     if (enableTwoViews) {
       return Row(
         children: [
-          SizedBox(width: 280, height: double.infinity, child: buildLeft()),
+          SizedBox(
+            width: 280,
+            height: double.infinity,
+            child: buildLeft(_effectivePage),
+          ),
           Container(
             height: double.infinity,
             decoration: BoxDecoration(
@@ -110,17 +117,17 @@ class _SettingsPageState extends State<SettingsPage> {
                   },
                 );
               },
-              child: buildRight(),
+              child: buildRight(_effectivePage),
             ),
           ),
         ],
       );
     } else {
-      return buildLeft();
+      return buildLeft(_effectivePage);
     }
   }
 
-  Widget buildLeft() {
+  Widget buildLeft(int selectedPage) {
     return Material(
       child: Column(
         children: [
@@ -143,15 +150,15 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           const SizedBox(height: 4),
-          Expanded(child: buildCategories()),
+          Expanded(child: buildCategories(selectedPage)),
         ],
       ),
     );
   }
 
-  Widget buildCategories() {
+  Widget buildCategories(int selectedPage) {
     Widget buildItem(String name, int id) {
-      final bool selected = id == currentPage;
+      final bool selected = id == selectedPage;
 
       Widget content = AnimatedContainer(
         key: ValueKey(id),
@@ -203,15 +210,16 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget buildRight() {
-    if (currentPage == -1) {
+  Widget buildRight(int page) {
+    if (page == -1) {
       return const SizedBox();
     }
     return Navigator(
+      key: ValueKey(page),
       onGenerateRoute: (settings) {
         return PageRouteBuilder(
           pageBuilder: (context, animation, secondaryAnimation) {
-            return _buildSettingsContent(currentPage);
+            return _buildSettingsContent(page);
           },
           transitionDuration: Duration.zero,
         );

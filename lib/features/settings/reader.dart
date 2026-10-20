@@ -304,29 +304,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
                 Divider().toSliver(),
               ],
             ),
-          _thumbnailSettings(),
+          SettingPartTitle(title: "Reading Mode".tl, icon: Icons.view_module),
           _modeSettings(),
-          const Divider().toSliver(),
-          SwitchSetting.reader(
-            title: "Tap to turn Pages".tl,
-            preference: ReaderPreferences.enableTapToTurnPages,
-            onChanged: () {
-              widget.onChanged?.call("enableTapToTurnPages");
-            },
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
-          ).toSliver(),
-          SwitchSetting.reader(
-            title: "Reverse tap to turn Pages".tl,
-            preference: ReaderPreferences.reverseTapToTurnPages,
-            onChanged: () {
-              widget.onChanged?.call("reverseTapToTurnPages");
-            },
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
-          ).toSliver(),
+          SettingPartTitle(title: "Display".tl, icon: Icons.brightness_6),
           SwitchSetting.reader(
             title: "Page animation".tl,
             preference: ReaderPreferences.enablePageAnimation,
@@ -344,69 +324,47 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
             onChanged: widget.onChanged,
           ).toSliver(),
           SwitchSetting.reader(
-            title: "E-Ink display refresh".tl,
-            subtitle:
-                "Flash the screen after page changes to reduce ghosting on E-Ink displays. Only applies to Gallery modes."
-                    .tl,
-            preference: ReaderPreferences.eInkRefreshEnabled,
+            title: "Show Page Number".tl,
+            preference: ReaderPreferences.showPageNumberInReader,
             onChanged: () {
-              setState(() {});
-              widget.onChanged?.call("eInkRefreshEnabled");
+              widget.onChanged?.call("showPageNumberInReader");
             },
             comicId: isEnabledSpecificSettings ? widget.comicId : null,
             comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
             useDeviceSettings: useDeviceSpecificSettings,
           ).toSliver(),
+          SwitchSetting.reader(
+            title: 'Show image pixel dimensions'.tl,
+            preference: ReaderPreferences.showImageDimensions,
+            onChanged: () => widget.onChanged?.call('showImageDimensions'),
+            comicId: isEnabledSpecificSettings ? widget.comicId : null,
+            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
+            useDeviceSettings: useDeviceSpecificSettings,
+          ).toSliver(),
+          SwitchSetting.reader(
+            title: "Show Chapter Comments".tl,
+            preference: ReaderPreferences.showChapterComments,
+            onChanged: _onShowChapterCommentsChanged,
+            comicId: isEnabledSpecificSettings ? widget.comicId : null,
+            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
+            useDeviceSettings: useDeviceSpecificSettings,
+          ).toSliver(),
           SliverAnimatedVisibility(
-            visible: _value(ReaderPreferences.eInkRefreshEnabled) == true,
-            child: Column(
-              children: [
-                SliderSetting.reader(
-                  title: "Refresh flash duration".tl,
-                  preference: ReaderPreferences.eInkRefreshDuration,
-                  valueFormatter: (value) => '${value.toInt()} ms',
-                  onChanged: () {
-                    widget.onChanged?.call("eInkRefreshDuration");
-                  },
-                  comicId: isEnabledSpecificSettings ? widget.comicId : null,
-                  comicSource: isEnabledSpecificSettings
-                      ? widget.comicSource
-                      : null,
-                  useDeviceSettings: useDeviceSpecificSettings,
-                ),
-                SliderSetting.reader(
-                  title: "Refresh interval".tl,
-                  preference: ReaderPreferences.eInkRefreshInterval,
-                  valueFormatter: (value) => value.toInt().toString(),
-                  onChanged: () {
-                    widget.onChanged?.call("eInkRefreshInterval");
-                  },
-                  comicId: isEnabledSpecificSettings ? widget.comicId : null,
-                  comicSource: isEnabledSpecificSettings
-                      ? widget.comicSource
-                      : null,
-                  useDeviceSettings: useDeviceSpecificSettings,
-                ),
-                SelectSetting.reader(
-                  title: "Refresh flash style".tl,
-                  preference: ReaderPreferences.eInkRefreshStyle,
-                  optionTranslation: {
-                    "black": "Black".tl,
-                    "white": "White".tl,
-                    "whiteThenBlack": "White then black".tl,
-                  },
-                  onChanged: () {
-                    widget.onChanged?.call("eInkRefreshStyle");
-                  },
-                  comicId: isEnabledSpecificSettings ? widget.comicId : null,
-                  comicSource: isEnabledSpecificSettings
-                      ? widget.comicSource
-                      : null,
-                  useDeviceSettings: useDeviceSpecificSettings,
-                ),
-              ],
+            visible: _isChapterCommentsAtEndSupported(),
+            child: SwitchSetting.reader(
+              title: "Show Comments at Chapter End".tl,
+              preference: ReaderPreferences.showChapterCommentsAtEnd,
+              onChanged: () {
+                widget.onChanged?.call("showChapterCommentsAtEnd");
+              },
+              comicId: isEnabledSpecificSettings ? widget.comicId : null,
+              comicSource: isEnabledSpecificSettings
+                  ? widget.comicSource
+                  : null,
+              useDeviceSettings: useDeviceSpecificSettings,
             ),
           ),
+          SettingPartTitle(title: "Auto Reading".tl, icon: Icons.play_circle_outline),
           SliderSetting.reader(
             title: "Auto page turning interval (gallery)".tl,
             preference: ReaderPreferences.autoPageTurningInterval,
@@ -515,61 +473,29 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
                   : null,
               useDeviceSettings: useDeviceSpecificSettings,
             ).toSliver(),
-          SliverAnimatedVisibility(
-            visible: _usesMode((mode) => mode.startsWith('gallery')),
-            child: SliderSetting.reader(
-              title:
-                  "The number of pic in screen for landscape (Only Gallery Mode)"
-                      .tl,
-              preference: ReaderPreferences.readerScreenPicNumberForLandscape,
-              onChanged: () {
-                setState(() {});
-                widget.onChanged?.call("readerScreenPicNumberForLandscape");
-              },
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
-            ),
-          ),
-          SliverAnimatedVisibility(
-            visible: _usesMode((mode) => mode.startsWith('gallery')),
-            child: SliderSetting.reader(
-              title:
-                  "The number of pic in screen for portrait (Only Gallery Mode)"
-                      .tl,
-              preference: ReaderPreferences.readerScreenPicNumberForPortrait,
-              onChanged: () {
-                widget.onChanged?.call("readerScreenPicNumberForPortrait");
-              },
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
-            ),
-          ),
-          SliverAnimatedVisibility(
-            visible:
-                _usesMode((mode) => mode.startsWith('gallery')) &&
-                (_value(ReaderPreferences.readerScreenPicNumberForLandscape) >
-                        1 ||
-                    _value(ReaderPreferences.readerScreenPicNumberForPortrait) >
-                        1),
-            child: SwitchSetting.reader(
-              title: "Show single image on first page".tl,
-              preference: ReaderPreferences.showSingleImageOnFirstPage,
-              onChanged: () {
-                widget.onChanged?.call("showSingleImageOnFirstPage");
-              },
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
-            ),
-          ),
+          SettingPartTitle(title: "Thumbnails".tl, icon: Icons.view_sidebar),
+          _thumbnailSettings(),
+          SettingPartTitle(title: "Gestures".tl, icon: Icons.gesture),
+          SwitchSetting.reader(
+            title: "Tap to turn Pages".tl,
+            preference: ReaderPreferences.enableTapToTurnPages,
+            onChanged: () {
+              widget.onChanged?.call("enableTapToTurnPages");
+            },
+            comicId: isEnabledSpecificSettings ? widget.comicId : null,
+            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
+            useDeviceSettings: useDeviceSpecificSettings,
+          ).toSliver(),
+          SwitchSetting.reader(
+            title: "Reverse tap to turn Pages".tl,
+            preference: ReaderPreferences.reverseTapToTurnPages,
+            onChanged: () {
+              widget.onChanged?.call("reverseTapToTurnPages");
+            },
+            comicId: isEnabledSpecificSettings ? widget.comicId : null,
+            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
+            useDeviceSettings: useDeviceSpecificSettings,
+          ).toSliver(),
           SliverAnimatedVisibility(
             visible: _usesMode(
               (mode) =>
@@ -623,6 +549,93 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
               optionTranslation: {
                 "press": "Press position".tl,
                 "center": "Screen center".tl,
+              },
+              comicId: isEnabledSpecificSettings ? widget.comicId : null,
+              comicSource: isEnabledSpecificSettings
+                  ? widget.comicSource
+                  : null,
+              useDeviceSettings: useDeviceSpecificSettings,
+            ),
+          ),
+          if (App.isAndroid)
+            SwitchSetting.reader(
+              title: 'Turn page by volume keys'.tl,
+              preference: ReaderPreferences.enableTurnPageByVolumeKey,
+              onChanged: () {
+                widget.onChanged?.call('enableTurnPageByVolumeKey');
+              },
+              comicId: isEnabledSpecificSettings ? widget.comicId : null,
+              comicSource: isEnabledSpecificSettings
+                  ? widget.comicSource
+                  : null,
+              useDeviceSettings: useDeviceSpecificSettings,
+            ).toSliver(),
+          SelectSetting.reader(
+            title: "Quick collect image".tl,
+            preference: ReaderPreferences.quickCollectImage,
+            optionTranslation: {
+              "No": "Not enable".tl,
+              "DoubleTap": "Double Tap".tl,
+              "Swipe": "Swipe".tl,
+            },
+            onChanged: () {
+              widget.onChanged?.call("quickCollectImage");
+            },
+            help:
+                "On the image browsing page, you can quickly collect images by sliding horizontally or vertically according to your reading mode"
+                    .tl,
+            comicId: isEnabledSpecificSettings ? widget.comicId : null,
+            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
+            useDeviceSettings: useDeviceSpecificSettings,
+          ).toSliver(),
+          SettingPartTitle(title: "Layout".tl, icon: Icons.view_quilt),
+          SliverAnimatedVisibility(
+            visible: _usesMode((mode) => mode.startsWith('gallery')),
+            child: SliderSetting.reader(
+              title:
+                  "The number of pic in screen for landscape (Only Gallery Mode)"
+                      .tl,
+              preference: ReaderPreferences.readerScreenPicNumberForLandscape,
+              onChanged: () {
+                setState(() {});
+                widget.onChanged?.call("readerScreenPicNumberForLandscape");
+              },
+              comicId: isEnabledSpecificSettings ? widget.comicId : null,
+              comicSource: isEnabledSpecificSettings
+                  ? widget.comicSource
+                  : null,
+              useDeviceSettings: useDeviceSpecificSettings,
+            ),
+          ),
+          SliverAnimatedVisibility(
+            visible: _usesMode((mode) => mode.startsWith('gallery')),
+            child: SliderSetting.reader(
+              title:
+                  "The number of pic in screen for portrait (Only Gallery Mode)"
+                      .tl,
+              preference: ReaderPreferences.readerScreenPicNumberForPortrait,
+              onChanged: () {
+                widget.onChanged?.call("readerScreenPicNumberForPortrait");
+              },
+              comicId: isEnabledSpecificSettings ? widget.comicId : null,
+              comicSource: isEnabledSpecificSettings
+                  ? widget.comicSource
+                  : null,
+              useDeviceSettings: useDeviceSpecificSettings,
+            ),
+          ),
+          SliverAnimatedVisibility(
+            visible:
+                _usesMode((mode) => mode.startsWith('gallery')) &&
+                (_value(ReaderPreferences.readerScreenPicNumberForLandscape) >
+                        1 ||
+                    _value(ReaderPreferences.readerScreenPicNumberForPortrait) >
+                        1),
+            child: SwitchSetting.reader(
+              title: "Show single image on first page".tl,
+              preference: ReaderPreferences.showSingleImageOnFirstPage,
+              onChanged: () {
+                widget.onChanged?.call("showSingleImageOnFirstPage");
               },
               comicId: isEnabledSpecificSettings ? widget.comicId : null,
               comicSource: isEnabledSpecificSettings
@@ -695,57 +708,71 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
               useDeviceSettings: useDeviceSpecificSettings,
             ),
           ),
-          if (App.isAndroid)
-            SwitchSetting.reader(
-              title: 'Turn page by volume keys'.tl,
-              preference: ReaderPreferences.enableTurnPageByVolumeKey,
-              onChanged: () {
-                widget.onChanged?.call('enableTurnPageByVolumeKey');
-              },
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
-            ).toSliver(),
+          SettingPartTitle(title: "Advanced".tl, icon: Icons.build),
           SwitchSetting.reader(
-            title: "Display time & battery info in reader".tl,
-            preference: ReaderPreferences.enableClockAndBatteryInfoInReader,
-            onChanged: () {
-              widget.onChanged?.call("enableClockAndBatteryInfoInReader");
-            },
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
-          ).toSliver(),
-          SwitchSetting.reader(
-            title: "Show system status bar".tl,
-            preference: ReaderPreferences.showSystemStatusBar,
-            onChanged: () {
-              widget.onChanged?.call("showSystemStatusBar");
-            },
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
-          ).toSliver(),
-          SelectSetting.reader(
-            title: "Quick collect image".tl,
-            preference: ReaderPreferences.quickCollectImage,
-            optionTranslation: {
-              "No": "Not enable".tl,
-              "DoubleTap": "Double Tap".tl,
-              "Swipe": "Swipe".tl,
-            },
-            onChanged: () {
-              widget.onChanged?.call("quickCollectImage");
-            },
-            help:
-                "On the image browsing page, you can quickly collect images by sliding horizontally or vertically according to your reading mode"
+            title: "E-Ink display refresh".tl,
+            subtitle:
+                "Flash the screen after page changes to reduce ghosting on E-Ink displays. Only applies to Gallery modes."
                     .tl,
+            preference: ReaderPreferences.eInkRefreshEnabled,
+            onChanged: () {
+              setState(() {});
+              widget.onChanged?.call("eInkRefreshEnabled");
+            },
             comicId: isEnabledSpecificSettings ? widget.comicId : null,
             comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
             useDeviceSettings: useDeviceSpecificSettings,
           ).toSliver(),
+          SliverAnimatedVisibility(
+            visible: _value(ReaderPreferences.eInkRefreshEnabled) == true,
+            child: Column(
+              children: [
+                SliderSetting.reader(
+                  title: "Refresh flash duration".tl,
+                  preference: ReaderPreferences.eInkRefreshDuration,
+                  valueFormatter: (value) => '${value.toInt()} ms',
+                  onChanged: () {
+                    widget.onChanged?.call("eInkRefreshDuration");
+                  },
+                  comicId: isEnabledSpecificSettings ? widget.comicId : null,
+                  comicSource: isEnabledSpecificSettings
+                      ? widget.comicSource
+                      : null,
+                  useDeviceSettings: useDeviceSpecificSettings,
+                ),
+                SliderSetting.reader(
+                  title: "Refresh interval".tl,
+                  preference: ReaderPreferences.eInkRefreshInterval,
+                  valueFormatter: (value) => value.toInt().toString(),
+                  onChanged: () {
+                    widget.onChanged?.call("eInkRefreshInterval");
+                  },
+                  comicId: isEnabledSpecificSettings ? widget.comicId : null,
+                  comicSource: isEnabledSpecificSettings
+                      ? widget.comicSource
+                      : null,
+                  useDeviceSettings: useDeviceSpecificSettings,
+                ),
+                SelectSetting.reader(
+                  title: "Refresh flash style".tl,
+                  preference: ReaderPreferences.eInkRefreshStyle,
+                  optionTranslation: {
+                    "black": "Black".tl,
+                    "white": "White".tl,
+                    "whiteThenBlack": "White then black".tl,
+                  },
+                  onChanged: () {
+                    widget.onChanged?.call("eInkRefreshStyle");
+                  },
+                  comicId: isEnabledSpecificSettings ? widget.comicId : null,
+                  comicSource: isEnabledSpecificSettings
+                      ? widget.comicSource
+                      : null,
+                  useDeviceSettings: useDeviceSpecificSettings,
+                ),
+              ],
+            ),
+          ),
           CallbackSetting(
             title: "Custom Image Processing".tl,
             callback: () => context.to(() => _CustomImageProcessing()),
@@ -758,47 +785,6 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
             comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
             useDeviceSettings: useDeviceSpecificSettings,
           ).toSliver(),
-          SwitchSetting.reader(
-            title: "Show Page Number".tl,
-            preference: ReaderPreferences.showPageNumberInReader,
-            onChanged: () {
-              widget.onChanged?.call("showPageNumberInReader");
-            },
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
-          ).toSliver(),
-          SwitchSetting.reader(
-            title: 'Show image pixel dimensions'.tl,
-            preference: ReaderPreferences.showImageDimensions,
-            onChanged: () => widget.onChanged?.call('showImageDimensions'),
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
-          ).toSliver(),
-          SwitchSetting.reader(
-            title: "Show Chapter Comments".tl,
-            preference: ReaderPreferences.showChapterComments,
-            onChanged: _onShowChapterCommentsChanged,
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
-          ).toSliver(),
-          SliverAnimatedVisibility(
-            visible: _isChapterCommentsAtEndSupported(),
-            child: SwitchSetting.reader(
-              title: "Show Comments at Chapter End".tl,
-              preference: ReaderPreferences.showChapterCommentsAtEnd,
-              onChanged: () {
-                widget.onChanged?.call("showChapterCommentsAtEnd");
-              },
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
-            ),
-          ),
         ],
       ),
     );
