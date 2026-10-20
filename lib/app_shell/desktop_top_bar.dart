@@ -115,11 +115,6 @@ class DesktopSearchBox extends StatelessWidget {
           textInputAction: TextInputAction.search,
           onChanged: chrome.updateSearchQuery,
           onSubmitted: chrome.submitSearch,
-          // The title bar has no Overlay ancestor; disable the desktop
-          // selection toolbar/magnifier so typing never needs one.
-          contextMenuBuilder: (context, editableTextState) =>
-              const SizedBox.shrink(),
-          magnifierConfiguration: TextMagnifierConfiguration.disabled,
           decoration: InputDecoration(
             isDense: true,
             filled: true,
