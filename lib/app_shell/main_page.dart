@@ -22,6 +22,10 @@ class MainPage extends StatefulWidget {
 }
 
 class _MainPageState extends State<MainPage> {
+  /// Tab order in [_pages] / [NaviPane.paneItems]. Favorites owns the shell
+  /// sidebar controls, so the shell needs to know when it is current.
+  static const _favoritesTabIndex = 1;
+
   late final NaviObserver _observer;
 
   GlobalKey<NavigatorState>? _navigatorKey;
@@ -29,6 +33,8 @@ class _MainPageState extends State<MainPage> {
   final _naviKey = GlobalKey<NaviPaneState>();
 
   DesktopChromeController? _chrome;
+
+  bool _chromeContextSyncScheduled = false;
 
   void to(Widget Function() widget, {bool preventDuplicate = false}) async {
     if (preventDuplicate) {
@@ -41,6 +47,7 @@ class _MainPageState extends State<MainPage> {
   @override
   void initState() {
     _observer = NaviObserver();
+    _observer.addListener(_scheduleChromeContextSync);
     _navigatorKey = GlobalKey();
     appNavigation.mainNavigatorKey = _navigatorKey;
     index = int.parse(
@@ -65,6 +72,7 @@ class _MainPageState extends State<MainPage> {
     super.didChangeDependencies();
     _chrome = DesktopChromeScope.maybeRead(context);
     _bindChrome();
+    _scheduleChromeContextSync();
   }
 
   void _bindChrome() {
@@ -80,8 +88,29 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
+  /// Favorites shell controls belong to the favorites tab only while its root
+  /// route is on top. The page itself stays mounted underneath pushed routes
+  /// (details, settings, search), so its lifecycle cannot own this state.
+  void _syncChromeContext() {
+    final chrome = _chrome;
+    final navi = _naviKey.currentState;
+    if (chrome == null || navi == null) return;
+    chrome.setFavoritesActive(navi.isTabRoot(_favoritesTabIndex));
+  }
+
+  void _scheduleChromeContextSync() {
+    if (_chromeContextSyncScheduled) return;
+    _chromeContextSyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _chromeContextSyncScheduled = false;
+      if (mounted) _syncChromeContext();
+    });
+  }
+
   @override
   void dispose() {
+    _observer.removeListener(_scheduleChromeContextSync);
+    _chrome?.setFavoritesActive(false);
     _chrome?.clearGlobalActions();
     super.dispose();
   }
@@ -89,7 +118,9 @@ class _MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _bindChrome();
+      if (!mounted) return;
+      _bindChrome();
+      _syncChromeContext();
     });
     return NaviPane(
       key: _naviKey,
@@ -122,6 +153,7 @@ class _MainPageState extends State<MainPage> {
         setState(() {
           index = i;
         });
+        _scheduleChromeContextSync();
       },
       paneActions: [
         PaneActionEntry(

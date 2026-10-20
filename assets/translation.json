@@ -944,6 +944,8 @@
     "GitHub Repository": "GitHub 仓库",
     "Toggle left sidebar": "展开/折叠左侧栏",
     "Toggle right sidebar": "展开/折叠右侧栏",
+    "Only available on Favorites": "仅收藏页可用",
+    "No sidebar on this page": "当前页面无可切换的侧栏",
     "Layout": "布局"
   },
   "zh_TW": {
@@ -1890,6 +1892,8 @@
     "GitHub Repository": "GitHub 儲存庫",
     "Toggle left sidebar": "展開/折疊左側欄",
     "Toggle right sidebar": "展開/折疊右側欄",
+    "Only available on Favorites": "僅收藏頁可用",
+    "No sidebar on this page": "目前頁面無可切換的側欄",
     "Layout": "版面"
   }
 }

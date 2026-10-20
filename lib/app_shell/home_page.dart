@@ -3,7 +3,8 @@ import 'package:venera_next/features/history/history_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:venera_next/components/scroll.dart';
 import 'package:venera_next/features/comic_source/comic_source.dart';
-import 'package:venera_next/foundation/consts.dart';
+import 'package:venera_next/design_system/breakpoints.dart';
+import 'package:venera_next/design_system/tokens.dart';
 import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/features/history/history.dart';
 import 'package:venera_next/features/favorites/favorites.dart';
@@ -36,6 +37,8 @@ class HomePage extends StatelessWidget {
         SliverPadding(padding: EdgeInsets.only(top: context.padding.bottom)),
       ],
     );
-    return context.width > changePoint ? widget.paddingHorizontal(8) : widget;
+    return !Breakpoints.isCompact(context)
+        ? widget.paddingHorizontal(AppSpacing.sm)
+        : widget;
   }
 }

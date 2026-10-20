@@ -175,6 +175,24 @@ flutter pub get --enforce-lockfile
 
 The Flutter/Dart version or package-source environment usually does not match. Check the Flutter version required by this guide and the output of `flutter doctor -v`; do not immediately delete the lock file.
 
+### macOS build fails with `NativeAssetsManifest.json references pdfium`
+
+The error looks like:
+
+```text
+Exception: The native assets specification at .../VeneraNext.app/Contents/Frameworks/App.framework/Resources/flutter_assets/NativeAssetsManifest.json references pdfium, which was not found in .../build/native_assets/macos/.
+```
+
+This is a stale native-assets build cache from `pdfrx` / `pdfium_dart`: the Xcode embed phase expects `build/native_assets/macos/pdfium.framework`, but the cached build never regenerated it. Clear the build cache and resolve dependencies again:
+
+```bash
+flutter clean
+flutter pub get --enforce-lockfile
+flutter run -d macos
+```
+
+PDFium native assets are produced by a build hook. Do not delete or replace files under `build/native_assets/` by hand. If the failure persists after cleaning, run `flutter run -d macos -v` to inspect the full Xcode embed phase output.
+
 ### Slow Gradle Downloads
 
 You may temporarily use a local Gradle wrapper mirror or configure a network proxy. Environment-specific URLs must not be committed. Before submitting changes, verify that `gradle-wrapper.properties` does not contain local mirror edits.

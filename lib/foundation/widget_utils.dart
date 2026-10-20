@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:venera_next/design_system/tokens.dart';
 
 extension WidgetExtension on Widget {
   Widget padding(EdgeInsetsGeometry padding) {
@@ -99,17 +100,17 @@ extension StyledText on TextStyle {
 
   TextStyle get overline => copyWith(decoration: TextDecoration.overline);
 
-  TextStyle get s10 => copyWith(fontSize: 10);
+  TextStyle get s10 => copyWith(fontSize: AppFontSize.caption);
 
-  TextStyle get s12 => copyWith(fontSize: 12);
+  TextStyle get s12 => copyWith(fontSize: AppFontSize.bodySmall);
 
-  TextStyle get s14 => copyWith(fontSize: 14);
+  TextStyle get s14 => copyWith(fontSize: AppFontSize.body);
 
-  TextStyle get s16 => copyWith(fontSize: 16);
+  TextStyle get s16 => copyWith(fontSize: AppFontSize.bodyLarge);
 
-  TextStyle get s18 => copyWith(fontSize: 18);
+  TextStyle get s18 => copyWith(fontSize: AppFontSize.title);
 
-  TextStyle get s20 => copyWith(fontSize: 20);
+  TextStyle get s20 => copyWith(fontSize: AppFontSize.titleLarge);
 
   TextStyle withColor(Color? color) => copyWith(color: color);
 }

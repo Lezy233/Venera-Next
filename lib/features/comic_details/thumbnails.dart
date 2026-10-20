@@ -11,10 +11,9 @@ import 'package:venera_next/components/button.dart';
 import 'package:venera_next/components/gesture.dart';
 import 'package:venera_next/components/image.dart';
 import 'package:venera_next/components/loading.dart';
+import 'package:venera_next/design_system/breakpoints.dart';
 import 'package:venera_next/features/comic_source/comic_source_api.dart'
     show ComicThumbnailLoader;
-import 'package:venera_next/foundation/consts.dart';
-import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/foundation/image_provider/cached_image.dart';
 import 'package:venera_next/foundation/translations.dart';
 
@@ -161,7 +160,7 @@ class _ComicThumbnailsState extends State<ComicThumbnails> {
                 ? null
                 : ImagePart(x1: crop.x1, x2: crop.x2, y1: crop.y1, y2: crop.y2);
             return Padding(
-              padding: context.width < changePoint
+              padding: Breakpoints.isCompact(context)
                   ? const EdgeInsets.all(4)
                   : const EdgeInsets.all(8),
               child: Column(

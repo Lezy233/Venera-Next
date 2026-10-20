@@ -47,7 +47,7 @@ import 'package:venera_next/foundation/log.dart';
 import 'package:venera_next/foundation/navigation_admission.dart';
 import 'package:venera_next/foundation/appdata.dart';
 import 'package:venera_next/foundation/comic_type.dart';
-import 'package:venera_next/foundation/consts.dart';
+import 'package:venera_next/design_system/breakpoints.dart';
 import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/foundation/opencc.dart';
 import 'package:venera_next/foundation/translations.dart';
@@ -955,7 +955,7 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
       slivers: [
         if (!searchMode && !multiSelectMode)
           SliverAppbar(
-            style: context.width < changePoint
+            style: Breakpoints.isCompact(context)
                 ? AppbarStyle.shadow
                 : AppbarStyle.blur,
             leading: Tooltip(
@@ -1231,7 +1231,7 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
           )
         else if (multiSelectMode)
           SliverAppbar(
-            style: context.width < changePoint
+            style: Breakpoints.isCompact(context)
                 ? AppbarStyle.shadow
                 : AppbarStyle.blur,
             leading: Tooltip(
@@ -1382,7 +1382,7 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
           )
         else if (searchMode)
           SliverAppbar(
-            style: context.width < changePoint
+            style: Breakpoints.isCompact(context)
                 ? AppbarStyle.shadow
                 : AppbarStyle.blur,
             leading: Tooltip(

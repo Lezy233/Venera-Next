@@ -3,9 +3,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:venera_next/design_system/breakpoints.dart';
+import 'package:venera_next/design_system/tokens.dart';
 import 'package:venera_next/foundation/app.dart';
 import 'package:venera_next/foundation/app_page_route.dart';
-import 'package:venera_next/foundation/consts.dart';
 import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/foundation/edge_back_gesture.dart';
 import 'package:venera_next/foundation/widget_utils.dart';
@@ -86,6 +87,13 @@ class NaviPaneState extends State<NaviPane>
 
   int get currentPage => _currentPage;
 
+  /// Whether [index] is the current tab and no page is pushed above it.
+  ///
+  /// Shell controls that belong to a tab must be disabled while a detail,
+  /// settings or search page is on top, even though the tab remains mounted.
+  bool isTabRoot(int index) =>
+      currentPage == index && widget.observer.routes.length <= 1;
+
   set currentPage(int value) {
     if (value == _currentPage) return;
     _currentPage = value;
@@ -106,11 +114,11 @@ class NaviPaneState extends State<NaviPane>
     _naviItemTapListeners.remove(listener);
   }
 
-  static const _kBottomBarHeight = 58.0;
+  static const _kBottomBarHeight = AppSizes.navBottomBarHeight;
 
-  static const _kSideBarWidth = 48.0;
+  static const _kSideBarWidth = AppSizes.navSideRailWidth;
 
-  static const _kTopBarHeight = 48.0;
+  static const _kTopBarHeight = AppSizes.navTopBarHeight;
 
   void onNavigatorStateChange() {
     onRebuild(context);
@@ -170,15 +178,11 @@ class NaviPaneState extends State<NaviPane>
   }
 
   double targetFormContext(BuildContext context) {
-    var width = MediaQuery.of(context).size.width;
-    double target = 0;
-    if (width > changePoint) {
-      target = 2;
-    }
-    if (width > changePoint2) {
-      target = 3;
-    }
-    return target;
+    return switch (Breakpoints.of(context)) {
+      WindowSizeClass.compact => 0,
+      WindowSizeClass.medium => 2,
+      WindowSizeClass.expanded => 3,
+    };
   }
 
   double? animationTarget;
@@ -216,7 +220,7 @@ class NaviPaneState extends State<NaviPane>
           SystemNavigator.pop();
         }
       },
-      popGesture: App.isIOS && context.width >= changePoint,
+      popGesture: App.isIOS && !Breakpoints.isCompact(context),
       child: AnimatedBuilder(
         animation: controller,
         builder: (context, child) {
@@ -288,15 +292,12 @@ class NaviPaneState extends State<NaviPane>
   Widget buildTop() {
     return Material(
       child: Container(
-        padding: const EdgeInsets.only(left: 16, right: 16),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         height: _kTopBarHeight,
         width: double.infinity,
         child: Row(
           children: [
-            Text(
-              widget.paneItems[currentPage].label,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            Text(widget.paneItems[currentPage].label, style: ts.s18.bold),
             const Spacer(),
             for (var action in widget.paneActions)
               Tooltip(
@@ -321,8 +322,8 @@ class NaviPaneState extends State<NaviPane>
         decoration: BoxDecoration(
           border: Border(
             top: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant,
-              width: 1,
+              color: Theme.of(context).colorScheme.shellBorder,
+              width: AppSizes.hairline,
             ),
           ),
         ),
@@ -346,8 +347,9 @@ class NaviPaneState extends State<NaviPane>
 
   Widget buildLeft(double width) {
     final topPadding = MediaQuery.paddingOf(context).top;
-    final dividerColor = Theme.of(context).colorScheme.outlineVariant;
+    final dividerColor = Theme.of(context).colorScheme.shellBorder;
     return Material(
+      color: Theme.of(context).colorScheme.shellSurface,
       child: SizedBox(
         width: width,
         height: double.infinity,
@@ -355,7 +357,7 @@ class NaviPaneState extends State<NaviPane>
           children: [
             Column(
               children: [
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
                 SizedBox(height: topPadding),
                 ...List<Widget>.generate(
                   widget.paneItems.length,
@@ -376,7 +378,7 @@ class NaviPaneState extends State<NaviPane>
                     key: ValueKey(index + widget.paneItems.length),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
               ],
             ),
             Positioned(
@@ -385,7 +387,7 @@ class NaviPaneState extends State<NaviPane>
               bottom: 0,
               child: ColoredBox(
                 color: dividerColor,
-                child: const SizedBox(width: 1),
+                child: const SizedBox(width: AppSizes.hairline),
               ),
             ),
           ],
@@ -414,23 +416,23 @@ class _SideNaviWidget extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Tooltip(
       message: entry.label,
-      waitDuration: const Duration(milliseconds: 600),
+      waitDuration: AppMotion.tooltipWait,
       child: ClickInkWell(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppRadius.md),
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          width: 48,
-          height: 48,
+          duration: AppMotion.fast,
+          width: AppSizes.navItemSize,
+          height: AppSizes.navItemSize,
           decoration: BoxDecoration(
-            color: enabled ? colorScheme.primaryContainer : null,
-            borderRadius: BorderRadius.circular(8),
+            color: enabled ? colorScheme.accentContainer : null,
+            borderRadius: BorderRadius.circular(AppRadius.md),
           ),
           child: Center(
             child: Icon(
               enabled ? entry.activeIcon : entry.icon,
-              size: 24,
-              color: enabled ? colorScheme.onPrimaryContainer : null,
+              size: AppSizes.navIconSize,
+              color: enabled ? colorScheme.onAccentContainer : null,
             ),
           ),
         ),
@@ -448,14 +450,14 @@ class _PaneActionWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: entry.label,
-      waitDuration: const Duration(milliseconds: 600),
+      waitDuration: AppMotion.tooltipWait,
       child: ClickInkWell(
         onTap: entry.onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppRadius.md),
         child: SizedBox(
-          width: 48,
-          height: 48,
-          child: Center(child: Icon(entry.icon, size: 24)),
+          width: AppSizes.navItemSize,
+          height: AppSizes.navItemSize,
+          child: Center(child: Icon(entry.icon, size: AppSizes.navIconSize)),
         ),
       ),
     );
@@ -542,18 +544,22 @@ class _SingleBottomNaviWidgetState extends State<_SingleBottomNaviWidget>
     );
     return Center(
       child: Container(
-        width: 64,
-        height: 28,
+        width: AppSizes.navBottomIndicatorWidth,
+        height: AppSizes.navBottomIndicatorHeight,
         decoration: BoxDecoration(
-          borderRadius: const BorderRadius.all(Radius.circular(32)),
-          color: isHovering ? colorScheme.surfaceContainer : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+          color: isHovering
+              ? colorScheme.shellSurfaceHover
+              : Colors.transparent,
         ),
         child: Center(
           child: Container(
-            width: 32 + value * 32,
-            height: 28,
+            width:
+                AppSizes.navBottomIndicatorMinWidth +
+                value * AppSizes.navBottomIndicatorMinWidth,
+            height: AppSizes.navBottomIndicatorHeight,
             decoration: BoxDecoration(
-              borderRadius: const BorderRadius.all(Radius.circular(32)),
+              borderRadius: BorderRadius.circular(AppRadius.pill),
               color: value != 0
                   ? colorScheme.secondaryContainer
                   : Colors.transparent,

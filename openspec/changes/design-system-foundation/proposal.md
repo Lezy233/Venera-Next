@@ -6,7 +6,7 @@
 
 ## What Changes
 
-- 确定并记录设计方向：**现代极简（modern-minimal）**——内容区与壳层统一为浅色极简语言，动态取色从"全界面染色"降级为"唯一强调色来源"；阅读器本体作为沉浸深色例外（2026-10-20 由 owner 确认，见 design.md D1）
+- 确定并记录设计方向：**现代极简（modern-minimal）**——内容区与壳层统一为浅色极简语言，动态取色从"全界面染色"降级为"唯一强调色来源"；阅读器跟随应用主题，不设深色例外（2026-10-20 由 owner 确认，同日修订取消原深色例外，见 design.md D1）
 - 产出 `design-spec.md`（项目根目录）：token（颜色/字体/圆角/间距/阴影/动效）、断点、容器策略、图标系统、语言规范、各 surface（settings/dashboard/list-detail/reader）的 do/don't
 - 落地第一批基础设施：统一断点常量与用法、浅色壳层重皮（顶栏/窗口框架从深色 VSCode 式改为浅色极简）、间距尺度约定
 - **BREAKING（对内）**：`lib/foundation/consts.dart` 的断点常量被新的统一断点系统取代，所有 `changePoint/changePoint2/720/900` 散落用法迁移

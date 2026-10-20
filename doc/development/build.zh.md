@@ -175,6 +175,24 @@ flutter pub get --enforce-lockfile
 
 通常是 Flutter/Dart 版本或包源环境不匹配。先核对本页要求的 Flutter 版本和 `flutter doctor -v` 输出，不要直接删除锁文件。
 
+### macOS 构建失败：`NativeAssetsManifest.json references pdfium`
+
+报错形如：
+
+```text
+Exception: The native assets specification at .../VeneraNext.app/Contents/Frameworks/App.framework/Resources/flutter_assets/NativeAssetsManifest.json references pdfium, which was not found in .../build/native_assets/macos/.
+```
+
+这是 `pdfrx` / `pdfium_dart` 的 native assets 构建缓存失效：Xcode 嵌入阶段需要 `build/native_assets/macos/pdfium.framework`，但旧缓存没有重新生成它。清除构建缓存后重新获取依赖即可：
+
+```bash
+flutter clean
+flutter pub get --enforce-lockfile
+flutter run -d macos
+```
+
+`pdfium` 的 native assets 由构建钩子生成，不要手动删除或替换 `build/native_assets/` 下的文件。清理后仍失败时，再用 `flutter run -d macos -v` 查看 Xcode 嵌入阶段的完整输出。
+
 ### Gradle 下载过慢
 
 可以在本地临时切换 Gradle wrapper 镜像或配置网络代理，但环境相关地址不应提交到仓库。提交前应确认 `gradle-wrapper.properties` 没有混入本地镜像改动。

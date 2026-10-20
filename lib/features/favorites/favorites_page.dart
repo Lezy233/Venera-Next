@@ -95,7 +95,8 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
   void _syncChrome() {
     final chrome = _chrome;
     if (chrome == null) return;
-    chrome.setFavoritesActive(true);
+    // favoritesActive is owned by MainPage: it depends on the selected tab and
+    // the inner navigator's route stack, not on this page's mount lifecycle.
     chrome.setLeftSidebar(
       available: context.width > favoritesTwoPanelChangeWidth,
       expanded: !leftBarCollapsed,
@@ -280,7 +281,8 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
 
   @override
   void dispose() {
-    _chrome?.setFavoritesActive(false);
+    // MainPage watches the tab and route stack; only the page-owned sidebar
+    // registration is cleared here.
     _chrome?.setLeftSidebar(available: false, expanded: true);
     final route = _folderSelector;
     _folderSelector = null;

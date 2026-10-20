@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:venera_next/design_system/tokens.dart';
 import 'package:venera_next/foundation/translations.dart';
 
 class AuthPage extends StatefulWidget {
@@ -39,10 +40,10 @@ class _AuthPageState extends State<AuthPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.security, size: 36),
-              const SizedBox(height: 16),
+              const Icon(Icons.security, size: AppSizes.authIconSize),
+              const SizedBox(height: AppSpacing.lg),
               Text("Authentication Required".tl),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.lg),
               FilledButton(onPressed: auth, child: Text("Continue".tl)),
             ],
           ),

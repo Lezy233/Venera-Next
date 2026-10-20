@@ -26,7 +26,7 @@ import 'package:venera_next/features/comic_details/thumbnails.dart';
 import 'package:venera_next/foundation/app_locale.dart';
 import 'package:venera_next/features/comic_source/comic_source.dart';
 import 'package:venera_next/foundation/comic_type.dart';
-import 'package:venera_next/foundation/consts.dart';
+import 'package:venera_next/design_system/breakpoints.dart';
 import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/features/history/history.dart';
 import 'package:venera_next/foundation/image_provider/cached_image.dart';
@@ -977,7 +977,7 @@ class _ComicPageLoadingPlaceHolder extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          if (context.width < changePoint)
+          if (Breakpoints.isCompact(context))
             Row(
               children: [
                 Expanded(child: buildContainer(null, 36, radius: 18)),

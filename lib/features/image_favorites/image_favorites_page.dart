@@ -12,7 +12,7 @@ import 'package:venera_next/features/image_favorites/image_favorites_item.dart';
 import 'package:venera_next/features/image_favorites/type.dart';
 import 'package:venera_next/foundation/app.dart';
 import 'package:venera_next/foundation/appdata.dart';
-import 'package:venera_next/foundation/consts.dart';
+import 'package:venera_next/design_system/breakpoints.dart';
 import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/foundation/extensions.dart';
 import 'package:venera_next/foundation/log.dart';
@@ -368,7 +368,7 @@ class _ImageFavoritesPageState extends State<ImageFavoritesPage> {
       interactive: true,
       child: ScrollConfiguration(
         behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
-        child: context.width > changePoint
+        child: !Breakpoints.isCompact(context)
             ? scrollWidget.paddingHorizontal(8)
             : scrollWidget,
       ),

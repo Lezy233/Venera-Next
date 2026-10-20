@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:venera_next/components/gesture.dart';
+import 'package:venera_next/design_system/breakpoints.dart';
+import 'package:venera_next/design_system/tokens.dart';
 import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/foundation/translations.dart';
 import 'package:venera_next/foundation/widget_utils.dart';
@@ -27,7 +29,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   ColorScheme get colors => Theme.of(context).colorScheme;
 
-  bool get enableTwoViews => context.width > 720;
+  bool get enableTwoViews => !Breakpoints.isCompact(context);
 
   final categories = <String>[
     "Explore",
@@ -65,14 +67,15 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   /// In desktop two-pane mode always land on a category instead of a blank pane.
-  int get _effectivePage => enableTwoViews && currentPage == -1 ? 0 : currentPage;
+  int get _effectivePage =>
+      enableTwoViews && currentPage == -1 ? 0 : currentPage;
 
   Widget buildBody() {
     if (enableTwoViews) {
       return Row(
         children: [
           SizedBox(
-            width: 280,
+            width: AppSizes.settingsSidebarWidth,
             height: double.infinity,
             child: buildLeft(_effectivePage),
           ),
@@ -81,15 +84,15 @@ class _SettingsPageState extends State<SettingsPage> {
             decoration: BoxDecoration(
               border: Border(
                 left: BorderSide(
-                  color: context.colorScheme.outlineVariant,
-                  width: 0.6,
+                  color: context.colorScheme.contentBorder,
+                  width: AppSizes.hairline,
                 ),
               ),
             ),
           ),
           Expanded(
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
+              duration: AppMotion.normal,
               transitionBuilder: (child, animation) {
                 return LayoutBuilder(
                   builder: (context, constrains) {
@@ -133,10 +136,10 @@ class _SettingsPageState extends State<SettingsPage> {
         children: [
           SizedBox(height: MediaQuery.of(context).padding.top),
           SizedBox(
-            height: 56,
+            height: AppSizes.settingsHeaderHeight,
             child: Row(
               children: [
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.sm),
                 Tooltip(
                   message: "Back".tl,
                   child: IconButton(
@@ -144,12 +147,12 @@ class _SettingsPageState extends State<SettingsPage> {
                     onPressed: context.pop,
                   ),
                 ),
-                const SizedBox(width: 24),
+                const SizedBox(width: AppSpacing.xl),
                 Text("Settings".tl, style: ts.s20),
               ],
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xs),
           Expanded(child: buildCategories(selectedPage)),
         ],
       ),
@@ -162,33 +165,41 @@ class _SettingsPageState extends State<SettingsPage> {
 
       Widget content = AnimatedContainer(
         key: ValueKey(id),
-        duration: const Duration(milliseconds: 200),
+        duration: AppMotion.normal,
         width: double.infinity,
-        height: 46,
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+        height: AppSizes.settingsCategoryHeight,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         decoration: BoxDecoration(
-          color: selected ? colors.primaryContainer.toOpacity(0.36) : null,
+          color: selected
+              ? colors.accentContainer.toOpacity(AppOpacity.selectedContainer)
+              : null,
           border: Border(
             left: BorderSide(
-              color: selected ? colors.primary : Colors.transparent,
-              width: 2,
+              color: selected ? colors.accent : Colors.transparent,
+              width: AppSizes.settingsSelectedIndicatorWidth,
             ),
           ),
         ),
         child: Row(
           children: [
-            Icon(icons[id]),
-            const SizedBox(width: 16),
-            Text(name, style: ts.s16),
-            const Spacer(),
-            if (selected) const Icon(Icons.arrow_right),
+            Icon(icons[id], size: AppSizes.navIconSize),
+            const SizedBox(width: AppSpacing.lg),
+            Expanded(
+              child: Text(
+                name,
+                style: ts.s16,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (selected && !enableTwoViews) const Icon(Icons.arrow_right),
           ],
         ),
       );
 
       return Padding(
         padding: enableTwoViews
-            ? const EdgeInsets.fromLTRB(8, 0, 8, 0)
+            ? const EdgeInsets.symmetric(horizontal: AppSpacing.sm)
             : EdgeInsets.zero,
         child: ClickInkWell(
           onTap: () {
@@ -199,7 +210,7 @@ class _SettingsPageState extends State<SettingsPage> {
             }
           },
           child: content,
-        ).paddingVertical(4),
+        ).paddingVertical(AppSpacing.xs),
       );
     }
 

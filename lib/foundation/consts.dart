@@ -1,10 +1,18 @@
-/// If window width is less than this value, it is considered as mobile.
-const changePoint = 600;
+import 'package:venera_next/design_system/breakpoints.dart';
 
-/// If window width is less than this value, it is considered as tablet.
+/// If window width is less than this value, it is considered as compact.
 ///
-/// If it is more than this value, it is considered as desktop.
-const changePoint2 = 1300;
+/// Deprecated: use [Breakpoints.compactMaxWidth] or the helpers on
+/// [Breakpoints] instead. Kept as a forwarding alias for older call sites.
+@Deprecated('Use Breakpoints.of(context) / Breakpoints.compactMaxWidth')
+const changePoint = Breakpoints.compactMaxWidth;
+
+/// If window width is at least this value, it is considered as expanded.
+///
+/// Deprecated: use [Breakpoints.expandedMinWidth] or the helpers on
+/// [Breakpoints] instead. Kept as a forwarding alias for older call sites.
+@Deprecated('Use Breakpoints.of(context) / Breakpoints.expandedMinWidth')
+const changePoint2 = Breakpoints.expandedMinWidth;
 
 /// Default user agent for http requests.
 const webUA =

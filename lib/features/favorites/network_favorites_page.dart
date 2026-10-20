@@ -13,7 +13,7 @@ import 'package:venera_next/features/comic_widgets/comic_widgets.dart';
 import 'package:venera_next/features/favorites/favorite_actions.dart';
 import 'package:venera_next/features/favorites/favorites_constants.dart';
 import 'package:venera_next/features/favorites/favorites_display.dart';
-import 'package:venera_next/foundation/consts.dart';
+import 'package:venera_next/design_system/breakpoints.dart';
 import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/foundation/res.dart';
 import 'package:venera_next/foundation/log.dart';
@@ -110,7 +110,7 @@ class _NormalFavoritePageState extends State<_NormalFavoritePage> {
     return ComicList(
       key: comicListKey,
       leadingSliver: SliverAppbar(
-        style: context.width < changePoint
+        style: Breakpoints.isCompact(context)
             ? AppbarStyle.shadow
             : AppbarStyle.blur,
         leading: Tooltip(
@@ -286,7 +286,7 @@ class _MultiFolderFavoritesPageState extends State<_MultiFolderFavoritesPage> {
   @override
   Widget build(BuildContext context) {
     var sliverAppBar = SliverAppbar(
-      style: context.width < changePoint
+      style: Breakpoints.isCompact(context)
           ? AppbarStyle.shadow
           : AppbarStyle.blur,
       leading: Tooltip(
