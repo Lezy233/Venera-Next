@@ -304,10 +304,8 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
                 Divider().toSliver(),
               ],
             ),
-          if (comicId == null || isEnabledSpecificSettings) ...[
-            _thumbnailSettings(),
-            _modeSettings(),
-          ],
+          _thumbnailSettings(),
+          _modeSettings(),
           const Divider().toSliver(),
           SwitchSetting.reader(
             title: "Tap to turn Pages".tl,

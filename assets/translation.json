@@ -918,7 +918,10 @@
     "Left to right": "从左到右",
     "Expanded": "展开",
     "Collapsed": "折叠",
-    "Failed to load source": "无法加载来源"
+    "Failed to load source": "无法加载来源",
+    "Skip first page": "跳过首页",
+    "Yes": "是",
+    "No": "否"
   },
   "zh_TW": {
     "Skip unavailable images during automatic reading": "自動閱讀時跳過不可用圖片",
@@ -1838,6 +1841,9 @@
     "Left to right": "從左到右",
     "Expanded": "展開",
     "Collapsed": "折疊",
-    "Failed to load source": "無法載入來源"
+    "Failed to load source": "無法載入來源",
+    "Skip first page": "跳過首頁",
+    "Yes": "是",
+    "No": "否"
   }
 }

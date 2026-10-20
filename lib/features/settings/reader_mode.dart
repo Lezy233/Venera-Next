@@ -172,6 +172,69 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
     );
   }
 
+  ReaderPreferenceScope _thumbnailScope(String? cid, String? source) =>
+      cid != null && source != null
+      ? ReaderPreferenceScope.comic
+      : ReaderPreferenceScope.global;
+
+  int _pagesPerUnit(String? cid, String? source) {
+    final landscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    final preference = landscape
+        ? ReaderPreferences.readerScreenPicNumberForLandscape
+        : ReaderPreferences.readerScreenPicNumberForPortrait;
+    return ReaderPreferenceStore(
+      settings: appdata.settings,
+      scope: _thumbnailScope(cid, source),
+      comicId: cid,
+      sourceKey: source,
+    ).read(preference).toInt();
+  }
+
+  Widget _skipFirstPage({String? cid, String? source}) {
+    final scoped = cid != null && source != null;
+    final scope = _thumbnailScope(cid, source);
+    final store = ReaderPreferenceStore(
+      settings: appdata.settings,
+      scope: scope,
+      comicId: cid,
+      sourceKey: source,
+    );
+    final current = store.read(ReaderPreferences.showSingleImageOnFirstPage);
+    return ListTile(
+      title: Text('Skip first page'.tl),
+      trailing: Select(
+        current: (current ? 'Yes' : 'No').tl,
+        values: ['No'.tl, 'Yes'.tl],
+        minWidth: 64,
+        onTap: (index) {
+          if (index < 0 || index > 1) return;
+          if (scoped && (cid != widget.comicId || source != widget.sourceKey)) {
+            return;
+          }
+          final value = index == 1;
+          unawaited(
+            saveSetting(
+              (cid, source, 'skipFirstPage'),
+              () => appdata.updateSettings((draft) {
+                ReaderPreferenceStore(
+                  settings: draft,
+                  scope: scope,
+                  comicId: cid,
+                  sourceKey: source,
+                ).write(ReaderPreferences.showSingleImageOnFirstPage, value);
+              }),
+              onSaved: () => widget.onChanged?.call(),
+              isCurrent: () =>
+                  !scoped ||
+                  (cid == widget.comicId && source == widget.sourceKey),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = appdata.settings;
@@ -207,6 +270,7 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
                 : null,
           ),
           _pagesPerScreen(),
+          if (_pagesPerUnit(null, null) == 2) _skipFirstPage(),
         ],
       );
     }
@@ -272,6 +336,8 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
           ),
         ),
         _pagesPerScreen(cid: cid, source: source),
+        if (_pagesPerUnit(cid, source) == 2)
+          _skipFirstPage(cid: cid, source: source),
         if (auto) ...[
           ListTile(
             leading: Icon(switch (layout) {
