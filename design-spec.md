@@ -23,7 +23,7 @@
 
 ## 2. Token 表
 
-Token 是唯一取值来源。颜色优先使用 `ColorScheme` 语义角色；需要表达「壳层 / 内容 / 强调 / 危险」语义时使用 `AppColorRoles` 别名。禁止 `Color(0xFF...)`、`Colors.black` 等硬编码（阅读器深色场景除外）。
+Token 是唯一取值来源。颜色优先使用 `ColorScheme` 语义角色；需要表达「壳层 / 内容 / 强调 / 危险」语义时使用 `AppColorRoles` 别名。禁止 `Color(0xFF...)`、`Colors.black` 等硬编码（阅读器亦不设例外，跟随主题语义角色）。
 
 ### 2.1 间距（4px 基底）
 
