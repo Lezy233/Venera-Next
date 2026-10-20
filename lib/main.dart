@@ -30,6 +30,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:venera_next/app_runtime/app_runtime.dart';
 import 'package:venera_next/app_shell/app_shell.dart';
+import 'package:venera_next/app_shell/desktop_chrome.dart';
+import 'package:venera_next/app_shell/desktop_menus.dart';
 import 'package:venera_next/foundation/log.dart';
 import 'package:venera_next/foundation/file_interaction.dart';
 import 'components/gesture.dart';
@@ -117,6 +119,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  final _desktopChrome = DesktopChromeController();
   late final _library = webDavLibrary;
   late final _interactiveBindings = createPlatformInteractiveBindings(
     placement: widget.host.placement?.attach(),
@@ -175,6 +178,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _desktopChrome.dispose();
     if (_mount == null) {
       super.dispose();
       return;
@@ -430,35 +434,50 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               );
               widget = ReaderPlatformEffectsScope(child: OverlayWidget(widget));
               if (App.isDesktop) {
-                widget = WindowFrame(
-                  Shortcuts(
-                    shortcuts: {
-                      LogicalKeySet(LogicalKeyboardKey.escape):
-                          VoidCallbackIntent(appNavigation.pop),
-                    },
-                    child: MouseBackDetector(
-                      onTapDown: appNavigation.pop,
-                      child: SyncWindowBinding(
-                        controller: _dataSync,
-                        waitForHistoryWrites:
-                            HistoryManager().waitForAsyncWrites,
-                        isFinalizing: () => this.widget.host.isClosing,
-                        prepareInteractive: _interactiveBindings.prepareForExit,
-                        prepareFollowUpdates: () =>
-                            prepareApplicationFollowUpdatesForExit(
-                              _followUpdates,
+                widget = DesktopChromeScope(
+                  controller: _desktopChrome,
+                  child: DesktopApplicationMenuBar(
+                    child: CallbackShortcuts(
+                      bindings: desktopShortcuts(_desktopChrome),
+                      child: Focus(
+                        autofocus: true,
+                        child: WindowFrame(
+                          Shortcuts(
+                            shortcuts: {
+                              LogicalKeySet(LogicalKeyboardKey.escape):
+                                  VoidCallbackIntent(appNavigation.pop),
+                            },
+                            child: MouseBackDetector(
+                              onTapDown: appNavigation.pop,
+                              child: SyncWindowBinding(
+                                controller: _dataSync,
+                                waitForHistoryWrites:
+                                    HistoryManager().waitForAsyncWrites,
+                                isFinalizing: () => this.widget.host.isClosing,
+                                prepareInteractive:
+                                    _interactiveBindings.prepareForExit,
+                                prepareFollowUpdates: () =>
+                                    prepareApplicationFollowUpdatesForExit(
+                                      _followUpdates,
+                                    ),
+                                prepareWebDavLibrary:
+                                    _library.source.prepareForExit,
+                                prepareImages: prepareImageLoadingForExit,
+                                cancelStartupUpdates: _startupUpdates.cancel,
+                                closeStartupUpdates:
+                                    _startupUpdates.closeAndWait,
+                                child: widget,
+                              ),
                             ),
-                        prepareWebDavLibrary: _library.source.prepareForExit,
-                        prepareImages: prepareImageLoadingForExit,
-                        cancelStartupUpdates: _startupUpdates.cancel,
-                        closeStartupUpdates: _startupUpdates.closeAndWait,
-                        child: widget,
+                          ),
+                          debugAction: reloadComicSourcesForDebug,
+                          finalize: (drain) =>
+                              this.widget.host.close(drain: drain),
+                          isFinalizing: () => this.widget.host.isClosing,
+                        ),
                       ),
                     ),
                   ),
-                  debugAction: reloadComicSourcesForDebug,
-                  finalize: (drain) => this.widget.host.close(drain: drain),
-                  isFinalizing: () => this.widget.host.isClosing,
                 );
               }
               widget = FollowUpdatesScope(

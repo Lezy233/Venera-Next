@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:venera_next/app_shell/desktop_chrome.dart';
 import 'package:venera_next/components/appbar.dart';
 import 'package:venera_next/components/settings_save_state.dart';
 import 'package:venera_next/components/sidebar_resize_handle.dart';
@@ -44,6 +45,9 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
 
   bool _resizingLeftBar = false;
 
+  DesktopChromeController? _chrome;
+  late final VoidCallback _toggleLeftCallback = _toggleLeftBar;
+
   void setFolder(bool isNetwork, String? folder) {
     if (!acceptsSettingsChanges) return;
     setState(() {
@@ -82,7 +86,28 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _chrome = DesktopChromeScope.maybeRead(context);
+    _syncChrome();
+  }
+
+  void _syncChrome() {
+    final chrome = _chrome;
+    if (chrome == null) return;
+    chrome.setFavoritesActive(true);
+    chrome.setLeftSidebar(
+      available: context.width > favoritesTwoPanelChangeWidth,
+      expanded: !leftBarCollapsed,
+      toggle: _toggleLeftCallback,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncChrome();
+    });
     final twoPanel = context.width > favoritesTwoPanelChangeWidth;
     final leftBarOffset = !twoPanel
         ? -_leftBarWidth
@@ -256,6 +281,8 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
 
   @override
   void dispose() {
+    _chrome?.setFavoritesActive(false);
+    _chrome?.setLeftSidebar(available: false, expanded: true);
     final route = _folderSelector;
     _folderSelector = null;
     scheduleMicrotask(() {

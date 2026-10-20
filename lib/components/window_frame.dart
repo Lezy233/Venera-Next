@@ -10,6 +10,7 @@ import 'package:venera_next/foundation/consts.dart';
 import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/foundation/navigation_admission.dart';
 import 'package:venera_next/foundation/translations.dart';
+import 'package:venera_next/app_shell/desktop_top_bar.dart';
 import 'package:venera_next/foundation/widget_utils.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -411,8 +412,9 @@ class _WindowFrameState extends State<WindowFrame> with WindowListener {
                               ),
                             ).paddingRight(52)
                           else
-                            const SizedBox(width: 12),
-                          const SizedBox(width: 12),
+                            const SizedBox(width: 8),
+                          if (!App.isMacOS) const DesktopInlineMenuBar(),
+                          if (App.isMacOS) const SizedBox(width: 12),
                           Expanded(
                             child: DragToMoveArea(
                               child: _WindowBrand(
@@ -423,6 +425,7 @@ class _WindowFrameState extends State<WindowFrame> with WindowListener {
                               ),
                             ),
                           ),
+                          const DesktopLayoutControls(),
                           if (kDebugMode && widget.debugAction != null)
                             TextButton(
                               onPressed: widget.debugAction,

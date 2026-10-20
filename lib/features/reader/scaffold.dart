@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:venera_next/components/settings_save_state.dart';
 
+import 'package:venera_next/app_shell/desktop_chrome.dart';
 import 'package:venera_next/features/reader/status_info.dart';
 import 'package:flutter/material.dart';
 import 'package:venera_next/features/reader/progress_bar.dart';
@@ -102,6 +103,8 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
 
   late double _thumbnailWidth;
   late double _thumbnailHeight;
+  DesktopChromeController? _chrome;
+  DesktopReaderActions? _desktopReaderActions;
   bool? _thumbnailCollapsedOverride;
 
   bool get _thumbnailCollapsed =>
@@ -152,7 +155,24 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final chrome = _chrome = DesktopChromeScope.maybeRead(context);
+    if (chrome == null) return;
+    final actions = _desktopReaderActions ??= DesktopReaderActions(
+      openSettings: openSetting,
+      openChapters: openChapterDrawer,
+      toggleThumbnails: _toggleThumbnail,
+    );
+    chrome.setReaderActions(actions);
+  }
+
+  @override
   void dispose() {
+    final actions = _desktopReaderActions;
+    if (actions != null && identical(_chrome?.readerActions, actions)) {
+      _chrome?.setReaderActions(null);
+    }
     _brightnessPreview.dispose();
     widget.favoriteChanges.removeListener(_imageFavoritesChanged);
     unawaited(_favorites.dispose());

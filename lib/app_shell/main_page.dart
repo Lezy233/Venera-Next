@@ -9,6 +9,7 @@ import 'package:venera_next/foundation/global_preference_store.dart';
 import 'package:venera_next/foundation/translations.dart';
 
 import '../components/navigation_bar.dart';
+import 'desktop_chrome.dart';
 import 'package:venera_next/routing/app_navigation.dart';
 import '../foundation/context.dart';
 import 'home_page.dart';
@@ -24,6 +25,10 @@ class _MainPageState extends State<MainPage> {
   late final NaviObserver _observer;
 
   GlobalKey<NavigatorState>? _navigatorKey;
+
+  final _naviKey = GlobalKey<NaviPaneState>();
+
+  DesktopChromeController? _chrome;
 
   void to(Widget Function() widget, {bool preventDuplicate = false}) async {
     if (preventDuplicate) {
@@ -56,8 +61,38 @@ class _MainPageState extends State<MainPage> {
   var index = 0;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _chrome = DesktopChromeScope.maybeRead(context);
+    _bindChrome();
+  }
+
+  void _bindChrome() {
+    _chrome?.bindGlobalActions(
+      openSettings: () =>
+          to(() => const SettingsPage(), preventDuplicate: true),
+      openSearch: () => to(() => const SearchPage(), preventDuplicate: true),
+      navigate: (index) => _naviKey.currentState?.updatePage(index),
+      back: () {
+        final navigator = _navigatorKey?.currentState;
+        if (navigator != null && navigator.canPop()) navigator.maybePop();
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _chrome?.clearGlobalActions();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _bindChrome();
+    });
     return NaviPane(
+      key: _naviKey,
       initialPage: index,
       observer: _observer,
       navigatorKey: _navigatorKey!,

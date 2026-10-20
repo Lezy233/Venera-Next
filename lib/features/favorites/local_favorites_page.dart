@@ -24,6 +24,7 @@ import 'package:venera_next/components/window_selection_task.dart';
 import 'package:venera_next/features/comic_details/comic_details.dart';
 import 'package:venera_next/features/comic_source/comic_source.dart';
 import 'package:venera_next/features/comic_widgets/comic_widgets.dart';
+import 'package:venera_next/app_shell/desktop_chrome.dart';
 import 'package:venera_next/features/favorites/author_management_dialog.dart';
 import 'package:venera_next/features/favorites/favorite_actions.dart';
 import 'package:venera_next/features/favorites/favorite_filters.dart';
@@ -97,6 +98,10 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
   bool searchMode = false;
 
   bool multiSelectMode = false;
+
+  DesktopChromeController? _chrome;
+  late final VoidCallback _toggleRightCallback = _toggleFilterPanel;
+  late final VoidCallback _searchCallback = _focusSearch;
 
   int? lastSelectedIndex;
 
@@ -542,11 +547,6 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: _toggleFilterPanel,
-                  tooltip: "Close".tl,
-                ),
               ],
             ),
           ),
@@ -803,6 +803,8 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _chrome = DesktopChromeScope.maybeRead(context);
+    _syncChrome();
     if (_queryOwner != null) return;
     _queryOwner = WindowSelectionTask(context);
     updateComics();
@@ -841,6 +843,8 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
 
   @override
   void dispose() {
+    _chrome?.setRightSidebar(available: false, expanded: false);
+    _chrome?.setFavoritesSearch(null);
     _cancelMetadataUpdates();
     _retireUpdateFlyout();
     _observedManager.removeListener(updateComics);
@@ -917,8 +921,31 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
 
   var scrollController = ScrollController();
 
+  void _syncChrome() {
+    final chrome = _chrome;
+    if (chrome == null) return;
+    final wide =
+        context.width > _kFilterPanelBreakpoint &&
+        !searchMode &&
+        !multiSelectMode;
+    chrome.setRightSidebar(
+      available: wide,
+      expanded: _filterPanelOpen,
+      toggle: _toggleRightCallback,
+    );
+    chrome.setFavoritesSearch(_searchCallback);
+  }
+
+  void _focusSearch() {
+    if (!mounted || searchMode) return;
+    setState(() => searchMode = true);
+  }
+
   @override
   Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncChrome();
+    });
     final target = widget;
     final selection = selectedComics.keys.cast<FavoriteItem>().toList();
     final selectedItems = selection.map((comic) => comic.detached()).toList();
