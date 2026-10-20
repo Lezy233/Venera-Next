@@ -68,8 +68,11 @@ class _SidebarToggleButton extends StatelessWidget {
       size: _kTopBarIconSize,
       color: color,
     );
-    return Tooltip(
-      message: tooltip,
+    // The title bar sits above MaterialApp's Overlay, so Tooltip (and tooltips
+    // on PopupMenuButton) cannot be used here.
+    return Semantics(
+      label: tooltip,
+      button: true,
       child: IconButton(
         padding: const EdgeInsets.symmetric(horizontal: 4),
         constraints: const BoxConstraints.tightFor(width: 30, height: 30),
@@ -89,7 +92,7 @@ class _LayoutMenuButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PopupMenuButton<int>(
-      tooltip: 'Layout'.tl,
+      tooltip: '',
       padding: EdgeInsets.zero,
       iconSize: _kTopBarIconSize,
       icon: const Icon(Icons.dashboard_customize_outlined),
