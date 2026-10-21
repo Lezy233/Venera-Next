@@ -1,10 +1,12 @@
 import 'package:flutter/widgets.dart';
 import 'package:venera_next/components/settings_save_state.dart';
 import 'package:venera_next/foundation/image_work.dart';
+import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/routing/settings.dart';
 
 import 'brightness.dart';
 import 'settings_effects.dart';
+import 'quick_settings_panel.dart';
 
 /// Presentation adapter; the request owns target checks and effect ordering.
 class ReaderSettingsPanel extends StatelessWidget {
@@ -26,15 +28,31 @@ class ReaderSettingsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SettingsSaveScope(
     work: work,
-    child: ReaderSettings(
+    child: ReaderQuickSettingsPanel(
+      key: ValueKey((request.comicId, request.sourceKey)),
       comicId: request.comicId,
-      comicSource: request.sourceKey,
-      currentReaderMode: () => request.currentMode,
-      isDetectingLayout: () => isCurrent() && request.isDetectingLayout,
-      onDetectLayout: () =>
-          isCurrent() ? request.detectLayout() : Future.value(),
+      sourceKey: request.sourceKey,
+      isCurrent: isCurrent,
       onChanged: onChanged,
       brightnessPreview: brightnessPreview,
+      onAllSettings: () async {
+        if (!isCurrent()) return;
+        await context.to(
+          () => SettingsSaveScope(
+            work: work,
+            child: ReaderSettings(
+              comicId: request.comicId,
+              comicSource: request.sourceKey,
+              currentReaderMode: () => request.currentMode,
+              isDetectingLayout: () => isCurrent() && request.isDetectingLayout,
+              onDetectLayout: () =>
+                  isCurrent() ? request.detectLayout() : Future.value(),
+              onChanged: onChanged,
+              brightnessPreview: brightnessPreview,
+            ),
+          ),
+        );
+      },
     ),
   );
 }

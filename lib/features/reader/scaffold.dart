@@ -854,6 +854,11 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
         isCurrent: isCurrent,
         onChanged: (key) {
           if (isCurrent()) {
+            if (key == ReaderPreferences.readerThumbnailState.key) {
+              // A saved comic preference supersedes a temporary toolbar/drag
+              // override, so quick and full settings affect the visible rail.
+              setState(() => _thumbnailCollapsedOverride = null);
+            }
             request.apply(key, applyShellEffect: _applyShellEffect);
           }
         },

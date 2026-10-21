@@ -60,6 +60,7 @@ import 'package:venera_next/features/reader/images_host.dart';
 import 'package:venera_next/features/reader/chapters.dart';
 import 'package:venera_next/features/reader/brightness.dart';
 import 'package:venera_next/features/reader/settings_panel.dart';
+import 'package:venera_next/features/reader/quick_settings_panel.dart';
 import 'package:venera_next/routing/settings.dart' show ReaderSettings;
 import 'package:venera_next/foundation/app.dart';
 import 'package:venera_next/routing/app_navigation.dart';
@@ -623,7 +624,8 @@ void main() {
       expect(find.text('Settings'), findsOneWidget);
       await tester.tap(find.text('Settings'));
       await tester.pumpAndSettle();
-      expect(find.byType(ReaderSettings), findsOneWidget);
+      expect(find.byType(ReaderQuickSettingsPanel), findsOneWidget);
+      expect(find.byType(ReaderSettings), findsNothing);
       expect(fixture.readerKey.currentState, isNotNull);
     } finally {
       await fixture.dispose(tester);
@@ -1712,17 +1714,54 @@ void main() {
       final panel = tester.widget<ReaderSettingsPanel>(
         find.byType(ReaderSettingsPanel),
       );
-      final settings = tester.widget<ReaderSettings>(
-        find.byType(ReaderSettings),
+      final settings = tester.widget<ReaderQuickSettingsPanel>(
+        find.byType(ReaderQuickSettingsPanel),
       );
       expect(panel.work, same(reader.imageWork));
       expect(settings.comicId, 'book');
-      expect(settings.comicSource, 'local');
-      appdata.settings['readerMode'] = ReaderMode.continuousTopToBottom.key;
-      settings.onChanged!('readerMode');
+      expect(settings.sourceKey, 'local');
+      tester
+          .widget<DropdownButtonFormField<String>>(
+            find.byType(DropdownButtonFormField<String>),
+          )
+          .onChanged!(ReaderMode.continuousTopToBottom.key);
+      await _pumpUntil(
+        tester,
+        () => reader.mode == ReaderMode.continuousTopToBottom,
+      );
       await tester.pumpAndSettle();
       expect(reader.mode, ReaderMode.continuousTopToBottom);
-      expect(settings.currentReaderMode!(), reader.mode.key);
+      expect(find.byType(ReaderContinuousView), findsOneWidget);
+      tester
+          .widget<Slider>(
+            find.descendant(
+              of: find.byType(ReaderQuickSettingsPanel),
+              matching: find.byType(Slider),
+            ),
+          )
+          .onChanged!(30);
+      await tester.pump();
+      expect(
+        tester
+            .widget<ReaderBrightnessOverlay>(
+              find.byType(ReaderBrightnessOverlay),
+            )
+            .brightness,
+        30,
+      );
+      await _pumpUntil(tester, () => reader.preferences.readerBrightness == 30);
+      expect(reader.preferences.readerBrightnessEnabled, isTrue);
+      await tester.pump(const Duration(seconds: 2));
+      await tester.tap(find.text('All settings'));
+      await _pumpUntil(
+        tester,
+        () => find.byType(ReaderSettings).evaluate().isNotEmpty,
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      final full = tester.widget<ReaderSettings>(find.byType(ReaderSettings));
+      expect(full.comicId, 'book');
+      expect(full.comicSource, 'local');
+      expect(full.currentReaderMode!(), reader.mode.key);
       expect(tester.takeException(), isNull);
     } finally {
       await fixture.dispose(tester);

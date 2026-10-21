@@ -1,5 +1,7 @@
 {
   "zh_CN": {
+    "Quick settings": "快捷设置",
+    "All settings": "全部设置",
     "Reading Mode": "阅读模式",
     "Display": "显示",
     "Auto Reading": "自动阅读",
@@ -980,6 +982,8 @@
     "WebDAV archive backup is disabled": "WebDAV 存档备份已停用。"
   },
   "zh_TW": {
+    "Quick settings": "快捷設定",
+    "All settings": "全部設定",
     "Reading Mode": "閱讀模式",
     "Display": "顯示",
     "Auto Reading": "自動閱讀",

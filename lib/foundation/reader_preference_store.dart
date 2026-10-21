@@ -50,6 +50,20 @@ class ReaderPreferenceStore {
     }
   }
 
+  /// Manual mode follows the full form's dedicated comic override. Unlike
+  /// other comic edits, it must not activate unrelated saved comic settings.
+  void writeComicModeOverride(String value) {
+    if (scope != ReaderPreferenceScope.comic) {
+      throw StateError('A manual comic mode requires comic scope');
+    }
+    settings.setReaderSetting(
+      comicId!,
+      sourceKey!,
+      'readerModeOverride',
+      ReaderPreferences.readerMode.normalize(value),
+    );
+  }
+
   /// The remaining heterogeneous fields keep their JSON representation and
   /// use the same write target. Typed writes additionally enforce their rules.
   void writeRaw(String key, Object? value) {
