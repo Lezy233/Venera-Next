@@ -109,8 +109,7 @@ class _SidebarToggleButton extends StatelessWidget {
   }
 }
 
-/// VSCode-style command center placeholder. Clicking it runs the context
-/// search action (favorites search, reader chapter list or global search).
+/// Command center shared by live page filters and global search submission.
 class DesktopSearchBox extends StatelessWidget {
   const DesktopSearchBox({super.key});
 
@@ -144,6 +143,7 @@ class DesktopSearchBox extends StatelessWidget {
           focusNode: chrome.searchFocusNode,
           style: const TextStyle(fontSize: AppFontSize.bodySmall),
           textInputAction: TextInputAction.search,
+          onTap: chrome.focusSearch,
           onChanged: chrome.updateSearchQuery,
           onSubmitted: chrome.submitSearch,
           decoration: InputDecoration(

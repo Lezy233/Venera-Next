@@ -103,6 +103,7 @@ void main() {
     final chrome = DesktopChromeController();
     addTearDown(chrome.dispose);
     final queries = <String>[];
+    chrome.setFavoritesActive(true);
     chrome.setFavoritesSearchQuery(queries.add);
 
     await tester.pumpWidget(
@@ -120,6 +121,12 @@ void main() {
     expect(queries.last, 'hello');
     await tester.testTextInput.receiveAction(TextInputAction.search);
     expect(queries.last, 'hello');
+    await tester.enterText(field, '');
+    expect(queries.last, '');
+    expect(
+      tester.widget<TextField>(field).decoration!.hintText,
+      'Search favorites',
+    );
   });
 
   testWidgets('command center is hidden below the expanded breakpoint', (

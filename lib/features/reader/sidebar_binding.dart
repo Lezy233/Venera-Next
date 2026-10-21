@@ -27,6 +27,7 @@ class ReaderSidebarBinding {
     Widget child, {
     double width = 400,
     bool showBarrier = true,
+    bool? requestFocus,
     bool Function()? isRequestCurrent,
   }) {
     bool canShow() => canOpen() && (isRequestCurrent?.call() ?? true);
@@ -95,6 +96,7 @@ class ReaderSidebarBinding {
             child,
             width: width,
             showBarrier: showBarrier,
+            requestFocus: requestFocus,
             addTopPadding: false,
             transitionDuration: MediaQuery.disableAnimationsOf(context)
                 ? Duration.zero

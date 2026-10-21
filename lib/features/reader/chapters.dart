@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:venera_next/components/gesture.dart';
+import 'package:venera_next/design_system/tokens.dart';
 import 'package:venera_next/foundation/translations.dart';
 
 import 'chapter_menu.dart';
@@ -14,21 +15,32 @@ class ReaderChaptersView extends StatelessWidget {
     required this.data,
     required this.onSelect,
     required this.onClose,
+    this.query = '',
   });
   final ReaderChapterMenuData data;
   final ValueChanged<int> onSelect;
   final VoidCallback onClose;
+  final String query;
 
   @override
-  Widget build(BuildContext context) => DefaultTabController(
-    key: ObjectKey(data),
-    length: data.groups.length,
-    initialIndex: data.initialGroup,
-    animationDuration: MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : const Duration(milliseconds: 200),
-    child: _ChapterMenuBody(data: data, onSelect: onSelect, onClose: onClose),
-  );
+  Widget build(BuildContext context) {
+    final groups = data.filteredGroups(query);
+    return DefaultTabController(
+      key: ValueKey((data, query)),
+      length: groups.length,
+      initialIndex: query.trim().isEmpty ? data.initialGroup : 0,
+      animationDuration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 200),
+      child: _ChapterMenuBody(
+        data: data,
+        groups: groups,
+        query: query,
+        onSelect: onSelect,
+        onClose: onClose,
+      ),
+    );
+  }
 }
 
 class _ChapterMenuBody extends StatefulWidget {
@@ -36,10 +48,14 @@ class _ChapterMenuBody extends StatefulWidget {
     required this.data,
     required this.onSelect,
     required this.onClose,
+    required this.groups,
+    required this.query,
   });
   final ReaderChapterMenuData data;
   final ValueChanged<int> onSelect;
   final VoidCallback onClose;
+  final List<ReaderChapterGroup> groups;
+  final String query;
   @override
   State<_ChapterMenuBody> createState() => _ChapterMenuBodyState();
 }
@@ -97,12 +113,12 @@ class _ChapterMenuBodyState extends State<_ChapterMenuBody> {
                   ),
                 ),
               ),
-            if (data.isGrouped && data.groups.isNotEmpty)
+            if (data.isGrouped && widget.groups.isNotEmpty)
               TabBar(
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
                 tabs: [
-                  for (final group in data.groups)
+                  for (final group in widget.groups)
                     Tab(
                       height: math.max(48, textScale.scale(16) * 1.4 + 16),
                       child: Text(
@@ -114,14 +130,25 @@ class _ChapterMenuBodyState extends State<_ChapterMenuBody> {
               ),
             const Divider(height: 1),
             Expanded(
-              child: data.groups.isEmpty
-                  ? _empty()
+              child: widget.groups.isEmpty
+                  ? widget.query.trim().isEmpty
+                        ? _empty()
+                        : Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(AppSpacing.lg),
+                              child: Text(
+                                'No chapters match “@query”'.tlParams({
+                                  'query': widget.query,
+                                }),
+                              ),
+                            ),
+                          )
                   : TabBarView(
                       children: [
-                        for (var i = 0; i < data.groups.length; i++)
+                        for (var i = 0; i < widget.groups.length; i++)
                           _ChapterList(
                             key: ValueKey((i, _descending)),
-                            group: data.groups[i],
+                            group: widget.groups[i],
                             currentChapter: data.currentChapter,
                             descending: _descending,
                             onSelect: widget.onSelect,

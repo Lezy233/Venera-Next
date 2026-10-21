@@ -61,6 +61,22 @@ class ReaderChapterMenuData {
   final int initialGroup;
   final int length;
 
+  /// Preserve original indices and group order; filtering never edits source.
+  List<ReaderChapterGroup> filteredGroups(String query) {
+    final needle = query.trim().toLowerCase();
+    if (needle.isEmpty) return groups;
+    return [
+      for (final group in groups)
+        if (group.entries.any(
+          (entry) => entry.title.toLowerCase().contains(needle),
+        ))
+          ReaderChapterGroup._(group.name, [
+            for (final entry in group.entries)
+              if (entry.title.toLowerCase().contains(needle)) entry,
+          ]),
+    ];
+  }
+
   /// Source maps are mutable, so identity alone cannot validate a saved index.
   bool matches(ComicChapters source) {
     if (source.isGrouped != isGrouped) return false;

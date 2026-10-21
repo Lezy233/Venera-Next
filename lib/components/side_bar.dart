@@ -22,6 +22,7 @@ class SideBarRoute<T> extends PopupRoute<T> {
     this.transitionDuration = const Duration(milliseconds: 300),
     this.onDispose,
     this.isOwnerActive,
+    super.requestFocus,
   });
 
   final Widget widget;

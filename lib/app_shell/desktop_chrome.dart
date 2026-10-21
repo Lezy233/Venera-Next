@@ -9,11 +9,15 @@ class DesktopReaderActions {
     required this.openSettings,
     required this.openChapters,
     required this.toggleThumbnails,
+    this.filterChapters,
+    this.submitChapterSearch,
   });
 
   final VoidCallback openSettings;
   final VoidCallback openChapters;
   final VoidCallback toggleThumbnails;
+  final ValueChanged<String>? filterChapters;
+  final ValueChanged<String>? submitChapterSearch;
 }
 
 /// Shell-level state shared by the custom title bar, menus and shortcuts.
@@ -141,7 +145,7 @@ class DesktopChromeController extends ChangeNotifier {
     final reader = _readerActions;
     if (reader != null) {
       reader.openChapters();
-      return;
+      reader.filterChapters?.call(searchController.text);
     }
     searchFocusNode.requestFocus();
     searchController.selection = TextSelection(
@@ -152,13 +156,26 @@ class DesktopChromeController extends ChangeNotifier {
 
   void openSearchAction() => focusSearch();
 
-  /// Live typing for pages that can filter as the user types (favorites).
-  void updateSearchQuery(String value) => _favoritesSearchQuery?.call(value);
+  /// Reader actions take precedence over a still-mounted favorites page.
+  void updateSearchQuery(String value) {
+    final reader = _readerActions;
+    if (reader != null) {
+      reader.filterChapters?.call(value);
+    } else if (_favoritesActive) {
+      _favoritesSearchQuery?.call(value);
+    }
+  }
 
-  /// Submitted text: filter favorites locally, otherwise open global search.
+  /// Enter selects a matching chapter, filters favorites, or opens global search.
   void submitSearch(String value) {
+    final reader = _readerActions;
+    if (reader != null) {
+      reader.filterChapters?.call(value);
+      reader.submitChapterSearch?.call(value);
+      return;
+    }
     final favorites = _favoritesSearchQuery;
-    if (favorites != null) {
+    if (_favoritesActive && favorites != null) {
       favorites(value);
       return;
     }

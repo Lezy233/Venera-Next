@@ -14,13 +14,18 @@ void main() {
       back: () {},
     );
 
+    chrome.setFavoritesActive(true);
     chrome.setFavoritesSearchQuery(queries.add);
     chrome.submitSearch('favorites');
     expect(queries, ['favorites']);
     expect(global, 0);
 
+    final readerQueries = <String>[];
+    final submitted = <String>[];
     chrome.setReaderActions(
       DesktopReaderActions(
+        filterChapters: readerQueries.add,
+        submitChapterSearch: submitted.add,
         openSettings: () {},
         openChapters: () => reader++,
         toggleThumbnails: () {},
@@ -28,11 +33,17 @@ void main() {
     );
     chrome.openSearchAction();
     expect(reader, 1);
-    chrome.submitSearch('still-favorites');
-    expect(queries.last, 'still-favorites');
+    chrome.updateSearchQuery('reader');
+    chrome.submitSearch('reader');
+    expect(readerQueries.last, 'reader');
+    expect(submitted, ['reader']);
+    expect(queries, ['favorites']);
 
-    chrome.setFavoritesSearchQuery(null);
+    chrome.setReaderActions(null);
+    chrome.setFavoritesActive(false);
+    chrome.updateSearchQuery('global');
     chrome.submitSearch('global');
+    expect(queries, ['favorites']);
     expect(global, 1);
     chrome.setReaderActions(null);
   });

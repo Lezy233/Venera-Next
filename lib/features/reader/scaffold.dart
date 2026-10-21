@@ -106,6 +106,9 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
   DesktopChromeController? _chrome;
   DesktopReaderActions? _desktopReaderActions;
   bool? _thumbnailCollapsedOverride;
+  final _chapterQuery = ValueNotifier<String>('');
+  ReaderChapterMenuRequest? _chapterSearchRequest;
+  ReaderSidebarHandle? _chapterSearchHandle;
 
   bool get _thumbnailCollapsed =>
       _thumbnailCollapsedOverride ??
@@ -163,6 +166,8 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
       openSettings: openSetting,
       openChapters: openChapterDrawer,
       toggleThumbnails: _toggleThumbnail,
+      filterChapters: _filterChapters,
+      submitChapterSearch: _submitChapterSearch,
     );
     chrome.setReaderActions(actions);
   }
@@ -173,6 +178,7 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
     if (actions != null && identical(_chrome?.readerActions, actions)) {
       _chrome?.setReaderActions(null);
     }
+    _chapterQuery.dispose();
     _brightnessPreview.dispose();
     widget.favoriteChanges.removeListener(_imageFavoritesChanged);
     unawaited(_favorites.dispose());
@@ -773,22 +779,50 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
     );
   }
 
+  void _filterChapters(String query) {
+    if (!mounted) return;
+    _chapterQuery.value = query;
+    openChapterDrawer();
+  }
+
+  void _submitChapterSearch(String query) {
+    final request = _chapterSearchRequest;
+    final handle = _chapterSearchHandle;
+    if (!mounted || request == null || handle?.isCurrent != true) return;
+    final first = request.data
+        .filteredGroups(query)
+        .expand((group) => group.entries)
+        .firstOrNull;
+    if (first != null && request.select(first.index)) handle?.close();
+  }
+
   void openChapterDrawer() {
+    if (_chapterSearchHandle?.isCurrent == true) return;
     final request = widget.createChapterMenu();
     if (request == null) return;
     ReaderSidebarHandle? handle;
     handle = _sidebarBinding.show(
       context,
-      ReaderChaptersView(
-        data: request.data,
-        onSelect: (chapter) {
-          if (handle?.isCurrent != true) return;
-          request.select(chapter);
-          handle?.close();
-        },
-        onClose: () => handle?.close(),
+      ValueListenableBuilder<String>(
+        valueListenable: _chapterQuery,
+        builder: (context, query, _) => ReaderChaptersView(
+          data: request.data,
+          query: query,
+          onSelect: (chapter) {
+            if (handle?.isCurrent != true) return;
+            request.select(chapter);
+            handle?.close();
+          },
+          onClose: () => handle?.close(),
+        ),
       ),
+      // The command center lives above this route and keeps keyboard input.
+      requestFocus: _chrome?.searchFocusNode.context != null ? false : null,
     );
+    if (handle != null) {
+      _chapterSearchHandle = handle;
+      _chapterSearchRequest = request;
+    }
   }
 
   ReaderImageExportBinding? _exporter;
