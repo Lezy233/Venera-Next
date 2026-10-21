@@ -8,7 +8,7 @@
 
 - 双栏模式下，`PopupWindowSetting` 的构建结果改在右栏内容区就地渲染（带返回/关闭 affordance），不再弹居中弹窗
 - 窄屏（单栏）保持现有弹窗行为不变
-- 就地编辑的保存状态条（`settingsSaveStatus`）在右栏可见
+- 就地编辑的保存反馈经 `withSettingsSaveFeedback` 覆盖层呈现在右栏（save-bar-layout-fix 落地的新 API；legacy `settingsSaveStatus` 插入式不再扩展新用法）
 
 ## Capabilities
 
