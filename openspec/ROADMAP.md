@@ -11,7 +11,7 @@
 | # | Change | 内容 | 前置依赖 |
 |---|--------|------|----------|
 | 1 | **design-system-foundation** | 设计方向确认 + design-spec.md + token/断点系统 + 壳层规范 | 无（最先做；方向任务 1.1 需 owner 确认） |
-| 2 | **settings-ia-cleanup** | WebDAV 三合一（P0）/ 阅读设置作用域选择器（P1）/ 分类调整（P1） | 与 #1 可并行；断点迁移受 #1 影响处需对齐 |
+| 2 | **settings-ia-cleanup** ✅已归档 | WebDAV 三合一（P0）/ 阅读设置作用域选择器（P1）/ 分类调整（P1） | 与 #1 可并行；断点迁移受 #1 影响处需对齐 |
 | 3 | **desktop-shell-polish** | 宽屏设置就地编辑（P2） | #1（断点）、#2（WebDAV 入口对齐） |
 | 4 | **desktop-search-context** | 命令中心三上下文行为统一（P1-6） | #1（命令中心可见性规则） |
 | 5 | **reader-quick-settings-panel** | 阅读内精简设置面板（P0-1 遗留） | #2 的作用域选择器（降级路径见 design.md D3） |

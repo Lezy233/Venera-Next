@@ -31,9 +31,8 @@ Venera-Next 是 PC 优先的 Flutter 漫画阅读器，fork 自 venera-next，**
 ## 4. 当前状态（规划者维护，执行前核对）
 
 - 分支：`redesign-2026`，已与远程同步（github.com/Lezy233/Venera-Next）。
-- 已完成并归档：`design-system-foundation`（设计基座 + 验收缺陷 5.1–5.3 修复）。
-- **`settings-ia-cleanup` 已实现完毕（tasks 22/22，commit b53ad61），待 owner 人工验收**；验收通过运行 `openspec archive settings-ia-cleanup --yes`。
-- 排队（验收后按序执行）：desktop-shell-polish → desktop-search-context → reader-quick-settings-panel。
+- 已完成并归档：`design-system-foundation`（设计基座 + 验收缺陷 5.1–5.3 修复）；`settings-ia-cleanup`（2026-10-21 归档）；`save-bar-layout-fix`（2026-10-21 归档，commit 9669b5c）。
+- 排队（按序执行）：desktop-shell-polish → desktop-search-context → reader-quick-settings-panel。bugfix 候选：B1（chrome 构建期绑定缺陷，见 BACKLOG）。
 - 新功能愿景与批次（F1–F7）见 `openspec/BACKLOG.md`。
 
 ## 5. 最小阅读清单
