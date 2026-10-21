@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:venera_next/design_system/tokens.dart';
 import 'package:venera_next/components/pop_up_widget.dart';
 import 'package:venera_next/components/window_frame.dart';
 import 'package:venera_next/components/window_selection_task.dart';
@@ -38,6 +39,7 @@ abstract class SettingsSaveState<W extends StatefulWidget> extends State<W> {
   Object _owner = Object();
   bool _leaving = false;
   bool _disposed = false;
+  int _completedSaves = 0;
 
   bool get savingSettings => _pending.isNotEmpty;
   bool get acceptsSettingsChanges =>
@@ -163,6 +165,7 @@ abstract class SettingsSaveState<W extends StatefulWidget> extends State<W> {
       // A successful accepted assignment can repair its own older attempts,
       // even if its page has detached. It never repairs a later attempt.
       save.acknowledgeRepairedFailures();
+      _completedSaves++;
       return true;
     } catch (error, stack) {
       save.error = error;
@@ -280,6 +283,8 @@ abstract class SettingsSaveState<W extends StatefulWidget> extends State<W> {
     }
   }
 
+  /// Legacy inline feedback, retained for callers outside the three migrated
+  /// pages. New page-level feedback should use [withSettingsSaveFeedback].
   Widget get settingsSaveStatus => Row(
     mainAxisSize: MainAxisSize.min,
     children: [
@@ -302,6 +307,16 @@ abstract class SettingsSaveState<W extends StatefulWidget> extends State<W> {
           child: Text('Retry'.tl),
         ),
     ],
+  );
+
+  /// The body alone determines the size, including inside an unbounded sliver.
+  /// Positioned feedback never changes the body's constraints or coordinates.
+  Widget withSettingsSaveFeedback(Widget child) => _SettingsSaveFeedback(
+    saving: savingSettings,
+    failed: hasSettingsSaveError,
+    completedSaves: _completedSaves,
+    status: settingsSaveStatus,
+    child: child,
   );
 
   Widget protectSettings(Widget child) => ExcludeFocus(
@@ -327,6 +342,85 @@ abstract class SettingsSaveState<W extends StatefulWidget> extends State<W> {
     }
     super.dispose();
   }
+}
+
+/// Keeps transient success feedback local to the page, without adding work to
+/// the persistence, admission, or exit-wait lifecycle.
+class _SettingsSaveFeedback extends StatefulWidget {
+  const _SettingsSaveFeedback({
+    required this.saving,
+    required this.failed,
+    required this.completedSaves,
+    required this.status,
+    required this.child,
+  });
+
+  final bool saving;
+  final bool failed;
+  final int completedSaves;
+  final Widget status;
+  final Widget child;
+
+  @override
+  State<_SettingsSaveFeedback> createState() => _SettingsSaveFeedbackState();
+}
+
+class _SettingsSaveFeedbackState extends State<_SettingsSaveFeedback> {
+  Timer? _successTimer;
+  bool _saved = false;
+
+  @override
+  void didUpdateWidget(covariant _SettingsSaveFeedback oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.saving || widget.failed) {
+      _successTimer?.cancel();
+      _saved = false;
+    } else if (widget.completedSaves != oldWidget.completedSaves) {
+      _saved = true;
+      _successTimer?.cancel();
+      _successTimer = Timer(const Duration(seconds: 2), () {
+        if (mounted) setState(() => _saved = false);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _successTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    children: [
+      widget.child,
+      if (widget.saving || widget.failed || _saved)
+        Positioned.fill(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Semantics(
+              liveRegion: true,
+              child: Material(
+                color: Theme.of(context).colorScheme.surfaceContainerLow,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.outlineVariant,
+                    width: AppSizes.hairline,
+                  ),
+                ),
+                child: widget.saving || widget.failed
+                    ? widget.status
+                    : Padding(
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        child: Text('Saved'.tl),
+                      ),
+              ),
+            ),
+          ),
+        ),
+    ],
+  );
 }
 
 class SettingsSaveFailure implements Exception {

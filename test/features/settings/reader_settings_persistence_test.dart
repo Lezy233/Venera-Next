@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:venera_next/features/reader/brightness.dart';
 import 'package:venera_next/features/settings/reader.dart';
+import 'package:venera_next/features/settings/reader_mode.dart';
 import 'package:venera_next/features/settings/reader_brightness.dart';
 import 'package:venera_next/features/settings/setting_components.dart';
 import 'package:venera_next/components/settings_save_state.dart';
@@ -59,6 +60,69 @@ Widget _host(Widget child, {ImageWork? work}) => MaterialApp(
 );
 
 void main() {
+  for (final width in [375.0, 1280.0]) {
+    for (final comic in [false, true]) {
+      for (final outer in [false, true]) {
+        testWidgets(
+          'reader save feedback keeps layout fixed: width=$width comic=$comic outer=$outer',
+          (tester) async {
+            _prepare();
+            tester.view.physicalSize = Size(width, 1000);
+            tester.view.devicePixelRatio = 1;
+            addTearDown(tester.view.resetPhysicalSize);
+            addTearDown(tester.view.resetDevicePixelRatio);
+            await tester.pumpWidget(
+              _host(
+                ReaderSettings(
+                  comicId: comic ? 'comic' : null,
+                  comicSource: comic ? 'local' : null,
+                ),
+              ),
+            );
+            final mode = find.byType(ReaderModeSettings);
+            final display = find.text('Page animation');
+            final modePosition = tester.getTopLeft(mode);
+            final displayPosition = tester.getTopLeft(display);
+            final scrollable = tester.state<ScrollableState>(
+              find.byType(Scrollable).first,
+            );
+            final scrollPosition = scrollable.position.pixels;
+            final owner = tester.state<SettingsSaveState>(
+              outer ? find.byType(ReaderSettings) : mode,
+            );
+            final release = Completer<void>();
+            addTearDown(() {
+              if (!release.isCompleted) release.complete();
+            });
+            final saving = owner.saveSetting(
+              'layout-test',
+              () => release.future,
+            );
+            await tester.pump();
+            expect(owner.savingSettings, isTrue);
+            expect(find.byType(CircularProgressIndicator), findsOneWidget);
+            expect(tester.getTopLeft(mode), modePosition);
+            expect(tester.getTopLeft(display), displayPosition);
+            expect(scrollable.position.pixels, scrollPosition);
+
+            release.complete();
+            await tester.pump();
+            expect(await saving, isTrue);
+            expect(find.text('Saved'), findsOneWidget);
+            expect(tester.getTopLeft(mode), modePosition);
+            expect(tester.getTopLeft(display), displayPosition);
+            await tester.pump(const Duration(seconds: 2));
+            expect(find.text('Saved'), findsNothing);
+            expect(tester.getTopLeft(display), displayPosition);
+            expect(scrollable.position.pixels, scrollPosition);
+            expect(tester.takeException(), isNull);
+            await tester.pumpWidget(const SizedBox());
+          },
+        );
+      }
+    }
+  }
+
   testWidgets(
     'device scope saves and resets only this device while preserving global values',
     (tester) async {

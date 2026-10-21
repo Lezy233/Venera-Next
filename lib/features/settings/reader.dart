@@ -344,14 +344,13 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
 
   @override
   Widget build(BuildContext context) {
-    return protectSettings(
+    final body = protectSettings(
       SmoothCustomScrollView(
         // Keep nearby sections built so scope/brightness controls stay alive
         // while the long settings list scrolls.
         cacheExtent: 1200,
         slivers: [
           SliverAppbar(title: Text("Reading".tl)),
-          settingsSaveStatus.toSliver(),
           _scopeSelector(),
           SettingPartTitle(title: "Reading Mode".tl, icon: Icons.view_module),
           _modeSettings(),
@@ -805,6 +804,7 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
         ],
       ),
     );
+    return withSettingsSaveFeedback(body);
   }
 }
 

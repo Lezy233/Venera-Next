@@ -251,9 +251,8 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
     final cid = widget.comicId;
     final source = widget.sourceKey;
     if (cid == null || source == null) {
-      return Column(
+      final body = Column(
         children: [
-          settingsSaveStatus,
           SwitchListTile(
             title: Text('Choose reading mode automatically'.tl),
             subtitle: Text(
@@ -282,6 +281,7 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
           if (_pagesPerUnit(null, null) == 2) _skipFirstPage(),
         ],
       );
+      return withSettingsSaveFeedback(body);
     }
 
     final override = settings.comicReaderModeOverride(cid, source);
@@ -294,10 +294,9 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
       ComicLayout.longStrip => 'Long-strip comic'.tl,
       ComicLayout.unknown => 'Not identified'.tl,
     };
-    return Column(
+    final body = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        settingsSaveStatus,
         _ModifiedRow(
           modified:
               override != null &&
@@ -394,6 +393,7 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
         ],
       ],
     );
+    return withSettingsSaveFeedback(body);
   }
 }
 

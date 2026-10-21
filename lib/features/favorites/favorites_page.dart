@@ -114,10 +114,9 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
         ? -_leftBarWidth
         : (leftBarCollapsed ? -_leftBarWidth : 0.0);
     final bodyLeft = twoPanel && !leftBarCollapsed ? _leftBarWidth : 0.0;
-    return protectSettings(
+    final body = protectSettings(
       Column(
         children: [
-          if (savingSettings || hasSettingsSaveError) settingsSaveStatus,
           Expanded(
             child: IconTheme(
               data: IconThemeData(
@@ -169,6 +168,7 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
         ],
       ),
     );
+    return withSettingsSaveFeedback(body);
   }
 
   void _toggleLeftBar() {

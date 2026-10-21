@@ -126,6 +126,55 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   App.dataPath = Directory.systemTemp.path;
 
+  for (final width in [375.0, 1280.0]) {
+    testWidgets('folder save feedback keeps layout fixed at width $width', (
+      tester,
+    ) async {
+      await _prepare(tester);
+      tester.view.physicalSize = Size(width, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(_host(const FavoritesPage()));
+      final owner = tester.state<SettingsSaveState>(find.byType(FavoritesPage));
+      final select = tester
+          .widget<FavoritesFolderSidebar>(find.byType(FavoritesFolderSidebar))
+          .onFolderSelected;
+      select(false, 'A');
+      await _flush(tester, owner.waitForSettingsSave());
+      await tester.pump(const Duration(seconds: 2));
+      final content = find.byType(LocalFavoritesPage);
+      final sidebar = find.byType(FavoritesFolderSidebar);
+      final contentPosition = tester.getTopLeft(content);
+      final sidebarPosition = tester.getTopLeft(sidebar);
+      final release = Completer<void>();
+      final exclusive = AppDataOperations.instance.run(() => release.future);
+      addTearDown(() {
+        if (!release.isCompleted) release.complete();
+      });
+
+      select(false, 'B');
+      await tester.pump();
+      expect(owner.savingSettings, isTrue);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(tester.getTopLeft(content), contentPosition);
+      expect(tester.getTopLeft(sidebar), sidebarPosition);
+      expect(tester.widget<LocalFavoritesPage>(content).folder, 'B');
+      release.complete();
+      await _flush(
+        tester,
+        Future.wait([exclusive, owner.waitForSettingsSave()]),
+      );
+      expect(find.text('Saved'), findsOneWidget);
+      expect(tester.getTopLeft(content), contentPosition);
+      expect(tester.getTopLeft(sidebar), sidebarPosition);
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('Saved'), findsNothing);
+      expect(tester.getTopLeft(content), contentPosition);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
   testWidgets(
     'folder selection previews latest folder and detached window waits for saves',
     (tester) async {
