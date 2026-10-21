@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:venera_next/foundation/preferences.dart';
 import 'setting_field.dart';
+import 'settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_reorderable_grid_view/widgets/reorderable_builder.dart';
 import 'package:venera_next/components/button.dart';
@@ -655,7 +656,9 @@ class PopupWindowSetting extends StatelessWidget {
       title: Text(title),
       trailing: const Icon(Icons.arrow_right),
       onTap: () {
-        showPopUpWidget(appNavigation.rootContext, builder());
+        if (!SettingsPage.openEditor(context, builder)) {
+          showPopUpWidget(appNavigation.rootContext, builder());
+        }
       },
     );
   }
@@ -748,20 +751,21 @@ class _MultiPagesFilterState
       },
     );
 
-    return protectSettings(
-      PopUpWidgetScaffold(
-        title: widget.title,
-        onBack: leaveSettings,
-        tailing: [
-          settingsSaveStatus,
-          if (keys.length < widget.pages.length)
-            TextButton.icon(
-              label: Text("Add".tl),
-              icon: const Icon(Icons.add),
-              onPressed: showAddDialog,
-            ),
-        ],
-        body: view,
+    return withSettingsSaveFeedback(
+      protectSettings(
+        PopUpWidgetScaffold(
+          title: widget.title,
+          onBack: leaveSettings,
+          tailing: [
+            if (keys.length < widget.pages.length)
+              TextButton.icon(
+                label: Text("Add".tl),
+                icon: const Icon(Icons.add),
+                onPressed: showAddDialog,
+              ),
+          ],
+          body: view,
+        ),
       ),
     );
   }

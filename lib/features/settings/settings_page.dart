@@ -18,6 +18,17 @@ class SettingsPage extends StatefulWidget {
 
   final int initialPage;
 
+  /// Opens an existing editor in the two-pane settings navigator, if present.
+  /// Standalone settings and compact layouts keep their popup presentation.
+  static bool openEditor(BuildContext context, Widget Function() builder) {
+    if (Breakpoints.isCompact(context)) return false;
+    final scope = context
+        .getInheritedWidgetOfExactType<_SettingsEditingScope>();
+    if (scope == null) return false;
+    scope.open(context, builder);
+    return true;
+  }
+
   @override
   State<SettingsPage> createState() => _SettingsPageState();
 }
@@ -224,16 +235,20 @@ class _SettingsPageState extends State<SettingsPage> {
     if (page == -1) {
       return const SizedBox();
     }
-    return Navigator(
+    return _SettingsEditingScope(
       key: ValueKey(page),
-      onGenerateRoute: (settings) {
-        return PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) {
-            return _buildSettingsContent(page);
-          },
-          transitionDuration: Duration.zero,
-        );
-      },
+      open: (context, builder) => context.to(builder),
+      child: Navigator(
+        key: ValueKey(page),
+        onGenerateRoute: (settings) {
+          return PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) {
+              return _buildSettingsContent(page);
+            },
+            transitionDuration: Duration.zero,
+          );
+        },
+      ),
     );
   }
 
@@ -249,6 +264,19 @@ class _SettingsPageState extends State<SettingsPage> {
       _ => throw UnimplementedError(),
     };
   }
+}
+
+class _SettingsEditingScope extends InheritedWidget {
+  const _SettingsEditingScope({
+    super.key,
+    required this.open,
+    required super.child,
+  });
+
+  final void Function(BuildContext context, Widget Function() builder) open;
+
+  @override
+  bool updateShouldNotify(_SettingsEditingScope oldWidget) => false;
 }
 
 class _SettingsDetailPage extends StatelessWidget {

@@ -48,36 +48,39 @@ class _KeywordBlockingSettingsState
   Widget build(BuildContext context) {
     final target = _target;
     final words = _keywordSettings.read(target);
-    return protectSettings(
-      PopUpWidgetScaffold(
-        title:
-            (widget.comments ? 'Comment keyword blocking' : 'Keyword blocking')
-                .tl,
-        onBack: leaveSettings,
-        tailing: [
-          settingsSaveStatus,
-          TextButton.icon(
-            onPressed: _add,
-            icon: const Icon(Icons.add),
-            label: Text('Add'.tl),
+    return withSettingsSaveFeedback(
+      protectSettings(
+        PopUpWidgetScaffold(
+          title:
+              (widget.comments
+                      ? 'Comment keyword blocking'
+                      : 'Keyword blocking')
+                  .tl,
+          onBack: leaveSettings,
+          tailing: [
+            TextButton.icon(
+              onPressed: _add,
+              icon: const Icon(Icons.add),
+              label: Text('Add'.tl),
+            ),
+          ],
+          body: ListView.builder(
+            itemCount: words.length,
+            itemBuilder: (context, index) {
+              final word = words[index];
+              return ListTile(
+                title: Text(word),
+                trailing: IconButton(
+                  tooltip: 'Delete'.tl,
+                  icon: const Icon(Icons.close),
+                  onPressed: () => saveSetting((
+                    target,
+                    word,
+                  ), () => _keywordSettings.setBlocked(target, word, false)),
+                ),
+              );
+            },
           ),
-        ],
-        body: ListView.builder(
-          itemCount: words.length,
-          itemBuilder: (context, index) {
-            final word = words[index];
-            return ListTile(
-              title: Text(word),
-              trailing: IconButton(
-                tooltip: 'Delete'.tl,
-                icon: const Icon(Icons.close),
-                onPressed: () => saveSetting((
-                  target,
-                  word,
-                ), () => _keywordSettings.setBlocked(target, word, false)),
-              ),
-            );
-          },
         ),
       ),
     );

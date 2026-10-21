@@ -72,40 +72,42 @@ class _ProxySettingViewState extends SettingsSaveState<_ProxySettingView> {
 
   @override
   Widget build(BuildContext context) {
-    return protectSettings(
-      PopUpWidgetScaffold(
-        title: "Proxy".tl,
-        onBack: leaveSettings,
-        tailing: [settingsSaveStatus],
-        body: SingleChildScrollView(
-          child: RadioGroup<ProxyMode>(
-            groupValue: configuration.mode,
-            onChanged: (v) {
-              if (!acceptsSettingsChanges) return;
-              _selection++;
-              setState(() {
-                configuration = configuration.copyWith(mode: v);
-              });
-              if (configuration.mode != ProxyMode.manual) {
-                _saveProxy(configuration.serialize());
-              }
-            },
-            child: Column(
-              children: [
-                RadioListTile<ProxyMode>(
-                  title: Text("Direct".tl),
-                  value: ProxyMode.direct,
-                ),
-                RadioListTile<ProxyMode>(
-                  title: Text("System".tl),
-                  value: ProxyMode.system,
-                ),
-                RadioListTile(
-                  title: Text("Manual".tl),
-                  value: ProxyMode.manual,
-                ),
-                if (configuration.mode == ProxyMode.manual) buildManualProxy(),
-              ],
+    return withSettingsSaveFeedback(
+      protectSettings(
+        PopUpWidgetScaffold(
+          title: "Proxy".tl,
+          onBack: leaveSettings,
+          body: SingleChildScrollView(
+            child: RadioGroup<ProxyMode>(
+              groupValue: configuration.mode,
+              onChanged: (v) {
+                if (!acceptsSettingsChanges) return;
+                _selection++;
+                setState(() {
+                  configuration = configuration.copyWith(mode: v);
+                });
+                if (configuration.mode != ProxyMode.manual) {
+                  _saveProxy(configuration.serialize());
+                }
+              },
+              child: Column(
+                children: [
+                  RadioListTile<ProxyMode>(
+                    title: Text("Direct".tl),
+                    value: ProxyMode.direct,
+                  ),
+                  RadioListTile<ProxyMode>(
+                    title: Text("System".tl),
+                    value: ProxyMode.system,
+                  ),
+                  RadioListTile(
+                    title: Text("Manual".tl),
+                    value: ProxyMode.manual,
+                  ),
+                  if (configuration.mode == ProxyMode.manual)
+                    buildManualProxy(),
+                ],
+              ),
             ),
           ),
         ),
@@ -260,45 +262,46 @@ class __DNSOverridesState extends SettingsSaveState<_DNSOverrides> {
 
   @override
   Widget build(BuildContext context) {
-    return protectSettings(
-      PopUpWidgetScaffold(
-        title: "DNS Overrides".tl,
-        onBack: leaveSettings,
-        tailing: [settingsSaveStatus],
-        body: SingleChildScrollView(
-          child: Column(
-            children: [
-              SwitchSetting.preference(
-                title: "Enable DNS Overrides".tl,
-                preference: NetworkPreferences.enableDnsOverrides,
-              ),
-              SwitchSetting.preference(
-                title: "Server Name Indication",
-                preference: NetworkPreferences.sni,
-              ),
-              const SizedBox(height: 8),
-              Container(
-                height: 1,
-                margin: EdgeInsets.symmetric(horizontal: 8),
-                color: context.colorScheme.outlineVariant,
-              ),
-              for (var i = 0; i < overrides.length; i++) buildOverride(i),
-              const SizedBox(height: 8),
-              TextButton.icon(
-                onPressed: () {
-                  if (!acceptsSettingsChanges) return;
-                  setState(() {
-                    overrides.add((
-                      TextEditingController(),
-                      TextEditingController(),
-                    ));
-                  });
-                  _saveOverrides();
-                },
-                icon: const Icon(Icons.add),
-                label: Text("Add".tl),
-              ),
-            ],
+    return withSettingsSaveFeedback(
+      protectSettings(
+        PopUpWidgetScaffold(
+          title: "DNS Overrides".tl,
+          onBack: leaveSettings,
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                SwitchSetting.preference(
+                  title: "Enable DNS Overrides".tl,
+                  preference: NetworkPreferences.enableDnsOverrides,
+                ),
+                SwitchSetting.preference(
+                  title: "Server Name Indication",
+                  preference: NetworkPreferences.sni,
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  height: 1,
+                  margin: EdgeInsets.symmetric(horizontal: 8),
+                  color: context.colorScheme.outlineVariant,
+                ),
+                for (var i = 0; i < overrides.length; i++) buildOverride(i),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: () {
+                    if (!acceptsSettingsChanges) return;
+                    setState(() {
+                      overrides.add((
+                        TextEditingController(),
+                        TextEditingController(),
+                      ));
+                    });
+                    _saveOverrides();
+                  },
+                  icon: const Icon(Icons.add),
+                  label: Text("Add".tl),
+                ),
+              ],
+            ),
           ),
         ),
       ),
