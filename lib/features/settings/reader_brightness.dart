@@ -12,11 +12,13 @@ class ReaderBrightnessSetting extends StatefulWidget {
     super.key,
     this.comicId,
     this.sourceKey,
+    this.scope = ReaderPreferenceScope.active,
     this.preview,
     this.panel = false,
     this.onChanged,
   });
   final String? comicId, sourceKey;
+  final ReaderPreferenceScope scope;
   final ReaderBrightnessPreview? preview;
   final bool panel;
   final ValueChanged<String>? onChanged;
@@ -39,7 +41,7 @@ class _ReaderBrightnessSettingState
         preference: preference,
         comicId: widget.comicId,
         sourceKey: widget.sourceKey,
-        scope: ReaderPreferenceScope.active,
+        scope: widget.scope,
       );
 
   var _localPreview = ReaderBrightnessPreview();

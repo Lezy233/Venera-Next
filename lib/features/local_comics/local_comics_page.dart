@@ -534,6 +534,10 @@ class _LocalComicsPageState extends State<LocalComicsPage> {
 
   Future<bool> archiveComics(List<LocalComic> comics) async {
     if (comics.isEmpty) return false;
+    if (!BackupConfig.enabled) {
+      context.showMessage(message: "WebDAV archive backup is disabled".tl);
+      return false;
+    }
     final config = BackupConfig.fromSettings();
     if (!config.isValid) {
       context.showMessage(message: "Invalid WebDAV archive configuration".tl);

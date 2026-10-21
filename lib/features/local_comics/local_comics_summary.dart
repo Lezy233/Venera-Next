@@ -151,7 +151,8 @@ class _LocalComicsSummaryState extends State<LocalComicsSummary> {
                       },
                     ),
                   const Spacer(),
-                  if (BackupConfig.fromSettings().isValid)
+                  if (BackupConfig.enabled &&
+                      BackupConfig.fromSettings().isValid)
                     Button.outlined(
                       onPressed: () {
                         context.to(() => const ComicArchivePage());

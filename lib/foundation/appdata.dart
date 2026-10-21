@@ -15,6 +15,7 @@ import 'package:venera_next/foundation/reader_preference_settings.dart';
 import 'package:venera_next/foundation/file_system.dart';
 import 'package:venera_next/foundation/init.dart';
 import 'package:venera_next/foundation/log.dart';
+import 'package:venera_next/foundation/webdav_connection.dart';
 
 class Appdata with Init {
   Appdata._create();
@@ -393,9 +394,19 @@ class Appdata with Init {
     var dataPath = App.dataPath;
     return _enqueueWrite(() async {
       await _loadAppData(dataPath);
+      final migration = WebDavConnectionMigration.inspect(
+        (key) => settings._data[key],
+      );
+      if (migration.changed) {
+        for (final entry in migration.changes.entries) {
+          settings._data[entry.key] = entry.value;
+        }
+      }
       final deviceId = settings['deviceId'];
       if (deviceId is! String || deviceId.isEmpty) {
         settings._data["deviceId"] = const Uuid().v4();
+        await _writeAppData(dataPath, _appDataContents(jsonEncode(toJson())));
+      } else if (migration.changed) {
         await _writeAppData(dataPath, _appDataContents(jsonEncode(toJson())));
       }
       await _loadImplicitData(dataPath);
@@ -620,9 +631,14 @@ class Settings with ChangeNotifier implements ReaderPreferenceSettings {
     'searchShortcuts': [],
     'comicLayoutDetections': <String, dynamic>{},
     'enableLongPressToZoom': true,
-    'webdav': [], // empty means not configured
+    'webdav': [], // legacy: empty means not configured
+    webDavConnectionKey: null, // shared {url, user, pass}; null = not migrated
+    webDavConnectionPendingConfirmationKey: false,
+    WebDavPurposes.dataSync: true,
+    WebDavPurposes.backup: true,
+    WebDavPurposes.library: true,
     'webdavProxyEnabled': true,
-    'backupWebdav': [], // empty means not configured
+    'backupWebdav': [], // legacy: empty means not configured
     'backupWebdavPath': '/venera_backup/',
     'backupWebdavSyncEnabled': false,
     'webdavComicLibrary': [], // empty means not configured
@@ -863,6 +879,15 @@ class Settings with ChangeNotifier implements ReaderPreferenceSettings {
   void setDeviceReaderSetting(String key, dynamic value) {
     var deviceId = _getOrCreateDeviceId();
     _writeScopeValue('deviceSpecificSettings', deviceId, key, value);
+  }
+
+  void resetGlobalReaderSettings() {
+    final defaults = ReaderPreferences.storageDefaults;
+    for (final entry in defaults.entries) {
+      _data[entry.key] = entry.value;
+    }
+    _data['enableLongPressToZoom'] = true;
+    notifyListeners();
   }
 
   void resetDeviceReaderSettings() {

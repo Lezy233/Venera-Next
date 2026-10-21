@@ -31,54 +31,64 @@ class WebDavConnectionFields extends StatelessWidget {
     required this.controllers,
     required this.remotePathHint,
     this.enabled = true,
+    this.showRemotePath = true,
+    this.showCredentials = true,
+    this.urlFocusNode,
   });
 
   final WebDavConnectionControllers controllers;
   final String remotePathHint;
   final bool enabled;
+  final bool showRemotePath;
+  final bool showCredentials;
+  final FocusNode? urlFocusNode;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        TextField(
-          enabled: enabled,
-          decoration: InputDecoration(
-            labelText: 'URL',
-            hintText: 'A valid WebDav directory URL'.tl,
-            border: const OutlineInputBorder(),
+        if (showCredentials) ...[
+          TextField(
+            enabled: enabled,
+            focusNode: urlFocusNode,
+            decoration: InputDecoration(
+              labelText: 'URL',
+              hintText: 'A valid WebDav directory URL'.tl,
+              border: const OutlineInputBorder(),
+            ),
+            controller: controllers.url,
           ),
-          controller: controllers.url,
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          enabled: enabled,
-          decoration: InputDecoration(
-            labelText: 'Username'.tl,
-            border: const OutlineInputBorder(),
+          const SizedBox(height: 12),
+          TextField(
+            enabled: enabled,
+            decoration: InputDecoration(
+              labelText: 'Username'.tl,
+              border: const OutlineInputBorder(),
+            ),
+            controller: controllers.user,
           ),
-          controller: controllers.user,
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          enabled: enabled,
-          decoration: InputDecoration(
-            labelText: 'Password'.tl,
-            border: const OutlineInputBorder(),
+          const SizedBox(height: 12),
+          TextField(
+            enabled: enabled,
+            decoration: InputDecoration(
+              labelText: 'Password'.tl,
+              border: const OutlineInputBorder(),
+            ),
+            controller: controllers.password,
+            obscureText: true,
           ),
-          controller: controllers.password,
-          obscureText: true,
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          enabled: enabled,
-          decoration: InputDecoration(
-            labelText: 'Remote Path'.tl,
-            hintText: remotePathHint,
-            border: const OutlineInputBorder(),
+          const SizedBox(height: 12),
+        ],
+        if (showRemotePath)
+          TextField(
+            enabled: enabled,
+            decoration: InputDecoration(
+              labelText: 'Remote Path'.tl,
+              hintText: remotePathHint,
+              border: const OutlineInputBorder(),
+            ),
+            controller: controllers.remotePath,
           ),
-          controller: controllers.remotePath,
-        ),
       ],
     );
   }

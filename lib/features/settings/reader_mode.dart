@@ -18,6 +18,7 @@ class ReaderModeSettings extends StatefulWidget {
     super.key,
     this.comicId,
     this.sourceKey,
+    this.scope = ReaderPreferenceScope.active,
     this.currentMode,
     this.isDetecting,
     this.onDetect,
@@ -26,6 +27,7 @@ class ReaderModeSettings extends StatefulWidget {
 
   final String? comicId;
   final String? sourceKey;
+  final ReaderPreferenceScope scope;
   final String Function()? currentMode;
   final bool Function()? isDetecting;
   final Future<void> Function()? onDetect;
@@ -54,8 +56,12 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
     if (mounted) setState(() {});
   }
 
-  ReaderPreferenceStore get _store =>
-      ReaderPreferenceStore(settings: appdata.settings);
+  ReaderPreferenceStore get _store => ReaderPreferenceStore(
+    settings: appdata.settings,
+    scope: widget.scope,
+    comicId: widget.comicId,
+    sourceKey: widget.sourceKey,
+  );
 
   Future<bool> _setPreference<T extends Object>(
     Preference<T> preference,
@@ -65,7 +71,12 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
     return saveSetting(
       preference.key,
       () => appdata.updateSettings((draft) {
-        ReaderPreferenceStore(settings: draft).write(preference, value);
+        ReaderPreferenceStore(
+          settings: draft,
+          scope: widget.scope,
+          comicId: widget.comicId,
+          sourceKey: widget.sourceKey,
+        ).write(preference, value);
       }),
       onSaved: () => widget.onChanged?.call(),
       isCurrent: () => target == (widget.comicId, widget.sourceKey),
@@ -104,9 +115,7 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
 
   Widget _pagesPerScreen({String? cid, String? source}) {
     final scoped = cid != null && source != null;
-    final scope = scoped
-        ? ReaderPreferenceScope.comic
-        : ReaderPreferenceScope.global;
+    final scope = scoped ? ReaderPreferenceScope.comic : widget.scope;
     final store = ReaderPreferenceStore(
       settings: appdata.settings,
       scope: scope,
@@ -175,7 +184,7 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
   ReaderPreferenceScope _thumbnailScope(String? cid, String? source) =>
       cid != null && source != null
       ? ReaderPreferenceScope.comic
-      : ReaderPreferenceScope.global;
+      : widget.scope;
 
   int _pagesPerUnit(String? cid, String? source) {
     final landscape =

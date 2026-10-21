@@ -62,8 +62,17 @@ class ReaderPreferenceStore {
         settings[key] = stored;
       case ReaderPreferenceScope.device:
         settings.setDeviceReaderSetting(key, stored);
+        // An explicit device-scope edit activates the device layer so the
+        // value is not shadowed by the global fallback.
+        if (key != 'enabled') {
+          settings.setDeviceReaderSetting('enabled', true);
+        }
       case ReaderPreferenceScope.comic:
         settings.setReaderSetting(comicId!, sourceKey!, key, stored);
+        // An explicit comic-scope edit activates this comic's overrides.
+        if (key != 'enabled') {
+          settings.setReaderSetting(comicId!, sourceKey!, 'enabled', true);
+        }
       case ReaderPreferenceScope.active:
         settings.setActiveReaderSetting(comicId, sourceKey, key, stored);
     }

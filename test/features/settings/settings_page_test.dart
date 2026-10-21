@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:venera_next/features/settings/settings.dart';
 
 void main() {
-  testWidgets('settings lists reading statistics as a top-level entry', (
+  testWidgets('settings keeps statistics and debug out of the main list', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(400, 800);
@@ -13,8 +13,10 @@ void main() {
 
     await tester.pumpWidget(const MaterialApp(home: SettingsPage()));
 
-    expect(find.text('Reading statistics'), findsOneWidget);
-    expect(find.byIcon(Icons.query_stats), findsOneWidget);
+    expect(find.text('Reading statistics'), findsNothing);
+    expect(find.text('Debug'), findsNothing);
+    expect(find.text('Explore'), findsOneWidget);
+    expect(find.text('About'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -26,7 +28,8 @@ void main() {
 
     await tester.pumpWidget(const MaterialApp(home: SettingsPage()));
 
-    expect(find.text('Reading statistics'), findsOneWidget);
+    expect(find.text('Reading statistics'), findsNothing);
+    expect(find.text('Debug'), findsNothing);
     expect(find.text('Display mode of comic tile'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -43,7 +46,8 @@ void main() {
       await tester.pumpWidget(const MaterialApp(home: SettingsPage()));
       await tester.pump();
 
-      expect(find.text('Reading statistics'), findsOneWidget);
+      expect(find.text('Reading statistics'), findsNothing);
+      expect(find.text('Debug'), findsNothing);
       expect(find.text('Display mode of comic tile'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });

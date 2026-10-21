@@ -120,7 +120,6 @@ void main() {
         ('Show history on comic tile', false),
         ('Show detailed reading progress', false),
         ('Show update status on comic tile', true),
-        ('Reverse default chapter order', false),
       ]) {
         final field = await _show(tester, title);
         expect(
@@ -135,11 +134,6 @@ void main() {
       final language = await _show(tester, 'Auto Language Filters');
       expect(
         find.descendant(of: language, matching: find.text('None')),
-        findsOneWidget,
-      );
-      final initial = await _show(tester, 'Initial Page');
-      expect(
-        find.descendant(of: initial, matching: find.text('Home Page')),
         findsOneWidget,
       );
       final list = await _show(tester, 'Display mode of comic list');
@@ -173,19 +167,6 @@ void main() {
         final before =
             jsonDecode(jsonEncode(appdata.toJson()['settings'])) as Map;
         await tester.pumpWidget(_host());
-        final initial = await _show(tester, 'Initial Page');
-        await tester.tap(
-          find.descendant(
-            of: initial,
-            matching: find.byIcon(Icons.arrow_drop_down),
-          ),
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Explore Page').last);
-        await tester.pump();
-        await _flush(tester, appdata.saveData(false));
-        expect(_saved(root)['initialPage'], '2');
-        expect(_saved(root)['comicListDisplayMode'], 'continuous');
         final list = await _show(tester, 'Display mode of comic list');
         await tester.tap(
           find.descendant(
@@ -198,18 +179,18 @@ void main() {
         await tester.pump();
         await _flush(tester, appdata.saveData(false));
         final saved = _saved(root);
-        expect(saved['initialPage'], '2');
         expect(saved['comicListDisplayMode'], 'Continuous');
+        expect(saved['initialPage'], 99);
         for (final entry in before.entries) {
-          if (!['initialPage', 'comicListDisplayMode'].contains(entry.key)) {
+          if (entry.key != 'comicListDisplayMode') {
             expect(saved[entry.key], entry.value, reason: entry.key as String);
           }
         }
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pumpWidget(_host());
-        final rebuilt = await _show(tester, 'Initial Page');
+        final rebuilt = await _show(tester, 'Display mode of comic list');
         expect(
-          find.descendant(of: rebuilt, matching: find.text('Explore Page')),
+          find.descendant(of: rebuilt, matching: find.text('Continuous')),
           findsOneWidget,
         );
         expect(tester.takeException(), isNull);

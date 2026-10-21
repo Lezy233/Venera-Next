@@ -1,20 +1,321 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher_string.dart';
+import 'package:venera_next/components/button.dart';
 import 'package:venera_next/components/pop_up_widget.dart';
 import 'package:venera_next/components/settings_save_state.dart';
+import 'package:venera_next/features/settings/data_sync_schedule_fields.dart';
 import 'package:venera_next/features/sync/sync.dart';
 import 'package:venera_next/features/webdav_library/webdav_library.dart';
+import 'package:venera_next/foundation/app_sync_preferences.dart';
+import 'package:venera_next/foundation/appdata.dart';
+import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/foundation/navigation_admission.dart';
 import 'package:venera_next/foundation/res.dart';
 import 'package:venera_next/foundation/translations.dart';
 import 'package:venera_next/foundation/widget_utils.dart';
+import 'package:venera_next/routing/app_navigation.dart';
 
 import 'webdav_connection_fields.dart';
 
+/// Data-sync purpose form. The shared connection is shown on the remote storage
+/// page, so the old entry keeps editing only sync-specific fields.
+class DataSyncWebdavSetting extends StatefulWidget {
+  const DataSyncWebdavSetting({super.key, this.showConnection = true});
+
+  final bool showConnection;
+
+  @override
+  State<DataSyncWebdavSetting> createState() => _DataSyncWebdavSettingState();
+}
+
+class _DataSyncWebdavSettingState extends State<DataSyncWebdavSetting> {
+  String url = "";
+  String user = "";
+  String pass = "";
+  String disableSync = "";
+
+  DataSyncMode syncMode = DataSyncMode.realtime;
+  int syncInterval = 30;
+  late final TextEditingController urlController;
+  late final TextEditingController userController;
+  late final TextEditingController passController;
+  late final TextEditingController fieldsController;
+
+  bool isTesting = false;
+  bool upload = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final config = createAppSyncPreferences(appdata).configuration;
+    if (config.excludedFields.trim().isNotEmpty) {
+      disableSync = config.excludedFields;
+    }
+    final connection = config.connection;
+    if (connection != null && !connection.isEmpty) {
+      url = connection.url;
+      user = connection.user;
+      pass = connection.password;
+      syncMode = config.mode;
+    }
+    syncInterval = config.intervalMinutes;
+    urlController = TextEditingController(text: url);
+    userController = TextEditingController(text: user);
+    passController = TextEditingController(text: pass);
+    fieldsController = TextEditingController(text: disableSync);
+  }
+
+  @override
+  void dispose() {
+    urlController.dispose();
+    userController.dispose();
+    passController.dispose();
+    fieldsController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopUpWidgetScaffold(
+      title: "Webdav",
+      body: AbsorbPointer(
+        absorbing: isTesting,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              if (widget.showConnection) ..._connectionFields(context),
+              TextField(
+                decoration: InputDecoration(
+                  labelText: "Skip Setting Fields (Optional)".tl,
+                  hintText: "field0, field1, field2, ...",
+                  hintStyle: TextStyle(color: Theme.of(context).hintColor),
+                  border: OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: Icon(Icons.help_outline),
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: Text("Skip Setting Fields".tl),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "When sync data, skip certain setting fields, which means these won't be uploaded / override."
+                                    .tl,
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      "See source code for available fields."
+                                          .tl,
+                                    ),
+                                  ),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: IconButton(
+                                      icon: const Icon(Icons.open_in_new),
+                                      onPressed: () {
+                                        launchUrlString(
+                                          "https://github.com/CyrilPeng/venera-next/blob/main/lib/foundation/appdata.dart#L138",
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                controller: fieldsController,
+                onChanged: (value) => disableSync = value,
+              ),
+              const SizedBox(height: 12),
+              DataSyncScheduleFields(
+                mode: syncMode,
+                minutes: syncInterval,
+                onModeChanged: (value) => setState(() => syncMode = value),
+                onIntervalChanged: (value) =>
+                    setState(() => syncInterval = value),
+              ),
+              const SizedBox(height: 12),
+              if (syncMode != DataSyncMode.manual) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Initial sync'.tl),
+                ),
+                RadioGroup<bool>(
+                  groupValue: upload,
+                  onChanged: (value) {
+                    setState(() {
+                      upload = value ?? upload;
+                    });
+                  },
+                  child: Column(
+                    children: [
+                      RadioListTile<bool>(
+                        value: true,
+                        title: Text('Upload'.tl),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      RadioListTile<bool>(
+                        value: false,
+                        title: Text('Download'.tl),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                child: syncMode != DataSyncMode.manual
+                    ? Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                "Once the operation is successful, app will automatically sync data with the server."
+                                    .tl,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: Button.outlined(
+                      isLoading: isTesting,
+                      onPressed: testConnection,
+                      child: Text("Test Connection".tl),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: Button.filled(
+                  isLoading: isTesting,
+                  onPressed: save,
+                  child: Text("Continue".tl),
+                ),
+              ),
+            ],
+          ).paddingHorizontal(16),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _connectionFields(BuildContext context) => [
+    TextField(
+      decoration: InputDecoration(
+        labelText: "URL",
+        hintText: "A valid WebDav directory URL".tl,
+        border: OutlineInputBorder(),
+      ),
+      controller: urlController,
+      onChanged: (value) => url = value,
+    ),
+    const SizedBox(height: 12),
+    TextField(
+      decoration: InputDecoration(
+        labelText: "Username".tl,
+        border: const OutlineInputBorder(),
+      ),
+      controller: userController,
+      onChanged: (value) => user = value,
+    ),
+    const SizedBox(height: 12),
+    TextField(
+      decoration: InputDecoration(
+        labelText: "Password".tl,
+        border: const OutlineInputBorder(),
+      ),
+      controller: passController,
+      onChanged: (value) => pass = value,
+    ),
+    const SizedBox(height: 12),
+  ];
+
+  Future<void> save() async {
+    if (isTesting) return;
+    setState(() {
+      isTesting = true;
+    });
+    final clear =
+        url.trim().isEmpty && user.trim().isEmpty && pass.trim().isEmpty;
+    final testResult = await DataSyncScope.of(context).configure(
+      config: clear ? [] : [url.trim(), user, pass],
+      excludedFields: disableSync,
+      syncMode: syncMode,
+      minutes: syncInterval,
+      initialUpload: upload,
+    );
+    if (!mounted) return;
+    setState(() => isTesting = false);
+    if (testResult.error) {
+      context.showMessage(message: testResult.errorMessage!);
+      context.showMessage(message: "Saved Failed".tl);
+    } else {
+      context.showMessage(message: "Saved".tl);
+      appNavigation.rootPop();
+    }
+  }
+
+  BackupConfig get currentConfig =>
+      BackupConfig(url: url, user: user, pass: pass, remotePath: '/');
+
+  Future<void> testConnection() async {
+    if (isTesting) return;
+    setState(() {
+      isTesting = true;
+    });
+    final result = await ComicBackupManager.instance.testConnection(
+      currentConfig,
+    );
+    if (!mounted) return;
+    setState(() {
+      isTesting = false;
+    });
+    if (result.error) {
+      context.showMessage(message: result.errorMessage!.tl);
+    } else {
+      context.showMessage(message: "Connection successful".tl);
+    }
+  }
+}
+
 class BackupWebdavSetting extends StatefulWidget {
-  const BackupWebdavSetting({super.key, this.testConnection});
+  const BackupWebdavSetting({
+    super.key,
+    this.testConnection,
+    this.showConnection = true,
+  });
   final Future<Res<bool>> Function(BackupConfig)? testConnection;
+  final bool showConnection;
 
   @override
   State<BackupWebdavSetting> createState() => _BackupWebdavSettingState();
@@ -68,6 +369,7 @@ class _BackupWebdavSettingState extends SettingsSaveState<BackupWebdavSetting> {
                 controllers: _connectionControllers,
                 enabled: !busy,
                 remotePathHint: '/venera_backup/',
+                showCredentials: widget.showConnection,
               ),
               const SizedBox(height: 16),
               Container(
@@ -195,9 +497,14 @@ class _BackupWebdavSettingState extends SettingsSaveState<BackupWebdavSetting> {
 }
 
 class WebDavComicLibrarySetting extends StatefulWidget {
-  const WebDavComicLibrarySetting(this.services, {super.key});
+  const WebDavComicLibrarySetting(
+    this.services, {
+    super.key,
+    this.showConnection = true,
+  });
 
   final WebDavLibraryServices services;
+  final bool showConnection;
 
   @override
   State<WebDavComicLibrarySetting> createState() =>
@@ -268,6 +575,7 @@ class _WebDavComicLibrarySettingState
                 controllers: _connectionControllers,
                 enabled: !busy,
                 remotePathHint: '/venera_comics/',
+                showCredentials: widget.showConnection,
               ),
               const SizedBox(height: 16),
               Container(

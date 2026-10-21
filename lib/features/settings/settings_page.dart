@@ -5,11 +5,9 @@ import 'package:venera_next/design_system/tokens.dart';
 import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/foundation/translations.dart';
 import 'package:venera_next/foundation/widget_utils.dart';
-import 'package:venera_next/features/history/history.dart';
 import 'package:venera_next/features/settings/about.dart';
 import 'package:venera_next/features/settings/appearance.dart';
 import 'package:venera_next/features/settings/local_favorites.dart';
-import 'package:venera_next/features/settings/debug.dart';
 import 'package:venera_next/features/settings/network.dart';
 import 'package:venera_next/features/settings/explore_settings.dart';
 import 'package:venera_next/features/settings/app.dart';
@@ -34,30 +32,31 @@ class _SettingsPageState extends State<SettingsPage> {
   final categories = <String>[
     "Explore",
     "Reading",
-    "Reading statistics",
     "Appearance",
     "Local Favorites",
     "APP",
     "Network",
     "About",
-    "Debug",
   ];
 
   final icons = <IconData>[
     Icons.explore,
     Icons.book,
-    Icons.query_stats,
     Icons.color_lens,
     Icons.collections_bookmark_rounded,
     Icons.apps,
     Icons.public,
     Icons.info,
-    Icons.bug_report,
   ];
 
   @override
   void initState() {
-    currentPage = widget.initialPage;
+    // Category indexes changed when statistics/debug left the main list; drop
+    // any stale initial index rather than opening a removed page.
+    currentPage =
+        widget.initialPage >= -1 && widget.initialPage < categories.length
+        ? widget.initialPage
+        : -1;
     super.initState();
   }
 
@@ -242,13 +241,11 @@ class _SettingsPageState extends State<SettingsPage> {
     return switch (pageIndex) {
       0 => const ExploreSettings(),
       1 => const ReaderSettings(),
-      2 => const ReadingStatsPage(),
-      3 => const AppearanceSettings(),
-      4 => const LocalFavoritesSettings(),
-      5 => const AppSettings(),
-      6 => const NetworkSettings(),
-      7 => const AboutSettings(),
-      8 => const DebugPage(),
+      2 => const AppearanceSettings(),
+      3 => const LocalFavoritesSettings(),
+      4 => const AppSettings(),
+      5 => const NetworkSettings(),
+      6 => const AboutSettings(),
       _ => throw UnimplementedError(),
     };
   }
@@ -268,13 +265,11 @@ class _SettingsDetailPage extends StatelessWidget {
     return switch (pageIndex) {
       0 => const ExploreSettings(),
       1 => const ReaderSettings(),
-      2 => const ReadingStatsPage(),
-      3 => const AppearanceSettings(),
-      4 => const LocalFavoritesSettings(),
-      5 => const AppSettings(),
-      6 => const NetworkSettings(),
-      7 => const AboutSettings(),
-      8 => const DebugPage(),
+      2 => const AppearanceSettings(),
+      3 => const LocalFavoritesSettings(),
+      4 => const AppSettings(),
+      5 => const NetworkSettings(),
+      6 => const AboutSettings(),
       _ => throw UnimplementedError(),
     };
   }

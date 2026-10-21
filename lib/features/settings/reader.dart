@@ -19,6 +19,8 @@ import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/foundation/translations.dart';
 import 'package:venera_next/foundation/widget_utils.dart';
 
+enum ReaderSettingsScope { defaults, device, comic }
+
 class ReaderSettings extends StatefulWidget {
   const ReaderSettings({
     super.key,
@@ -44,9 +46,14 @@ class ReaderSettings extends StatefulWidget {
 }
 
 class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
+  late ReaderSettingsScope _scope;
+
   @override
   void initState() {
     super.initState();
+    _scope = widget.comicId != null && widget.comicSource != null
+        ? ReaderSettingsScope.comic
+        : ReaderSettingsScope.defaults;
     appdata.settings.addListener(_refresh);
   }
 
@@ -60,14 +67,30 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
     if (mounted) setState(() {});
   }
 
+  String? get _scopeComicId =>
+      _scope == ReaderSettingsScope.comic ? widget.comicId : null;
+
+  String? get _scopeComicSource =>
+      _scope == ReaderSettingsScope.comic ? widget.comicSource : null;
+
+  bool get _usesDeviceScope => _scope == ReaderSettingsScope.device;
+
+  ReaderPreferenceScope get _preferenceScope => switch (_scope) {
+    ReaderSettingsScope.defaults => ReaderPreferenceScope.global,
+    ReaderSettingsScope.device => ReaderPreferenceScope.device,
+    ReaderSettingsScope.comic => ReaderPreferenceScope.comic,
+  };
+
   ReaderPreferenceStore get _store => ReaderPreferenceStore(
     settings: appdata.settings,
-    comicId: widget.comicId,
-    sourceKey: widget.comicSource,
+    scope: _preferenceScope,
+    comicId: _scopeComicId,
+    sourceKey: _scopeComicSource,
   );
 
   T _value<T extends Object>(Preference<T> preference) {
-    if (widget.comicId != null &&
+    if (_scope == ReaderSettingsScope.comic &&
+        widget.comicId != null &&
         widget.comicSource != null &&
         identical(preference, ReaderPreferences.readerMode) &&
         widget.currentReaderMode != null) {
@@ -76,22 +99,13 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
     return _store.read(preference);
   }
 
-  T _deviceValue<T extends Object>(Preference<T> preference) =>
-      ReaderPreferenceStore(
-        settings: appdata.settings,
-        scope: ReaderPreferenceScope.device,
-      ).read(preference);
-
   String get _activeReaderMode => _value(ReaderPreferences.readerMode);
 
   bool _usesMode(bool Function(String mode) matches) {
     if (matches(_activeReaderMode)) return true;
-    if (widget.comicId != null ||
-        _deviceValue(ReaderPreferences.autoReaderMode) != true) {
-      return false;
-    }
-    return matches(_deviceValue(ReaderPreferences.pagedReaderMode)) ||
-        matches(_deviceValue(ReaderPreferences.longStripReaderMode));
+    if (_value(ReaderPreferences.autoReaderMode) != true) return false;
+    return matches(_value(ReaderPreferences.pagedReaderMode)) ||
+        matches(_value(ReaderPreferences.longStripReaderMode));
   }
 
   bool get _isVerticalFlowMode => _usesMode(
@@ -109,44 +123,143 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
     widget.onChanged?.call('showChapterComments');
   }
 
-  Future<bool> _saveScope(Object key, void Function(Settings) edit) {
-    final target = (widget.comicId, widget.comicSource);
-    return saveSetting(
-      key,
-      () => appdata.updateSettings(edit),
+  Future<void> _selectScope(ReaderSettingsScope scope) async {
+    if (!acceptsSettingsChanges || savingSettings) return;
+    final comicId = widget.comicId;
+    final source = widget.comicSource;
+    if (scope == ReaderSettingsScope.comic &&
+        (comicId == null || source == null)) {
+      return;
+    }
+    final previous = _scope;
+    setState(() => _scope = scope);
+    final ok = await saveSetting(
+      'reader-scope',
+      () => appdata.updateSettings((draft) {
+        switch (scope) {
+          case ReaderSettingsScope.defaults:
+            draft.setEnabledDeviceSpecificSettings(false);
+            if (comicId != null && source != null) {
+              draft.setEnabledComicSpecificSettings(comicId, source, false);
+            }
+          case ReaderSettingsScope.device:
+            draft.setEnabledDeviceSpecificSettings(true);
+            if (comicId != null && source != null) {
+              draft.setEnabledComicSpecificSettings(comicId, source, false);
+            }
+          case ReaderSettingsScope.comic:
+            draft.setEnabledComicSpecificSettings(comicId!, source!, true);
+        }
+      }, sync: false),
       onSaved: () => widget.onChanged?.call('readerMode'),
-      isCurrent: () => target == (widget.comicId, widget.comicSource),
+      isCurrent: () => _scope == scope,
+    );
+    if (!ok && mounted && _scope == scope) {
+      setState(() => _scope = previous);
+    }
+  }
+
+  Future<void> _resetScope() async {
+    final comicId = widget.comicId;
+    final source = widget.comicSource;
+    switch (_scope) {
+      case ReaderSettingsScope.defaults:
+        await saveSetting(
+          'reader-reset-default',
+          () => appdata.updateSettings((draft) {
+            draft.resetGlobalReaderSettings();
+          }),
+          onSaved: () => widget.onChanged?.call('readerMode'),
+        );
+      case ReaderSettingsScope.device:
+        await saveSetting(
+          'reader-reset-device',
+          () => appdata.updateSettings((draft) {
+            draft.resetDeviceReaderSettings();
+            draft.setEnabledDeviceSpecificSettings(true);
+          }),
+          onSaved: () => widget.onChanged?.call('readerMode'),
+        );
+      case ReaderSettingsScope.comic:
+        if (comicId == null || source == null) return;
+        await saveSetting(
+          'reader-reset-comic',
+          () => appdata.updateSettings((draft) {
+            draft.resetComicReaderSettings('$comicId@$source');
+            draft.setEnabledComicSpecificSettings(comicId, source, true);
+          }),
+          onSaved: () => widget.onChanged?.call('readerMode'),
+        );
+    }
+  }
+
+  String get _scopeDescription => switch (_scope) {
+    ReaderSettingsScope.defaults => 'Changes apply to default settings.'.tl,
+    ReaderSettingsScope.device => 'Changes apply to this device only.'.tl,
+    ReaderSettingsScope.comic =>
+      'Changes apply to this comic only. To change default settings, go to Settings → Reader.'
+          .tl,
+  };
+
+  String get _resetLabel => switch (_scope) {
+    ReaderSettingsScope.defaults => 'Reset defaults'.tl,
+    ReaderSettingsScope.device => 'Reset this device'.tl,
+    ReaderSettingsScope.comic => 'Reset this comic'.tl,
+  };
+
+  Widget _scopeSelector() {
+    final comicAvailable = widget.comicId != null && widget.comicSource != null;
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Scope'.tl, style: const TextStyle(fontSize: 16)),
+            const SizedBox(height: 8),
+            SegmentedButton<ReaderSettingsScope>(
+              segments: [
+                ButtonSegment(
+                  value: ReaderSettingsScope.defaults,
+                  label: Text('Default'.tl),
+                ),
+                ButtonSegment(
+                  value: ReaderSettingsScope.device,
+                  label: Text('This device'.tl),
+                ),
+                if (comicAvailable)
+                  ButtonSegment(
+                    value: ReaderSettingsScope.comic,
+                    label: Text('This comic'.tl),
+                  ),
+              ],
+              selected: {_scope},
+              onSelectionChanged: savingSettings || !acceptsSettingsChanges
+                  ? null
+                  : (selection) => _selectScope(selection.first),
+            ),
+            const SizedBox(height: 8),
+            Text(_scopeDescription),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: savingSettings || !acceptsSettingsChanges
+                    ? null
+                    : _resetScope,
+                child: Text(_resetLabel),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _scopeTile(
-    String comicId,
-    String sourceKey,
-    bool enabled,
-  ) => SwitchListTile(
-    title: Text('Customize other settings for this comic'.tl),
-    subtitle: Text(
-      'This selection only affects this comic. Change default preferences in Settings → Reader.'
-          .tl,
-    ),
-    value: enabled,
-    onChanged: (b) {
-      _saveScope((comicId, sourceKey, 'scope'), (draft) {
-        draft.setEnabledComicSpecificSettings(comicId, sourceKey, b);
-      });
-    },
-  );
-
   Widget _modeSettings() {
-    final comicId = widget.comicId;
-    final source = widget.comicSource;
-    final specific =
-        comicId != null &&
-        source != null &&
-        appdata.settings.isComicSpecificSettingsEnabled(comicId, source);
     return ReaderModeSettings(
-      comicId: specific ? comicId : null,
-      sourceKey: specific ? source : null,
+      comicId: _scopeComicId,
+      sourceKey: _scopeComicSource,
+      scope: _preferenceScope,
       currentMode: widget.currentReaderMode,
       isDetecting: widget.isDetectingLayout,
       onDetect: widget.onDetectLayout,
@@ -158,13 +271,10 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
   }
 
   Widget _thumbnailSettings() {
-    final comicId = widget.comicId;
-    final source = widget.comicSource;
-    final specific =
-        comicId != null &&
-        appdata.settings.isComicSpecificSettingsEnabled(comicId, source);
-    final device =
-        !specific && appdata.settings.isDeviceSpecificSettingsEnabled();
+    final comicId = _scopeComicId;
+    final source = _scopeComicSource;
+    final specific = comicId != null && source != null;
+    final device = _usesDeviceScope;
     final position = _value(ReaderPreferences.readerThumbnailPosition);
     final mode = _activeReaderMode;
     final topToBottom =
@@ -234,17 +344,6 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
 
   @override
   Widget build(BuildContext context) {
-    final comicId = widget.comicId;
-    final sourceKey = widget.comicSource;
-    final key = "$comicId@$sourceKey";
-
-    bool isEnabledSpecificSettings =
-        comicId != null &&
-        appdata.settings.isComicSpecificSettingsEnabled(comicId, sourceKey);
-    bool useDeviceSpecificSettings =
-        !isEnabledSpecificSettings &&
-        appdata.settings.isDeviceSpecificSettingsEnabled();
-
     return protectSettings(
       SmoothCustomScrollView(
         // Keep nearby sections built so scope/brightness controls stay alive
@@ -253,57 +352,7 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
         slivers: [
           SliverAppbar(title: Text("Reading".tl)),
           settingsSaveStatus.toSliver(),
-          if (comicId != null && sourceKey != null)
-            _scopeTile(
-              comicId,
-              sourceKey,
-              isEnabledSpecificSettings,
-            ).toSliver(),
-          if (comicId != null && sourceKey != null)
-            SliverMainAxisGroup(
-              slivers: [
-                if (isEnabledSpecificSettings)
-                  Center(
-                    child: TextButton(
-                      onPressed: () {
-                        _saveScope((comicId, sourceKey, 'scope'), (draft) {
-                          draft.resetComicReaderSettings(key);
-                        });
-                      },
-                      child: Text('Reset all settings for this comic'.tl),
-                    ),
-                  ).toSliver(),
-                Divider().toSliver(),
-              ],
-            ),
-          if (comicId == null)
-            SliverMainAxisGroup(
-              slivers: [
-                SwitchListTile(
-                  title: Text("Enable device specific settings".tl),
-                  value: useDeviceSpecificSettings,
-                  onChanged: (b) {
-                    _saveScope('deviceScope', (draft) {
-                      draft.setEnabledDeviceSpecificSettings(b);
-                    });
-                  },
-                ).toSliver(),
-                if (useDeviceSpecificSettings)
-                  Center(
-                    child: TextButton(
-                      onPressed: () {
-                        _saveScope('deviceScope', (draft) {
-                          draft.resetDeviceReaderSettings();
-                        });
-                      },
-                      child: Text(
-                        "Clear specific reader settings for this device".tl,
-                      ),
-                    ),
-                  ).toSliver(),
-                Divider().toSliver(),
-              ],
-            ),
+          _scopeSelector(),
           SettingPartTitle(title: "Reading Mode".tl, icon: Icons.view_module),
           _modeSettings(),
           SettingPartTitle(title: "Display".tl, icon: Icons.brightness_6),
@@ -313,13 +362,14 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
             onChanged: () {
               widget.onChanged?.call("enablePageAnimation");
             },
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
+            comicId: _scopeComicId,
+            comicSource: _scopeComicSource,
+            useDeviceSettings: _usesDeviceScope,
           ).toSliver(),
           ReaderBrightnessSetting(
-            comicId: widget.comicId,
-            sourceKey: widget.comicSource,
+            comicId: _scopeComicId,
+            sourceKey: _scopeComicSource,
+            scope: _preferenceScope,
             preview: widget.brightnessPreview,
             onChanged: widget.onChanged,
           ).toSliver(),
@@ -329,25 +379,25 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
             onChanged: () {
               widget.onChanged?.call("showPageNumberInReader");
             },
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
+            comicId: _scopeComicId,
+            comicSource: _scopeComicSource,
+            useDeviceSettings: _usesDeviceScope,
           ).toSliver(),
           SwitchSetting.reader(
             title: 'Show image pixel dimensions'.tl,
             preference: ReaderPreferences.showImageDimensions,
             onChanged: () => widget.onChanged?.call('showImageDimensions'),
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
+            comicId: _scopeComicId,
+            comicSource: _scopeComicSource,
+            useDeviceSettings: _usesDeviceScope,
           ).toSliver(),
           SwitchSetting.reader(
             title: "Show Chapter Comments".tl,
             preference: ReaderPreferences.showChapterComments,
             onChanged: _onShowChapterCommentsChanged,
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
+            comicId: _scopeComicId,
+            comicSource: _scopeComicSource,
+            useDeviceSettings: _usesDeviceScope,
           ).toSliver(),
           SliverAnimatedVisibility(
             visible: _isChapterCommentsAtEndSupported(),
@@ -357,22 +407,23 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
               onChanged: () {
                 widget.onChanged?.call("showChapterCommentsAtEnd");
               },
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
+              comicId: _scopeComicId,
+              comicSource: _scopeComicSource,
+              useDeviceSettings: _usesDeviceScope,
             ),
           ),
-          SettingPartTitle(title: "Auto Reading".tl, icon: Icons.play_circle_outline),
+          SettingPartTitle(
+            title: "Auto Reading".tl,
+            icon: Icons.play_circle_outline,
+          ),
           SliderSetting.reader(
             title: "Auto page turning interval (gallery)".tl,
             preference: ReaderPreferences.autoPageTurningInterval,
             valueFormatter: (value) => '${value.toInt()} s',
             onChanged: () => widget.onChanged?.call('autoPageTurningInterval'),
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
+            comicId: _scopeComicId,
+            comicSource: _scopeComicSource,
+            useDeviceSettings: _usesDeviceScope,
           ).toSliver(),
           SelectSetting.reader(
             title: 'Automatic scrolling (continuous and waterfall)'.tl,
@@ -385,9 +436,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
               setState(() {});
               widget.onChanged?.call('autoScrollStyle');
             },
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
+            comicId: _scopeComicId,
+            comicSource: _scopeComicSource,
+            useDeviceSettings: _usesDeviceScope,
           ).toSliver(),
           if (_value(ReaderPreferences.autoScrollStyle) == 'smooth')
             SliderSetting.reader(
@@ -395,11 +446,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
               preference: ReaderPreferences.autoScrollSpeed,
               valueFormatter: (value) => '${value.toInt()} px/s',
               onChanged: () => widget.onChanged?.call('autoScrollSpeed'),
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
+              comicId: _scopeComicId,
+              comicSource: _scopeComicSource,
+              useDeviceSettings: _usesDeviceScope,
             ).toSliver(),
           if (_value(ReaderPreferences.autoScrollStyle) == 'stepped') ...[
             SliderSetting.reader(
@@ -407,22 +456,18 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
               preference: ReaderPreferences.autoScrollFrequency,
               valueFormatter: (value) => '${value.toInt()} /s',
               onChanged: () => widget.onChanged?.call('autoScrollFrequency'),
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
+              comicId: _scopeComicId,
+              comicSource: _scopeComicSource,
+              useDeviceSettings: _usesDeviceScope,
             ).toSliver(),
             SliderSetting.reader(
               title: "Distance per scroll step".tl,
               preference: ReaderPreferences.autoScrollDistance,
               valueFormatter: (value) => '${value.toInt()} px',
               onChanged: () => widget.onChanged?.call('autoScrollDistance'),
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
+              comicId: _scopeComicId,
+              comicSource: _scopeComicSource,
+              useDeviceSettings: _usesDeviceScope,
             ).toSliver(),
           ],
           SwitchSetting.reader(
@@ -430,9 +475,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
             preference: ReaderPreferences.autoReadingAcrossChapters,
             onChanged: () =>
                 widget.onChanged?.call('autoReadingAcrossChapters'),
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
+            comicId: _scopeComicId,
+            comicSource: _scopeComicSource,
+            useDeviceSettings: _usesDeviceScope,
           ).toSliver(),
           SwitchSetting.reader(
             title: 'Skip unavailable images during automatic reading'.tl,
@@ -444,9 +489,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
               setState(() {});
               widget.onChanged?.call('autoReadingSkipUnavailableImages');
             },
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
+            comicId: _scopeComicId,
+            comicSource: _scopeComicSource,
+            useDeviceSettings: _usesDeviceScope,
           ).toSliver(),
           if (_value(ReaderPreferences.autoReadingSkipUnavailableImages))
             SliderSetting.reader(
@@ -455,11 +500,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
               valueFormatter: (value) => '${value.toInt()} s',
               onChanged: () =>
                   widget.onChanged?.call('autoReadingImageWaitSeconds'),
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
+              comicId: _scopeComicId,
+              comicSource: _scopeComicSource,
+              useDeviceSettings: _usesDeviceScope,
             ).toSliver(),
           if (App.isAndroid || App.isIOS)
             SwitchSetting.reader(
@@ -467,11 +510,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
               preference: ReaderPreferences.autoReadingKeepScreenOn,
               onChanged: () =>
                   widget.onChanged?.call('autoReadingKeepScreenOn'),
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
+              comicId: _scopeComicId,
+              comicSource: _scopeComicSource,
+              useDeviceSettings: _usesDeviceScope,
             ).toSliver(),
           SettingPartTitle(title: "Thumbnails".tl, icon: Icons.view_sidebar),
           _thumbnailSettings(),
@@ -482,9 +523,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
             onChanged: () {
               widget.onChanged?.call("enableTapToTurnPages");
             },
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
+            comicId: _scopeComicId,
+            comicSource: _scopeComicSource,
+            useDeviceSettings: _usesDeviceScope,
           ).toSliver(),
           SwitchSetting.reader(
             title: "Reverse tap to turn Pages".tl,
@@ -492,9 +533,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
             onChanged: () {
               widget.onChanged?.call("reverseTapToTurnPages");
             },
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
+            comicId: _scopeComicId,
+            comicSource: _scopeComicSource,
+            useDeviceSettings: _usesDeviceScope,
           ).toSliver(),
           SliverAnimatedVisibility(
             visible: _usesMode(
@@ -507,11 +548,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
               onChanged: () {
                 widget.onChanged?.call("readerScrollSpeed");
               },
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
+              comicId: _scopeComicId,
+              comicSource: _scopeComicSource,
+              useDeviceSettings: _usesDeviceScope,
             ),
           ),
           SwitchSetting.reader(
@@ -521,9 +560,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
               setState(() {});
               widget.onChanged?.call('enableDoubleTapToZoom');
             },
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
+            comicId: _scopeComicId,
+            comicSource: _scopeComicSource,
+            useDeviceSettings: _usesDeviceScope,
           ).toSliver(),
           SelectSetting.reader(
             title: 'Long press action'.tl,
@@ -537,9 +576,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
               setState(() {});
               widget.onChanged?.call('longPressAction');
             },
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
+            comicId: _scopeComicId,
+            comicSource: _scopeComicSource,
+            useDeviceSettings: _usesDeviceScope,
           ).toSliver(),
           SliverAnimatedVisibility(
             visible: _value(ReaderPreferences.longPressAction) == 'zoom',
@@ -550,11 +589,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
                 "press": "Press position".tl,
                 "center": "Screen center".tl,
               },
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
+              comicId: _scopeComicId,
+              comicSource: _scopeComicSource,
+              useDeviceSettings: _usesDeviceScope,
             ),
           ),
           if (App.isAndroid)
@@ -564,11 +601,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
               onChanged: () {
                 widget.onChanged?.call('enableTurnPageByVolumeKey');
               },
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
+              comicId: _scopeComicId,
+              comicSource: _scopeComicSource,
+              useDeviceSettings: _usesDeviceScope,
             ).toSliver(),
           SelectSetting.reader(
             title: "Quick collect image".tl,
@@ -584,9 +619,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
             help:
                 "On the image browsing page, you can quickly collect images by sliding horizontally or vertically according to your reading mode"
                     .tl,
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
+            comicId: _scopeComicId,
+            comicSource: _scopeComicSource,
+            useDeviceSettings: _usesDeviceScope,
           ).toSliver(),
           SettingPartTitle(title: "Layout".tl, icon: Icons.view_quilt),
           SliverAnimatedVisibility(
@@ -600,11 +635,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
                 setState(() {});
                 widget.onChanged?.call("readerScreenPicNumberForLandscape");
               },
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
+              comicId: _scopeComicId,
+              comicSource: _scopeComicSource,
+              useDeviceSettings: _usesDeviceScope,
             ),
           ),
           SliverAnimatedVisibility(
@@ -617,11 +650,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
               onChanged: () {
                 widget.onChanged?.call("readerScreenPicNumberForPortrait");
               },
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
+              comicId: _scopeComicId,
+              comicSource: _scopeComicSource,
+              useDeviceSettings: _usesDeviceScope,
             ),
           ),
           SliverAnimatedVisibility(
@@ -637,11 +668,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
               onChanged: () {
                 widget.onChanged?.call("showSingleImageOnFirstPage");
               },
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
+              comicId: _scopeComicId,
+              comicSource: _scopeComicSource,
+              useDeviceSettings: _usesDeviceScope,
             ),
           ),
           SwitchSetting.reader(
@@ -651,9 +680,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
             onChanged: () {
               widget.onChanged?.call('limitImageWidth');
             },
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
+            comicId: _scopeComicId,
+            comicSource: _scopeComicSource,
+            useDeviceSettings: _usesDeviceScope,
           ).toSliver(),
           SliverAnimatedVisibility(
             visible: _isVerticalFlowMode,
@@ -662,11 +691,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
               preference: ReaderPreferences.readerSideMargin,
               valueFormatter: (value) => '${value.toInt()}%',
               onChanged: () => widget.onChanged?.call('readerSideMargin'),
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
+              comicId: _scopeComicId,
+              comicSource: _scopeComicSource,
+              useDeviceSettings: _usesDeviceScope,
             ),
           ),
           SliverAnimatedVisibility(
@@ -681,11 +708,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
                 setState(() {});
                 widget.onChanged?.call('splitDualPage');
               },
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
+              comicId: _scopeComicId,
+              comicSource: _scopeComicSource,
+              useDeviceSettings: _usesDeviceScope,
             ),
           ),
           SliverAnimatedVisibility(
@@ -701,11 +726,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
               onChanged: () {
                 widget.onChanged?.call('splitDualPageInvert');
               },
-              comicId: isEnabledSpecificSettings ? widget.comicId : null,
-              comicSource: isEnabledSpecificSettings
-                  ? widget.comicSource
-                  : null,
-              useDeviceSettings: useDeviceSpecificSettings,
+              comicId: _scopeComicId,
+              comicSource: _scopeComicSource,
+              useDeviceSettings: _usesDeviceScope,
             ),
           ),
           SettingPartTitle(title: "Advanced".tl, icon: Icons.build),
@@ -719,9 +742,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
               setState(() {});
               widget.onChanged?.call("eInkRefreshEnabled");
             },
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
+            comicId: _scopeComicId,
+            comicSource: _scopeComicSource,
+            useDeviceSettings: _usesDeviceScope,
           ).toSliver(),
           SliverAnimatedVisibility(
             visible: _value(ReaderPreferences.eInkRefreshEnabled) == true,
@@ -734,11 +757,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
                   onChanged: () {
                     widget.onChanged?.call("eInkRefreshDuration");
                   },
-                  comicId: isEnabledSpecificSettings ? widget.comicId : null,
-                  comicSource: isEnabledSpecificSettings
-                      ? widget.comicSource
-                      : null,
-                  useDeviceSettings: useDeviceSpecificSettings,
+                  comicId: _scopeComicId,
+                  comicSource: _scopeComicSource,
+                  useDeviceSettings: _usesDeviceScope,
                 ),
                 SliderSetting.reader(
                   title: "Refresh interval".tl,
@@ -747,11 +768,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
                   onChanged: () {
                     widget.onChanged?.call("eInkRefreshInterval");
                   },
-                  comicId: isEnabledSpecificSettings ? widget.comicId : null,
-                  comicSource: isEnabledSpecificSettings
-                      ? widget.comicSource
-                      : null,
-                  useDeviceSettings: useDeviceSpecificSettings,
+                  comicId: _scopeComicId,
+                  comicSource: _scopeComicSource,
+                  useDeviceSettings: _usesDeviceScope,
                 ),
                 SelectSetting.reader(
                   title: "Refresh flash style".tl,
@@ -764,11 +783,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
                   onChanged: () {
                     widget.onChanged?.call("eInkRefreshStyle");
                   },
-                  comicId: isEnabledSpecificSettings ? widget.comicId : null,
-                  comicSource: isEnabledSpecificSettings
-                      ? widget.comicSource
-                      : null,
-                  useDeviceSettings: useDeviceSpecificSettings,
+                  comicId: _scopeComicId,
+                  comicSource: _scopeComicSource,
+                  useDeviceSettings: _usesDeviceScope,
                 ),
               ],
             ),
@@ -781,9 +798,9 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
           SliderSetting.reader(
             title: "Number of images preloaded".tl,
             preference: ReaderPreferences.preloadImageCount,
-            comicId: isEnabledSpecificSettings ? widget.comicId : null,
-            comicSource: isEnabledSpecificSettings ? widget.comicSource : null,
-            useDeviceSettings: useDeviceSpecificSettings,
+            comicId: _scopeComicId,
+            comicSource: _scopeComicSource,
+            useDeviceSettings: _usesDeviceScope,
           ).toSliver(),
         ],
       ),

@@ -16,6 +16,7 @@ import 'package:venera_next/foundation/appdata.dart';
 import 'package:venera_next/foundation/app_data_operations.dart';
 import 'package:venera_next/foundation/context.dart';
 import 'package:venera_next/foundation/res.dart';
+import 'package:venera_next/foundation/webdav_connection.dart';
 import 'package:window_manager/window_manager.dart';
 
 final _gates = <Completer<void>>[];
@@ -482,6 +483,9 @@ void main() {
             await fixture.library.settings.save(configuration);
             await appdata.updateSettings((draft) {
               draft['webdavComicLibrary'] = ['https://later.example', '', ''];
+              draft[webDavConnectionKey] = const WebDavConnection(
+                url: 'https://later.example',
+              ).toJson();
             }, sync: false);
           },
         ),

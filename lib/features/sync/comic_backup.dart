@@ -1,6 +1,7 @@
 import 'package:venera_next/foundation/app.dart';
 import 'package:venera_next/foundation/res.dart';
 import 'package:venera_next/foundation/appdata.dart';
+import 'package:venera_next/foundation/webdav_connection.dart';
 import 'package:venera_next/features/local_comics/local.dart';
 import 'package:venera_next/features/local_comics/import_export/cbz.dart';
 import 'package:venera_next/foundation/file_system.dart';
@@ -32,24 +33,23 @@ class BackupConfig {
   bool get isValid => endpoint.isValid;
 
   static BackupConfig fromSettings() {
-    final config = appdata.settings['backupWebdav'];
+    final connection = WebDavConnection.readWithLegacy(
+      (key) => appdata.settings[key],
+      appdata.settings['backupWebdav'],
+    );
     final path = appdata.settings['backupWebdavPath'];
-    if (config is List && config.whereType<String>().length == 3) {
-      final values = config.whereType<String>().toList();
-      return BackupConfig(
-        url: values[0].trim(),
-        user: values[1].trim(),
-        pass: values[2].trim(),
-        remotePath: path is String ? path : '/venera_backup/',
-      );
-    }
     return BackupConfig(
-      url: '',
-      user: '',
-      pass: '',
+      url: connection.url,
+      user: connection.user,
+      pass: connection.password,
       remotePath: path is String ? path : '/venera_backup/',
     );
   }
+
+  static bool get enabled => WebDavPurposes.isEnabled(
+    (key) => appdata.settings[key],
+    WebDavPurposes.backup,
+  );
 
   static bool get syncEnabled =>
       appdata.settings['backupWebdavSyncEnabled'] == true;
@@ -58,6 +58,12 @@ class BackupConfig {
     BackupConfig config, {
     required bool syncEnabled,
   }) => appdata.updateSettings((draft) {
+    final connection = WebDavConnection(
+      url: config.url,
+      user: config.user,
+      password: config.pass,
+    );
+    draft[webDavConnectionKey] = connection.toJson();
     draft['backupWebdav'] =
         !config.isValid && config.user.isEmpty && config.pass.isEmpty
         ? <String>[]

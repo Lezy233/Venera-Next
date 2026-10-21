@@ -1,3 +1,5 @@
+import 'package:venera_next/foundation/webdav_connection.dart';
+
 import 'webdav_library_config.dart';
 
 /// Typed view of the legacy settings keys. Reading never repairs stored data.
@@ -6,35 +8,43 @@ class WebDavLibrarySettings {
     required this.connection,
     required this.autoSync,
     required this.intervalMinutes,
+    this.enabled = true,
   });
 
   final WebDavLibraryConfig connection;
   final bool autoSync;
   final int intervalMinutes;
+  final bool enabled;
 
   factory WebDavLibrarySettings.read(Object? Function(String) readValue) {
-    final credentials = readValue('webdavComicLibrary');
-    final valid =
-        credentials is List &&
-        credentials.length == 3 &&
-        credentials.every((value) => value is String);
+    final connection = WebDavConnection.readWithLegacy(
+      readValue,
+      readValue('webdavComicLibrary'),
+    );
     final path = readValue('webdavComicLibraryPath');
     final interval = readValue('webdavComicLibrarySyncIntervalMinutes');
     final rounded = interval is num && interval.isFinite ? interval.round() : 0;
+    final enabled = WebDavPurposes.isEnabled(readValue, WebDavPurposes.library);
     return WebDavLibrarySettings(
       connection: WebDavLibraryConfig(
-        url: valid ? credentials[0] as String : '',
-        user: valid ? credentials[1] as String : '',
-        pass: valid ? credentials[2] as String : '',
+        url: connection.url,
+        user: connection.user,
+        pass: connection.password,
         remotePath: path is String ? path : '/venera_comics/',
       ),
       // Preserve the scheduler's opt-in rule for missing/malformed values.
-      autoSync: readValue('webdavComicLibraryAutoSync') == true,
+      autoSync: enabled && readValue('webdavComicLibraryAutoSync') == true,
       intervalMinutes: rounded > 0 ? rounded : 360,
+      enabled: enabled,
     );
   }
 
-  Map<String, Object> toSettings() => {
+  Map<String, Object?> toSettings() => {
+    webDavConnectionKey: WebDavConnection(
+      url: connection.url,
+      user: connection.user,
+      password: connection.pass,
+    ).toJson(),
     'webdavComicLibrary':
         !connection.isValid &&
             connection.user.isEmpty &&

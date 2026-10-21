@@ -28,7 +28,9 @@ void _registerLibrary(
 ) {
   if (source.isDisposed) return;
   manager.remove(WebDavLibrarySource.sourceKey);
-  if (settings.connection.isValid) manager.add(source.create());
+  if (settings.enabled && settings.connection.isValid) {
+    manager.add(source.create());
+  }
 }
 
 /// Core startup and the mounted UI share this application-owned instance.

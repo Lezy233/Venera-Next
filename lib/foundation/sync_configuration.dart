@@ -1,3 +1,5 @@
+import 'package:venera_next/foundation/webdav_connection.dart';
+
 /// Stored names are part of the existing app-data sync protocol.
 enum DataSyncMode { manual, realtime, scheduled }
 
@@ -64,8 +66,13 @@ class SyncConfiguration {
             ? DataSyncMode.realtime
             : DataSyncMode.manual,
     };
+    final legacyConnection = SyncConnection.parse(settings('webdav'));
+    final shared = WebDavConnection.tryParse(settings(webDavConnectionKey));
+    final connection = shared != null && !shared.isEmpty
+        ? SyncConnection(shared.url, shared.user, shared.password)
+        : legacyConnection;
     return SyncConfiguration(
-      connection: SyncConnection.parse(settings('webdav')),
+      connection: connection,
       excludedFields: readExcludedFields(settings('disableSyncFields')),
       mode: mode,
       intervalMinutes: normalizeInterval(implicit('webdavSyncIntervalMinutes')),

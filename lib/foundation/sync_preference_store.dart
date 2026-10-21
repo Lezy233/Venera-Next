@@ -1,4 +1,5 @@
 import 'sync_configuration.dart';
+import 'webdav_connection.dart';
 
 /// Adapts typed sync configuration to existing settings and implicit-data keys.
 /// Persistence and transfer transaction ownership remain with DataSyncController.
@@ -17,8 +18,23 @@ class SyncPreferenceStore {
 
   int get lastSyncTime => _readTimestamp(_readSetting('lastSyncTime')) ?? 0;
 
-  SyncConfiguration get configuration =>
-      SyncConfiguration.read(_readSetting, (key) => _implicitData()[key]);
+  SyncConfiguration get configuration {
+    final configuration = SyncConfiguration.read(
+      _readSetting,
+      (key) => _implicitData()[key],
+    );
+    if (WebDavPurposes.isEnabled(_readSetting, WebDavPurposes.dataSync)) {
+      return configuration;
+    }
+    // A disabled data-sync purpose keeps the connection usable for the other
+    // purposes but suspends automatic transfers.
+    return SyncConfiguration(
+      connection: configuration.connection,
+      excludedFields: configuration.excludedFields,
+      mode: DataSyncMode.manual,
+      intervalMinutes: configuration.intervalMinutes,
+    );
+  }
 
   bool get pending => _implicitData()['webdavSyncPending'] == true;
   set pending(bool value) => _implicitData()['webdavSyncPending'] = value;
@@ -59,12 +75,17 @@ class SyncPreferenceStore {
 
   SyncPreferenceCheckpoint capture() => SyncPreferenceCheckpoint._(
     _copyConfigurationValue(_readSetting('webdav')),
+    _copyConfigurationValue(_readSetting(webDavConnectionKey)),
     _copyConfigurationValue(_readSetting('disableSyncFields')),
     {for (final key in _scheduleKeys) key: _implicitData()[key]},
   );
 
   void restore(SyncPreferenceCheckpoint checkpoint) {
     _writeSetting('webdav', _copyConfigurationValue(checkpoint._connection));
+    _writeSetting(
+      webDavConnectionKey,
+      _copyConfigurationValue(checkpoint._sharedConnection),
+    );
     _writeSetting(
       'disableSyncFields',
       _copyConfigurationValue(checkpoint._excludedFields),
@@ -80,6 +101,16 @@ class SyncPreferenceStore {
 
   void applyDraft(List<String> connection, String excludedFields) {
     _writeSetting('webdav', List<String>.of(connection));
+    _writeSetting(
+      webDavConnectionKey,
+      connection.length == 3
+          ? WebDavConnection(
+              url: connection[0],
+              user: connection[1],
+              password: connection[2],
+            ).toJson()
+          : WebDavConnection.empty.toJson(),
+    );
     _writeSetting('disableSyncFields', excludedFields);
   }
 
@@ -104,10 +135,12 @@ Object? _copyConfigurationValue(Object? value) => switch (value) {
 class SyncPreferenceCheckpoint {
   SyncPreferenceCheckpoint._(
     this._connection,
+    this._sharedConnection,
     this._excludedFields,
     this._schedule,
   );
   final Object? _connection;
+  final Object? _sharedConnection;
   final Object? _excludedFields;
   final Map<String, Object?> _schedule;
 
@@ -115,6 +148,8 @@ class SyncPreferenceCheckpoint {
     'connection': _copyConfigurationValue(_connection),
     'excludedFields': _copyConfigurationValue(_excludedFields),
     'schedule': _copyConfigurationValue(_schedule),
+    if (_sharedConnection != null)
+      'sharedConnection': _copyConfigurationValue(_sharedConnection),
   };
 
   factory SyncPreferenceCheckpoint.fromJson(Object? value) {
@@ -133,6 +168,7 @@ class SyncPreferenceCheckpoint {
     }
     return SyncPreferenceCheckpoint._(
       _copyConfigurationValue(value['connection']),
+      _copyConfigurationValue(value['sharedConnection']),
       _copyConfigurationValue(value['excludedFields']),
       {
         for (final key in SyncPreferenceStore._scheduleKeys)

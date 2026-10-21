@@ -67,10 +67,6 @@ class _ExploreSettingsState extends State<ExploreSettings> {
           title: "Show update status on comic tile".tl,
           preference: DiscoveryPreferences.showUpdateStatusOnTile,
         ).toSliver(),
-        SwitchSetting.preference(
-          title: "Reverse default chapter order".tl,
-          preference: AppPreferences.reverseChapterOrder,
-        ).toSliver(),
         PopupWindowSetting(
           title: "Keyword blocking".tl,
           builder: () => const KeywordBlockingSettings(),
@@ -101,16 +97,6 @@ class _ExploreSettingsState extends State<ExploreSettings> {
             'chinese': "Chinese",
             'english': "English",
             'japanese': "Japanese",
-          },
-        ).toSliver(),
-        SelectSetting.preference(
-          title: "Initial Page".tl,
-          preference: DiscoveryPreferences.initialPage,
-          optionTranslation: {
-            '0': "Home Page".tl,
-            '1': "Favorites Page".tl,
-            '2': "Explore Page".tl,
-            '3': "Categories Page".tl,
           },
         ).toSliver(),
         SelectSetting.preference(
