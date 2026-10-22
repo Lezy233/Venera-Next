@@ -32,9 +32,7 @@ Venera-Next 是 PC 优先的 Flutter 漫画阅读器，fork 自 venera-next，**
 ## 4. 当前状态（规划者维护，执行前核对）
 
 - 分支：`redesign-2026`，已与远程同步（github.com/Lezy233/Venera-Next）。
-- 已完成并归档：`design-system-foundation`（设计基座 + 验收缺陷 5.1–5.3 修复）；`settings-ia-cleanup`（2026-10-21 归档）；`save-bar-layout-fix`（2026-10-21 归档，commit 9669b5c）；`desktop-shell-polish`（2026-10-21 归档，commit ae00919）；`desktop-search-context`（2026-10-21 归档，commit 5833677）。
-- **`save-feedback-placement-fix` 已实现完毕（tasks 5/5，commit 63d45e7），待 owner 人工验收**；修复保存反馈被桌面壳顶栏遮挡（验收 reader-quick-settings-panel 时发现，根因属 save-bar-layout-fix 覆盖层位置），验收通过运行 `openspec archive save-feedback-placement-fix --yes`。
-- **`reader-quick-settings-panel` 已实现完毕（tasks 8/8，commit 11c495e），待 owner 人工验收**；验收通过运行 `openspec archive reader-quick-settings-panel --yes`。
+- 已完成并归档：`design-system-foundation`（设计基座 + 验收缺陷 5.1–5.3 修复）；`settings-ia-cleanup`（2026-10-21 归档）；`save-bar-layout-fix`（2026-10-21 归档，commit 9669b5c）；`desktop-shell-polish`（2026-10-21 归档，commit ae00919）；`desktop-search-context`（2026-10-21 归档，commit 5833677）；`reader-quick-settings-panel`（2026-10-22 归档，commit 11c495e）；`save-feedback-placement-fix`（2026-10-22 归档，commit 63d45e7）。
 - ROADMAP 队列已清空。bugfix 候选：B1（chrome 构建期绑定缺陷，见 BACKLOG）；新功能愿景与批次（F1–F7、B1）见 `openspec/BACKLOG.md`，排期由 owner 决定。
 
 ## 5. 最小阅读清单
