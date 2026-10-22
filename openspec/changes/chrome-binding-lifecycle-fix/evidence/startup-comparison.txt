@@ -1,0 +1,11 @@
+Startup comparison (same production main, DISPLAY=:1, GDK_BACKEND=x11)
+Diagnostic entry /tmp/chrome_binding_startup.dart only disables Log truncation.
+
+before: setState/markNeedsBuild during build = 1
+before: bindGlobalActions stack frames = 1
+after: setState/markNeedsBuild during build = 0
+after: bindGlobalActions stack frames = 0
+
+Other environment, network and layout reports are outside this change.
+Raw startup logs remain local to avoid including source credentials or network headers.
+Full target framework error and stack: startup-before.txt.

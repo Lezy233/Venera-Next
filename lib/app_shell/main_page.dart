@@ -35,6 +35,22 @@ class _MainPageState extends State<MainPage> {
   DesktopChromeController? _chrome;
 
   bool _chromeContextSyncScheduled = false;
+  bool _chromeBindingScheduled = false;
+  DesktopChromeController? _boundChrome;
+
+  late final VoidCallback _openSettings = _showSettings;
+  late final VoidCallback _openSearch = _showSearch;
+  late final ValueChanged<int> _navigate = _navigateTo;
+  late final VoidCallback _back = _goBack;
+
+  void _showSettings() =>
+      to(() => const SettingsPage(), preventDuplicate: true);
+  void _showSearch() => to(() => const SearchPage(), preventDuplicate: true);
+  void _navigateTo(int index) => _naviKey.currentState?.updatePage(index);
+  void _goBack() {
+    final navigator = _navigatorKey?.currentState;
+    if (navigator != null && navigator.canPop()) navigator.maybePop();
+  }
 
   void to(Widget Function() widget, {bool preventDuplicate = false}) async {
     if (preventDuplicate) {
@@ -71,20 +87,28 @@ class _MainPageState extends State<MainPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _chrome = DesktopChromeScope.maybeRead(context);
-    _bindChrome();
+    _scheduleChromeBinding();
     _scheduleChromeContextSync();
   }
 
+  void _scheduleChromeBinding() {
+    if (_chromeBindingScheduled || identical(_boundChrome, _chrome)) return;
+    _chromeBindingScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _chromeBindingScheduled = false;
+      if (mounted) _bindChrome();
+    });
+  }
+
   void _bindChrome() {
-    _chrome?.bindGlobalActions(
-      openSettings: () =>
-          to(() => const SettingsPage(), preventDuplicate: true),
-      openSearch: () => to(() => const SearchPage(), preventDuplicate: true),
-      navigate: (index) => _naviKey.currentState?.updatePage(index),
-      back: () {
-        final navigator = _navigatorKey?.currentState;
-        if (navigator != null && navigator.canPop()) navigator.maybePop();
-      },
+    final chrome = _chrome;
+    if (chrome == null || identical(_boundChrome, chrome)) return;
+    _boundChrome = chrome;
+    chrome.bindGlobalActions(
+      openSettings: _openSettings,
+      openSearch: _openSearch,
+      navigate: _navigate,
+      back: _back,
     );
   }
 
@@ -117,11 +141,8 @@ class _MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _bindChrome();
-      _syncChromeContext();
-    });
+    _scheduleChromeBinding();
+    _scheduleChromeContextSync();
     return NaviPane(
       key: _naviKey,
       initialPage: index,
