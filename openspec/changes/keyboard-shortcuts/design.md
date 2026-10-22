@@ -53,8 +53,8 @@ class ShortcutAction {
 |---|---|---|
 | reader.moveLeft / moveRight / moveUp / moveDown | 对应方向键 | 迁移；runner 委托视图现有 handler，**方向语义与连发逻辑保留在视图层**（continuous 的 vertical/reverse、gallery 的 Timer 连发不得改动） |
 | reader.toggleFullscreen | F12 | 迁移 |
-| reader.nextPage | Space, PageDown | 新增；runner 调 toNextPage（gallery 翻页 / continuous 前进一屏） |
-| reader.prevPage | PageUp | 新增；runner 调 toPrevPage |
+| reader.nextPage | Space, PageDown | 新增；**分模式**：gallery 调 `toNextPage`（±1 页）；continuous 复用视图滚动机制**前进一视口高**（不是 toNextPage 的跳下一图片条目；到底无操作，不自动切章） |
+| reader.prevPage | PageUp | 新增；**分模式**：gallery 调 `toPrevPage`；continuous 反向滚动一视口高（到顶无操作） |
 
 边界（不注册、行为不变，proposal 已登记）：Esc（全局 pop、阅读器退出守卫 exit_guard、右键菜单各自局部处理）；阅读器 progress_bar 的 Home/End 保留在局部（注册它们会与全局导航未来扩展纠缠，本期不登记）。
 

@@ -10,7 +10,7 @@
 ## 2. 迁移与生效路径
 
 - [ ] 2.1 main.dart 顶层绑定改为由注册表 global 条目动态构建，`desktop_chrome.dart` 的 desktopShortcuts 硬编码删除；Esc→pop 保留不变
-- [ ] 2.2 阅读器键位接入注册表（reader_page KeyboardListener 先查注册表）：方向键 runner 仅委托视图现有 handler（continuous 的 vertical/reverse 语义、gallery 的 Timer 连发零改动）；F12/Space/PageUp/PageDown 调既有翻页/全屏入口
+- [ ] 2.2 阅读器键位接入注册表（reader_page KeyboardListener 先查注册表）：方向键 runner 仅委托视图现有 handler（continuous 的 vertical/reverse 语义、gallery 的 Timer 连发零改动）；F12 调既有全屏入口；Space/PageDown/PageUp 按 design D2 分模式（gallery→toNextPage/toPrevPage；continuous→滚动一视口高，边界无操作、不自动切章）
 - [ ] 2.3 文本输入守卫（design D5）：EditableText 聚焦时 global 注册键不触发；阅读器既有焦点守卫接入同一检查；Esc 局部行为（全局 pop、exit_guard、右键菜单）不变
 
 ## 3. 覆盖存储与冲突检测
