@@ -22,7 +22,7 @@
 
 ### Requirement: 默认键位兼容
 
-迁移 MUST NOT 改变既有默认行为：4 个全局键（Ctrl/Cmd+, 设置；Ctrl/Cmd+F 搜索；Ctrl/Cmd+B 左栏；Ctrl/Cmd+Alt+B 右栏）、阅读器方向键（含 continuous 的 vertical/reverse 方向语义与 gallery 的按键连发）、F12 全屏，逐键可见行为与迁移前一致。
+迁移 MUST NOT 改变既有动作的默认行为：全局动作（Ctrl/Cmd+, 设置；Ctrl/Cmd+F 搜索；Ctrl/Cmd+B 左栏；右栏切换）、阅读器方向键（含 continuous 的 vertical/reverse 方向语义与 gallery 的按键连发）、F12 全屏，逐键可见行为与迁移前一致。**例外（owner 2026-10-22 裁决）**：win/linux 端右栏切换默认键为 Ctrl+Shift+B（原 Ctrl+Alt+B 不再作为默认）；macOS 保持 Cmd+Alt+B；平台相关默认值在注册表按平台求值。
 
 #### Scenario: 冻结约束保持
 
@@ -31,12 +31,17 @@
 
 ### Requirement: 用户覆盖持久化
 
-用户改键 MUST 即时生效并持久化到 `appdata.json` 顶层 `shortcutOverrides`；重启后 MUST 保留；MUST 支持单条重置默认、单条清除（无键位）、全部重置。缺省（无该键）视为全部默认。
+用户改键 MUST 即时生效并持久化到 `appdata.json` 顶层 `shortcutOverrides`；重启后 MUST 保留；MUST 支持单条重置默认、单条清除（无键位）、全部重置。缺省（无该键）视为全部默认。**同一动作 MUST 支持绑定多个快捷键**（owner 2026-10-22）：覆盖值为组合键列表，键不存在 = 默认表、存在且为空列表 = 显式解绑。
 
 #### Scenario: 改键并重启
 
 - **WHEN** 用户将「打开设置」改为 Ctrl+Shift+P，重启应用
 - **THEN** 新键生效且 Ctrl+, 不再触发打开设置
+
+#### Scenario: 同一动作多键位
+
+- **WHEN** 用户为「下一页」添加第二个键位（如已有 Space，再添加 PageDown 之外的自定义键）
+- **THEN** 两个键位都触发该动作，设置页逐键显示且可单独删除
 
 #### Scenario: 重置
 
@@ -68,12 +73,12 @@
 
 ### Requirement: 设置页编辑
 
-设置 APP 分类 MUST 提供「快捷键」页：按上下文分组列出全部可定制动作与生效键位；点击捕获新键（Esc 取消）；支持清除与重置；全部用户可见文案走 .tl 且 zh_CN/zh_TW 齐备。
+「快捷键」MUST 为设置主分类之一（独立分类，owner 2026-10-22 裁决），按上下文分组列出全部可定制动作与生效键位；支持为同一动作添加/删除多个键位（逐个捕获、逐个删除）；支持清除与重置；全部用户可见文案走 .tl 且 zh_CN/zh_TW 齐备。
 
 #### Scenario: 捕获改键
 
-- **WHEN** 用户点击「打开设置」行并按下 Ctrl+Shift+P
-- **THEN** 新键即时生效、键位文本更新，且「打开设置」行不再显示 Ctrl+,
+- **WHEN** 用户点击「打开设置」行的添加键位并按下 Ctrl+Shift+P
+- **THEN** 新键即时生效、键位列表更新，且「打开设置」行不再显示 Ctrl+,
 
 #### Scenario: 冲突提示
 

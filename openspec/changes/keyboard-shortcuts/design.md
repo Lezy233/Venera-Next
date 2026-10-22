@@ -41,7 +41,7 @@ class ShortcutAction {
 | app.openSettings | Ctrl+, | 迁移 |
 | app.openSearch | Ctrl+F | 迁移（阅读器内分流到章节搜索的语义不变） |
 | app.toggleLeftSidebar | Ctrl+B | 迁移 |
-| app.toggleRightSidebar | Ctrl+Alt+B | 迁移 |
+| app.toggleRightSidebar | **win/linux：Ctrl+Shift+B**；macOS：Cmd+Alt+B | 迁移+改默认（owner 2026-10-22：win/linux 默认由 Ctrl+Alt+B 改为 Ctrl+Shift+B，macOS 不变；平台相关默认值在注册表按平台求值） |
 | app.goHome | Ctrl+1 | 新增（chrome.navigateTo） |
 | app.goFavorites | Ctrl+2 | 新增 |
 | app.goExplore | Ctrl+3 | 新增 |
@@ -60,7 +60,7 @@ class ShortcutAction {
 
 ## D3 覆盖存储与求值
 
-- 存储：`settings['shortcutOverrides']`：`Map<String, String>`，actionId → 组合键编码（如 `"ctrl+alt+b"`、`"f12"`、`"space"`、`""` 表示用户显式清除）。编码规则在注册表模块内提供序列化/反序列化与展示格式化各一份（展示格式见 D6）。
+- 存储：`settings['shortcutOverrides']`：`Map<String, List<String>>`，actionId → 组合键编码列表（如 `["ctrl+shift+b"]`、`["space","pagedown"]`）。空列表/absent 语义：**键不存在 = 用默认表；存在且为空列表 = 用户显式解绑（无键位）**（owner 2026-10-22：支持同一动作绑定多个快捷键）。编码规则在注册表模块内提供序列化/反序列化与展示格式化各一份（展示格式见 D6）。
 - 求值：读取时合并默认表；写入走 `appdata.updateSettings`（既有批量+通知）。缺省（键不存在）= 全部默认。
 - 生命周期：改键/清除/重置即时写入并即时生效（无需显式保存按钮）；应用重启后保留。
 - 数据迁移：无（新顶层键，旧版本无此数据）。
@@ -80,9 +80,9 @@ class ShortcutAction {
 
 ## D6 设置页「快捷键」
 
-- 归属 APP 分类（settings/navigation 归属规则：**页位于 APP 分类之内，不得新增主分类**）。落地方式（executor 识别的契约冲突已裁决，以本条为准）：**不改动 categories/icons/switch 三处主分类登记**；在 `lib/features/settings/app.dart`（APP 分类页）内以 `CallbackSetting` 新增「快捷键」入口（先例：about.dart:139-145 About→Debug 的 `context.to(() => DebugPage())`），点击 push 新的快捷键页 widget；新页面文件 + `settings.dart` export。
-- 页面结构：两个分组（全局 / 阅读器，`SettingPartTitle`），行 = 动作标题 + 生效键位文本；macOS 显示符号（⌃⌥⌘⇧ 风格，由执行者定），win/linux 显示 "Ctrl+Alt+B" 文本。
-- 交互：点击行进入捕获态（提示「按下新的快捷键…」），按下组合键即保存（即时生效）；Esc 取消捕获；每行提供清除（变「无键位」）与重置默认；页面级「全部重置」。
+- 归属（owner 2026-10-22 验收反馈裁决，**取代此前的 APP 分类内入口方案**）：「快捷键」为**独立主分类**，在 categories/icons/switch 三处登记 + 新页面文件 + settings.dart export；撤销 `app.dart` 的 CallbackSetting 入口。理由：键位体系是 PC 效率核心功能，入口需要直接可达；settings/navigation delta 已同步修订（分类归属一致新增快捷键例外）。
+- 页面结构：两个分组（全局 / 阅读器，`SettingPartTitle`），行 = 动作标题 + 生效键位（**多键位时逐个显示，可单独删除**；owner 2026-10-22）+「添加键位」入口；macOS 显示符号（⌃⌥⌘⇧ 风格，由执行者定），win/linux 显示 "Ctrl+Shift+B" 文本。
+- 交互：点击「添加键位」/某键位进入捕获态（提示「按下新的快捷键…」），按下组合键即保存（即时生效）；Esc 取消捕获；每行提供清除全部键位与重置默认；页面级「全部重置」。
 - 冲突：捕获到冲突键时行内/提示条显示「已被『占用动作名』使用」类文案（.tl），不保存。
 - 与 settings-ia-cleanup 的 `_SettingsEditingScope` 就地编辑框架的关系：快捷键改动即时生效，不纳入显式保存栏；如框架强约束冲突，执行者 MUST 停工上报（契约冲突流程）。
 

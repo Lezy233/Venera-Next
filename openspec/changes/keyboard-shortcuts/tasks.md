@@ -48,3 +48,11 @@
   - 即时/重启：修改后 Ctrl+, 无操作、Ctrl+Shift+P 打开设置；完全结束并重新启动进程，JSON 覆盖仍为 app.openSettings=ctrl+shift+p，旧键仍无操作、新键仍打开设置。证据 /tmp/shortcuts-restart-old-disabled.png、/tmp/shortcuts-restart-new-settings.png；日志 /tmp/shortcuts-gui.log、/tmp/shortcuts-gui-restart.log；最终高度步长实证 /tmp/shortcuts-gui-height-final.log。
   - 阅读器：本地 gallery Right 1→2、Left 2→1、Space 1→2、PageDown 2→3、PageUp 3→2；重启后同样可用。F12 的 frameHidden=false→true→false，顶栏隐藏/恢复；Ctrl+F 输入 sun 并 Enter 进入第 2 章 Sunrise。continuous Down 滚动 225px，Space 225→1125（一视口高 900px，与旧方向键 225px 的四倍一致），PageUp 1125→225，Up 反向滚动；改键后的 Ctrl+Shift+P 仍分流到阅读快捷设置。截图 /tmp/shortcuts-reader-final-space.png、/tmp/shortcuts-fullscreen-final-enter.png、/tmp/shortcuts-fullscreen-final-exit.png、/tmp/shortcuts-height-space.png、/tmp/shortcuts-reader-remapped-settings.png。
   - 截图全部 /tmp 留存、不入库。macOS 原生系统菜单无实机环境，以菜单模型/accelerator/全屏委托组件测试覆盖（/tmp/shortcuts-menu-final-tests.log，4 项全绿）；Windows/Linux 内联菜单未改。收藏/阅读器注册时既有构建期通知日志仍可见（setLeftSidebar/setReaderActions 等），只记录不扩修；临时 GUI 宿主早期缺失 scope/Material 已补齐后重新走查。
+
+## 6. 验收修订（owner 2026-10-22 反馈）
+
+- [ ] 6.1 诊断并修复「漫画页面被顶栏遮挡一部分」：先对照 cc71d9a^（改动前）判定是否本 change 引入（GUI 双版本对照，记录证据）；无论是否回归，在本 change 内修复并回归验证
+- [ ] 6.2 快捷键设置入口改为**独立主分类**（owner 裁决，取代 4.1 的 APP 内入口方案）：categories/icons/switch 三处登记 + settings.dart export，撤销 app.dart 的 CallbackSetting 入口；以修订后的 design D6 与 settings/navigation delta 为准
+- [ ] 6.3 同一动作**多键位**（owner 裁决）：覆盖存储改 List（design D3：键不存在=默认、空列表=显式解绑）；设置页逐键显示/添加/单独删除；冲突检测逐键进行；既有单键持久化数据兼容（读取旧格式视为单元素列表）
+- [ ] 6.4 win/linux 右栏切换默认键改 **Ctrl+Shift+B**（owner 裁决，macOS 保持 Cmd+Alt+B）：注册表默认值按平台求值；更新相关测试断言与 zh 文案
+- [ ] 6.5 复验：analyze 基线 50 无新增；快捷键相关测试（含 6.2–6.4 更新）全绿；GUI 走查遮挡修复 + 新入口 + 多键位 + Ctrl+Shift+B
