@@ -80,7 +80,7 @@ class ShortcutAction {
 
 ## D6 设置页「快捷键」
 
-- 归属 APP 分类（settings/navigation 归属规则），categories/icons/switch 三处登记 + 新页面文件 + settings.dart export。
+- 归属 APP 分类（settings/navigation 归属规则：**页位于 APP 分类之内，不得新增主分类**）。落地方式（executor 识别的契约冲突已裁决，以本条为准）：**不改动 categories/icons/switch 三处主分类登记**；在 `lib/features/settings/app.dart`（APP 分类页）内以 `CallbackSetting` 新增「快捷键」入口（先例：about.dart:139-145 About→Debug 的 `context.to(() => DebugPage())`），点击 push 新的快捷键页 widget；新页面文件 + `settings.dart` export。
 - 页面结构：两个分组（全局 / 阅读器，`SettingPartTitle`），行 = 动作标题 + 生效键位文本；macOS 显示符号（⌃⌥⌘⇧ 风格，由执行者定），win/linux 显示 "Ctrl+Alt+B" 文本。
 - 交互：点击行进入捕获态（提示「按下新的快捷键…」），按下组合键即保存（即时生效）；Esc 取消捕获；每行提供清除（变「无键位」）与重置默认；页面级「全部重置」。
 - 冲突：捕获到冲突键时行内/提示条显示「已被『占用动作名』使用」类文案（.tl），不保存。

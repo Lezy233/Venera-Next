@@ -20,7 +20,7 @@
 
 ## 4. 设置页与菜单
 
-- [ ] 4.1 APP 分类新增「快捷键」页（categories/icons/switch/export 四处登记）：分组列出动作+生效键位，点击捕获（Esc 取消），清除/重置/全部重置，冲突文案走 .tl；改动即时生效不纳入显式保存栏（若 _SettingsEditingScope 框架强约束冲突，停工上报）
+- [ ] 4.1 APP 分类页（`lib/features/settings/app.dart`）内以 CallbackSetting 新增「快捷键」入口，push 独立快捷键页（不新增主分类、不改动 categories/icons/switch；先例 about.dart About→Debug）；页面内分组列出动作+生效键位，点击捕获（Esc 取消），清除/重置/全部重置，冲突文案走 .tl；改动即时生效不纳入显式保存栏（若 _SettingsEditingScope 框架强约束冲突，停工上报）；新页面 + settings.dart export
 - [ ] 4.2 translation.json 新增词条并同步 zh_CN + zh_TW（动作标题、分组标题、捕获提示、冲突提示、清除/重置文案）
 - [ ] 4.3 macOS PlatformMenuBar 菜单项 accelerator = 注册表当前生效键位；键位被清除的项不显示（design D7）
 
