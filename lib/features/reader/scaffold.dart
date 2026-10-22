@@ -168,6 +168,7 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
       toggleThumbnails: _toggleThumbnail,
       filterChapters: _filterChapters,
       submitChapterSearch: _submitChapterSearch,
+      toggleFullscreen: widget.onFullscreen,
     );
     chrome.setReaderActions(actions);
   }

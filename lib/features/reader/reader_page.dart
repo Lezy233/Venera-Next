@@ -1,3 +1,5 @@
+import 'package:venera_next/foundation/shortcuts/shortcut_registry.dart';
+import 'keyboard_shortcuts.dart';
 import 'package:venera_next/features/history/history_scope.dart';
 import 'package:venera_next/features/favorites/favorites_scope.dart';
 import 'dart:async';
@@ -133,7 +135,8 @@ class Reader extends StatefulWidget {
 }
 
 class ReaderState extends State<Reader>
-    with ReaderImagePerPageHandler, WidgetsBindingObserver {
+    with ReaderImagePerPageHandler, WidgetsBindingObserver
+    implements ShortcutTarget {
   final imageWork = ImageWork();
   late final imageFavorites = HistoryScope.readImages(context);
   final _targetValidity = ValueNotifier(0);
@@ -1338,11 +1341,13 @@ class ReaderState extends State<Reader>
 
   bool get isLoading => controller.content.isLoading;
 
+  final _shortcuts = ReaderShortcutSession();
   late final focusNode = FocusNode()..addListener(_keyboardFocusChanged);
 
   void _keyboardFocusChanged() {
     if (!_stateDisposed && !focusNode.hasPrimaryFocus) {
       imageViewController?.cancelKeyboardInput();
+      _shortcuts.clear();
     }
   }
 
@@ -1901,10 +1906,10 @@ class ReaderState extends State<Reader>
         excluding: _sessionFrozen,
         child: AbsorbPointer(
           absorbing: _sessionFrozen,
-          child: KeyboardListener(
+          child: Focus(
             focusNode: focusNode,
             autofocus: true,
-            onKeyEvent: onKeyEvent,
+            onKeyEvent: (_, event) => _dispatchShortcut(event),
             child: Overlay.wrap(
               child: ReaderShellHost(
                 reader: this,
@@ -1923,13 +1928,68 @@ class ReaderState extends State<Reader>
     );
   }
 
-  void onKeyEvent(KeyEvent event) {
-    if (_sessionFrozen) return;
-    if (event.logicalKey == LogicalKeyboardKey.f12 && event is KeyUpEvent) {
-      fullscreen();
+  void onKeyEvent(KeyEvent event) => _dispatchShortcut(event);
+
+  KeyEventResult _dispatchShortcut(KeyEvent event) {
+    if (_sessionFrozen) return KeyEventResult.ignored;
+    final handled = _shortcuts.dispatch(
+      event,
+      overrides: appdata.settings['shortcutOverrides'],
+      macOS: App.isMacOS,
+      primaryFocus: focusNode.hasPrimaryFocus,
+      textInput: shortcutTextInputFocused(),
+      target: this,
+    );
+    if (handled) return KeyEventResult.handled;
+    // Preserve modifier state (Ctrl+wheel) and the legacy cancellation of
+    // gallery repeats on unrelated down/up events. Mask the trigger so cleared
+    // or remapped direction keys can never reactivate their old binding.
+    if (focusNode.hasPrimaryFocus && !shortcutTextInputFocused()) {
+      imageViewController?.handleKeyEvent(
+        ShortcutCodec.isModifier(event.logicalKey)
+            ? event
+            : shortcutDirectionEvent(event, LogicalKeyboardKey.unidentified),
+      );
     }
-    if (!focusNode.hasPrimaryFocus) return;
-    imageViewController?.handleKeyEvent(event);
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  void invokeShortcut(ShortcutCommand command, KeyEvent event) {
+    final direction = switch (command) {
+      ShortcutCommand.moveLeft => LogicalKeyboardKey.arrowLeft,
+      ShortcutCommand.moveRight => LogicalKeyboardKey.arrowRight,
+      ShortcutCommand.moveUp => LogicalKeyboardKey.arrowUp,
+      ShortcutCommand.moveDown => LogicalKeyboardKey.arrowDown,
+      _ => null,
+    };
+    if (direction != null) {
+      imageViewController?.handleKeyEvent(
+        shortcutDirectionEvent(event, direction),
+      );
+      return;
+    }
+    if (focusNode.hasPrimaryFocus) {
+      imageViewController?.handleKeyEvent(
+        shortcutDirectionEvent(event, LogicalKeyboardKey.unidentified),
+      );
+    }
+    if (command == ShortcutCommand.toggleFullscreen) {
+      if (event is KeyUpEvent) fullscreen();
+    } else if (event is KeyDownEvent || event is KeyRepeatEvent) {
+      if (command == ShortcutCommand.nextPage ||
+          command == ShortcutCommand.prevPage) {
+        final forward = command == ShortcutCommand.nextPage;
+        final viewport = imageViewController;
+        if (viewport case ReaderKeyboardPagingViewport paging) {
+          paging.scrollKeyboardPage(forward);
+        } else if (forward) {
+          toNextPage();
+        } else {
+          toPrevPage();
+        }
+      }
+    }
   }
 
   int get maxChapter => widget.chapters?.length ?? 1;

@@ -83,6 +83,7 @@ class ContinuousModeState extends State<ReaderContinuousView>
     with TickerProviderStateMixin
     implements
         ReaderImageViewController,
+        ReaderKeyboardPagingViewport,
         AutoReadingViewport,
         AutoReadingImageViewport {
   late var _imageDownloads = ReaderImageDownloads(work: widget.imageWork);
@@ -1304,6 +1305,30 @@ class ContinuousModeState extends State<ReaderContinuousView>
     if (!_disposed && mounted && isCTRLPressed) {
       setState(() => isCTRLPressed = false);
     }
+  }
+
+  @override
+  void scrollKeyboardPage(bool forward) {
+    final controller = _scrollController;
+    if (_disposed || !mounted || controller == null || !controller.hasClients) {
+      return;
+    }
+    final position = controller.position;
+    if ((forward && position.pixels >= position.maxScrollExtent) ||
+        (!forward && position.pixels <= position.minScrollExtent)) {
+      return;
+    }
+    // Match the legacy directional handler's height-based scroll unit,
+    // including horizontal continuous modes (D2 specifies one viewport high).
+    final target = (position.pixels + (forward ? 1 : -1) * context.height)
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+    if (target == position.pixels) return;
+    controller.animateTo(
+      target,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.ease,
+    );
   }
 
   @override

@@ -45,3 +45,8 @@ abstract interface class ReaderImageViewController
 
   Future<Uint8List?> getImageByOffset(Offset offset);
 }
+
+/// Continuous views scroll a viewport for page keys without changing chapters.
+abstract interface class ReaderKeyboardPagingViewport {
+  void scrollKeyboardPage(bool forward);
+}

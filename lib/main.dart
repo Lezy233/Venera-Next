@@ -31,6 +31,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:venera_next/app_runtime/app_runtime.dart';
 import 'package:venera_next/app_shell/app_shell.dart';
 import 'package:venera_next/app_shell/desktop_chrome.dart';
+import 'package:venera_next/app_shell/global_shortcuts.dart';
 import 'package:venera_next/app_shell/desktop_menus.dart';
 import 'package:venera_next/foundation/log.dart';
 import 'package:venera_next/foundation/file_interaction.dart';
@@ -437,8 +438,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 widget = DesktopChromeScope(
                   controller: _desktopChrome,
                   child: DesktopApplicationMenuBar(
-                    child: CallbackShortcuts(
-                      bindings: desktopShortcuts(_desktopChrome),
+                    child: GlobalShortcuts(
+                      chrome: _desktopChrome,
                       child: Focus(
                         autofocus: true,
                         child: WindowFrame(

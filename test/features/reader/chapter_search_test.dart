@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:venera_next/app_shell/desktop_chrome.dart';
+import 'package:venera_next/app_shell/global_shortcuts.dart';
 import 'package:venera_next/app_shell/desktop_top_bar.dart';
 import 'package:venera_next/features/comic_source/models.dart';
 import 'package:venera_next/features/reader/auto_reading.dart';
@@ -80,8 +81,8 @@ void main() {
           DesktopChromeScope(
             controller: chrome,
             child: MaterialApp(
-              home: CallbackShortcuts(
-                bindings: desktopShortcuts(chrome),
+              home: GlobalShortcuts(
+                chrome: chrome,
                 child: Scaffold(
                   body: Stack(
                     children: [

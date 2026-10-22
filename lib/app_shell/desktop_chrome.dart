@@ -11,6 +11,7 @@ class DesktopReaderActions {
     required this.toggleThumbnails,
     this.filterChapters,
     this.submitChapterSearch,
+    this.toggleFullscreen,
   });
 
   final VoidCallback openSettings;
@@ -18,6 +19,7 @@ class DesktopReaderActions {
   final VoidCallback toggleThumbnails;
   final ValueChanged<String>? filterChapters;
   final ValueChanged<String>? submitChapterSearch;
+  final VoidCallback? toggleFullscreen;
 }
 
 /// Shell-level state shared by the custom title bar, menus and shortcuts.
@@ -216,15 +218,3 @@ SingleActivator primaryShortcut(
   alt: alt,
   shift: shift,
 );
-
-/// Global desktop shortcuts. Page-specific actions are resolved by the
-/// controller (reader wins over favorites over the global fallback).
-Map<ShortcutActivator, VoidCallback> desktopShortcuts(
-  DesktopChromeController chrome,
-) => {
-  primaryShortcut(LogicalKeyboardKey.comma): chrome.openSettingsAction,
-  primaryShortcut(LogicalKeyboardKey.keyF): chrome.openSearchAction,
-  primaryShortcut(LogicalKeyboardKey.keyB): chrome.toggleLeftSidebar,
-  primaryShortcut(LogicalKeyboardKey.keyB, alt: true):
-      chrome.toggleRightSidebar,
-};

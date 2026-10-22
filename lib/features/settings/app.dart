@@ -5,6 +5,7 @@ import 'package:venera_next/components/appbar.dart';
 import 'package:venera_next/components/scroll.dart';
 import 'package:venera_next/features/settings/setting_components.dart';
 import 'package:venera_next/features/settings/app_controls.dart';
+import 'keyboard_shortcuts.dart';
 import 'package:venera_next/features/settings/local_storage_settings.dart';
 import 'package:venera_next/features/settings/remote_storage.dart';
 import 'package:venera_next/features/settings/settings_task_presenter.dart';
@@ -154,6 +155,11 @@ class _AppSettingsState extends State<AppSettings> {
             '2': "Explore Page".tl,
             '3': "Categories Page".tl,
           },
+        ).toSliver(),
+        CallbackSetting(
+          title: 'Keyboard shortcuts'.tl,
+          actionTitle: 'Open'.tl,
+          callback: () => context.to(() => const KeyboardShortcutsSettings()),
         ).toSliver(),
         SwitchSetting.preference(
           title: "Reverse default chapter order".tl,

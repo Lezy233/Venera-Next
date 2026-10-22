@@ -1043,6 +1043,211 @@ void main() {
     });
   }
 
+  for (final mode in ReaderMode.values) {
+    testWidgets('registry keyboard directions and page steps in ${mode.key}', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(700, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final fixture = await _ReaderFixture.create(tester, imageCount: 8);
+      try {
+        appdata.settings['shortcutOverrides'] = <String, String>{};
+        appdata.settings['readerMode'] = mode.key;
+        appdata.settings['enablePageAnimation'] = false;
+        await fixture.mount(
+          tester,
+          pushed: false,
+          chapters: const ComicChapters({'one': 'First'}),
+        );
+        final reader = fixture.readerKey.currentState!;
+        reader.focusNode.requestFocus();
+        await tester.pump();
+        final vertical = mode.isTopToBottom;
+        final reverse =
+            mode == ReaderMode.galleryRightToLeft ||
+            mode == ReaderMode.continuousRightToLeft;
+        for (final key in [
+          LogicalKeyboardKey.arrowLeft,
+          LogicalKeyboardKey.arrowRight,
+          LogicalKeyboardKey.arrowUp,
+          LogicalKeyboardKey.arrowDown,
+        ]) {
+          final forward = vertical
+              ? (key == LogicalKeyboardKey.arrowDown
+                    ? true
+                    : key == LogicalKeyboardKey.arrowUp
+                    ? false
+                    : null)
+              : key ==
+                    (reverse
+                        ? LogicalKeyboardKey.arrowLeft
+                        : LogicalKeyboardKey.arrowRight)
+              ? true
+              : key ==
+                    (reverse
+                        ? LogicalKeyboardKey.arrowRight
+                        : LogicalKeyboardKey.arrowLeft)
+              ? false
+              : null;
+          if (mode.isGallery) {
+            reader.toPage(3);
+            await tester.pump();
+            await tester.sendKeyEvent(key);
+            await tester.pump();
+            expect(
+              reader.page,
+              forward == null
+                  ? 3
+                  : forward
+                  ? 4
+                  : 2,
+              reason: '$mode $key',
+            );
+          } else {
+            final view = reader.imageViewController! as ContinuousModeState;
+            final position = view.scrollController.position;
+            final start = (position.maxScrollExtent / 2)
+                .clamp(position.minScrollExtent, position.maxScrollExtent)
+                .toDouble();
+            view.scrollController.jumpTo(start);
+            await tester.pump();
+            final expected =
+                (start +
+                        (forward == null
+                                ? 0
+                                : forward
+                                ? 1
+                                : -1) *
+                            MediaQuery.sizeOf(view.context).height *
+                            .25)
+                    .clamp(position.minScrollExtent, position.maxScrollExtent);
+            await tester.sendKeyEvent(key);
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 250));
+            expect(position.pixels, closeTo(expected, 1), reason: '$mode $key');
+          }
+        }
+        if (mode.isGallery) {
+          reader.toPage(1);
+          await tester.pump();
+          for (final key in [
+            LogicalKeyboardKey.space,
+            LogicalKeyboardKey.pageDown,
+            LogicalKeyboardKey.pageUp,
+          ]) {
+            await tester.sendKeyEvent(key);
+            await tester.pump();
+          }
+          expect(reader.page, 2);
+        } else {
+          final view = reader.imageViewController! as ContinuousModeState;
+          final position = view.scrollController.position;
+          view.scrollController.jumpTo(position.minScrollExtent);
+          await tester.pump();
+          await tester.sendKeyEvent(LogicalKeyboardKey.space);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 250));
+          expect(
+            position.pixels,
+            closeTo(
+              (position.minScrollExtent +
+                      MediaQuery.sizeOf(view.context).height)
+                  .clamp(position.minScrollExtent, position.maxScrollExtent),
+              1,
+            ),
+          );
+          await tester.sendKeyEvent(LogicalKeyboardKey.pageUp);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 250));
+          expect(position.pixels, closeTo(position.minScrollExtent, 1));
+          // The virtual list can rebase its pixel origin on the next layout.
+          // Assert the key itself starts no motion at the current end boundary.
+          view.scrollController.jumpTo(position.maxScrollExtent);
+          final end = position.pixels;
+          await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+          expect(position.pixels, end);
+          expect(position.isScrollingNotifier.value, isFalse);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 250));
+          expect(reader.chapter, 1);
+        }
+        expect(tester.takeException(), isNull);
+      } finally {
+        await fixture.dispose(tester);
+      }
+    });
+  }
+
+  testWidgets(
+    'registry remapped gallery direction retains repeat and key-up cancellation',
+    (tester) async {
+      final fixture = await _ReaderFixture.create(tester, imageCount: 8);
+      try {
+        appdata.settings['shortcutOverrides'] = {'reader.moveRight': 'j'};
+        appdata.settings['enablePageAnimation'] = false;
+        await fixture.mount(tester, pushed: false);
+        final reader = fixture.readerKey.currentState!;
+        final gallery = reader.imageViewController! as GalleryModeState;
+        reader.focusNode.requestFocus();
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        expect(reader.page, 1);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.keyJ);
+        expect(reader.page, 2);
+        await tester.sendKeyRepeatEvent(LogicalKeyboardKey.keyJ);
+        expect(gallery.keyRepeatTimer, isNotNull);
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(reader.page, greaterThan(2));
+        // Even a live edit during the held key must let its original release stop the timer.
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyX);
+        expect(gallery.keyRepeatTimer, isNull);
+        await tester.sendKeyRepeatEvent(LogicalKeyboardKey.keyJ);
+        expect(gallery.keyRepeatTimer, isNotNull);
+        appdata.settings['shortcutOverrides'] = {'reader.moveRight': ''};
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.keyJ);
+        expect(gallery.keyRepeatTimer, isNull);
+        final stopped = reader.page;
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(reader.page, stopped);
+      } finally {
+        await fixture.dispose(tester);
+      }
+    },
+  );
+
+  testWidgets(
+    'registry F12 remains key-up fullscreen and supports an override',
+    (tester) async {
+      final fixture = await _ReaderFixture.create(tester);
+      final native = _NativeWindow();
+      try {
+        appdata.settings['shortcutOverrides'] = <String, String>{};
+        await fixture.mount(
+          tester,
+          pushed: false,
+          windowCoordinator: native.coordinator,
+        );
+        final reader = fixture.readerKey.currentState!;
+        reader.focusNode.requestFocus();
+        await tester.pump();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.f12);
+        expect(native.fullscreen, false);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.f12);
+        await _pumpUntil(tester, () => native.fullscreen);
+        appdata.settings['shortcutOverrides'] = {
+          'reader.toggleFullscreen': 'v',
+        };
+        await tester.sendKeyEvent(LogicalKeyboardKey.f12);
+        await tester.pump();
+        expect(native.fullscreen, true);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+        await _pumpUntil(tester, () => !native.fullscreen);
+      } finally {
+        await fixture.dispose(tester);
+      }
+    },
+  );
+
   testWidgets('moving keyboard focus into the menu stops held gallery paging', (
     tester,
   ) async {
