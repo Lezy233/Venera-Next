@@ -396,25 +396,30 @@ class _SettingsSaveFeedbackState extends State<_SettingsSaveFeedback> {
       widget.child,
       if (widget.saving || widget.failed || _saved)
         Positioned.fill(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: Semantics(
-              liveRegion: true,
-              child: Material(
-                color: Theme.of(context).colorScheme.surfaceContainerLow,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.lg),
-                  side: BorderSide(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                    width: AppSizes.hairline,
+          // WindowFrame advertises its overlaid title bar through MediaQuery.
+          // Consume that inset only for feedback; keep the body unchanged.
+          child: SafeArea(
+            bottom: false,
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Semantics(
+                liveRegion: true,
+                child: Material(
+                  color: Theme.of(context).colorScheme.surfaceContainerLow,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadius.lg),
+                    side: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                      width: AppSizes.hairline,
+                    ),
                   ),
+                  child: widget.saving || widget.failed
+                      ? widget.status
+                      : Padding(
+                          padding: const EdgeInsets.all(AppSpacing.md),
+                          child: Text('Saved'.tl),
+                        ),
                 ),
-                child: widget.saving || widget.failed
-                    ? widget.status
-                    : Padding(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        child: Text('Saved'.tl),
-                      ),
               ),
             ),
           ),
