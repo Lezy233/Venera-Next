@@ -387,7 +387,11 @@ void main() {
         of: find.text('Page animation'),
         matching: find.byType(SwitchSetting),
       );
-      await tester.ensureVisible(control);
+      await tester.scrollUntilVisible(
+        find.text('Page animation'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.pumpAndSettle();
       final release = Completer<void>();
       final exclusive = AppDataOperations.instance.run(() => release.future);

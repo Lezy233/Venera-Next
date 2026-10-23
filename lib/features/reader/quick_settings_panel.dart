@@ -12,10 +12,13 @@ import 'package:venera_next/foundation/reader_preferences.dart';
 import 'package:venera_next/foundation/translations.dart';
 
 import 'brightness.dart';
+import 'package:venera_next/foundation/reader_presets.dart';
+import 'package:venera_next/features/settings/reader_presets.dart';
 import 'reader_mode_labels.dart';
 
 enum ReaderQuickSetting {
   mode,
+  preset,
   brightness,
   direction,
   zoom,
@@ -26,6 +29,7 @@ enum ReaderQuickSetting {
 /// The only list defining the reading panel's high-frequency controls.
 const readerQuickSettings = <ReaderQuickSetting>[
   ReaderQuickSetting.mode,
+  ReaderQuickSetting.preset,
   ReaderQuickSetting.brightness,
   ReaderQuickSetting.direction,
   ReaderQuickSetting.zoom,
@@ -187,6 +191,15 @@ class _ReaderQuickSettingsPanelState
           }
         },
       ),
+    ),
+    ReaderQuickSetting.preset => ReaderPresetSelector(
+      store: ReaderPresetStore(
+        scope: ReaderPreferenceScope.comic,
+        comicId: widget.comicId,
+        sourceKey: widget.sourceKey,
+      ),
+      isCurrent: widget.isCurrent,
+      onChanged: widget.onChanged,
     ),
     ReaderQuickSetting.brightness => Column(
       children: [

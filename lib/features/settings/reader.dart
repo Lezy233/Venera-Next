@@ -2,8 +2,11 @@ import 'package:venera_next/foundation/global_preference_store.dart';
 import 'package:venera_next/foundation/application_preferences.dart';
 import 'package:venera_next/foundation/preferences.dart';
 import 'package:venera_next/foundation/reader_preferences.dart';
+import 'package:venera_next/foundation/reader_presets.dart';
+import 'reader_presets.dart';
 import 'package:venera_next/foundation/reader_preference_store.dart';
 import 'package:flutter/material.dart';
+import 'package:venera_next/design_system/tokens.dart';
 import 'package:venera_next/components/appbar.dart';
 import 'package:venera_next/components/code.dart';
 import 'package:venera_next/components/layout.dart';
@@ -354,6 +357,32 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
           _scopeSelector(),
           SettingPartTitle(title: "Reading Mode".tl, icon: Icons.view_module),
           _modeSettings(),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.sm,
+              ),
+              child: Text(
+                'Reading mode presets'.tl,
+                style: const TextStyle(fontSize: AppFontSize.title),
+              ),
+            ),
+          ),
+          ReaderPresetSelector(
+            store: ReaderPresetStore(
+              scope: _preferenceScope,
+              comicId: _scopeComicId,
+              sourceKey: _scopeComicSource,
+            ),
+            showManagement: true,
+            onChanged: (key) {
+              widget.onChanged?.call(key);
+              _refresh();
+            },
+          ).toSliver(),
           SettingPartTitle(title: "Display".tl, icon: Icons.brightness_6),
           SwitchSetting.reader(
             title: "Page animation".tl,

@@ -116,17 +116,17 @@ Future<Directory> _open(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   App.dataPath = App.cachePath = Directory.systemTemp.path;
-  testWidgets('six quick controls and comic scope replace the full list', (
+  testWidgets('seven quick controls and comic scope replace the full list', (
     tester,
   ) async {
     await _open(tester);
-    expect(readerQuickSettings, hasLength(6));
-    expect(readerQuickSettings.toSet(), hasLength(6));
+    expect(readerQuickSettings, hasLength(7));
+    expect(readerQuickSettings.toSet(), hasLength(7));
     expect(find.byType(ReaderSettings), findsNothing);
     expect(find.text('Scope: This comic'), findsOneWidget);
     expect(find.text('Number of images preloaded'), findsNothing);
     expect(find.byType(SwitchListTile), findsNWidgets(5));
-    expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
+    expect(find.byType(DropdownButtonFormField<String>), findsNWidgets(2));
     final slider = tester.getRect(find.byType(Slider));
     expect(slider.top, greaterThan(0));
     expect(slider.bottom, lessThan(700));
@@ -174,7 +174,7 @@ void main() {
       await _open(tester);
       appdata.settings.setComicReaderModeOverride('book', 'local', null);
       await tester.pump();
-      final dropdown = find.byType(DropdownButtonFormField<String>);
+      final dropdown = find.byType(DropdownButtonFormField<String>).first;
       tester.widget<DropdownButtonFormField<String>>(dropdown).onChanged!(
         'galleryLeftToRight',
       );
@@ -280,7 +280,7 @@ void main() {
     await _open(tester, isCurrent: () => current, onChanged: changed.add);
     final callback = tester
         .widget<DropdownButtonFormField<String>>(
-          find.byType(DropdownButtonFormField<String>),
+          find.byType(DropdownButtonFormField<String>).first,
         )
         .onChanged!;
     current = false;

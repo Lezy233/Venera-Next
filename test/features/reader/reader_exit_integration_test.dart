@@ -1987,7 +1987,7 @@ void main() {
       expect(settings.sourceKey, 'local');
       tester
           .widget<DropdownButtonFormField<String>>(
-            find.byType(DropdownButtonFormField<String>),
+            find.byWidgetPredicate((widget) => widget is DropdownButtonFormField<String> && widget.decoration.labelText == 'Reading Mode'),
           )
           .onChanged!(ReaderMode.continuousTopToBottom.key);
       await _pumpUntil(
@@ -2017,6 +2017,7 @@ void main() {
       await _pumpUntil(tester, () => reader.preferences.readerBrightness == 30);
       expect(reader.preferences.readerBrightnessEnabled, isTrue);
       await tester.pump(const Duration(seconds: 2));
+      await tester.scrollUntilVisible(find.text('All settings'), 200, scrollable: find.descendant(of: find.byType(ReaderQuickSettingsPanel), matching: find.byType(Scrollable)).first);
       await tester.tap(find.text('All settings'));
       await _pumpUntil(
         tester,
