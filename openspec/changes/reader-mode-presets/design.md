@@ -33,7 +33,7 @@
 布局：`readerScreenPicNumberForPortrait`、`readerScreenPicNumberForLandscape`、`showSingleImageOnFirstPage`、`limitImageWidth`、`readerSideMargin`、`splitDualPage`、`splitDualPageInvert`、`enablePageAnimation`
 手势：`enableTapToTurnPages`、`reverseTapToTurnPages`、`enableDoubleTapToZoom`、`longPressAction`、`longPressZoomPosition`、`quickCollectImage`、`enableTurnPageByVolumeKey`
 
-共 18 键。**不含**：亮度、缩略图、E-Ink、自动阅读 7 键、预加载、评论/页码/状态栏——这些是跨漫画类型的全局体验项。应用时逐键写入；方案中缺失的键不动当前值。
+共 19 键。**不含**：亮度、缩略图、E-Ink、自动阅读 7 键、预加载、评论/页码/状态栏——这些是跨漫画类型的全局体验项。应用时逐键写入；方案中缺失的键不动当前值。
 
 ## D3 应用语义（与作用域正交）
 

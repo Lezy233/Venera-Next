@@ -6,7 +6,7 @@
 
 - [ ] 1.1 新建 `lib/foundation/reader_presets.dart`：`ReaderPresetStore`（list/createFromCurrent/rename/updateFromCurrent/delete/apply），存储 `readerModePresets`（design D1），经 `appdata.updateSettings` 原子写
 - [ ] 1.2 名称校验：trim 非空、≤30 字符、大小写不敏感重名拒绝（.tl 提示）；删除不回写已应用设置
-- [ ] 1.3 快照/应用按键映射（design D2/D3）：18 键集合；模式键快照记录 resolve 后生效模式 + `autoReaderMode=false`；apply 逐键走 `ReaderPreferenceStore`（comic 层模式键经 `writeComicModeOverride`，与既有模式切换通道一致）
+- [ ] 1.3 快照/应用按键映射（design D2/D3）：19 键集合；模式键快照记录 resolve 后生效模式 + `autoReaderMode=false`；apply 逐键走 `ReaderPreferenceStore`（comic 层模式键经 `writeComicModeOverride`，与既有模式切换通道一致）
 
 ## 2. 设置页入口
 
@@ -20,7 +20,7 @@
 
 ## 4. 验证
 
-- [ ] 4.1 单元/组件测试：管理器 CRUD、名称校验、快照键集合（恰好 18 键、模式键快照语义）、apply 按 scope 分派（global/device/comic，comic 模式键走 override）、删除不回写
+- [ ] 4.1 单元/组件测试：管理器 CRUD、名称校验、快照键集合（恰好 19 键、模式键快照语义）、apply 按 scope 分派（global/device/comic，comic 模式键走 override）、删除不回写
 - [ ] 4.2 集成测试：设置页入口（下拉应用+管理页 CRUD）、面板方案项（应用到漫画层后全量页同步，无第二数据源）
 - [ ] 4.3 `fvm flutter analyze --no-pub` 无新增（基线 50）；相关回归全绿（阅读器/设置/壳层套件，日志 /tmp）
 - [ ] 4.4 GUI 走查（DISPLAY=:1 隔离数据）：设置页建方案（改几项设置→快照→切到另一套→应用恢复）；面板切方案立即生效且亮度等方案外项不变；重启保留；截图只留 /tmp

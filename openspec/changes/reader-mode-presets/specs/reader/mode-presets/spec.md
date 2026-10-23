@@ -8,7 +8,7 @@
 
 ### Requirement: 方案数据模型
 
-方案 MUST 存储为 `appdata.json` 顶层 `readerModePresets`（List of {id, name, values}）；`values` MUST 只包含 design D2 键集合（18 个模式/布局/手势键）的键值对；MUST NOT 包含亮度、缩略图、E-Ink、自动阅读、预加载等非组合键。
+方案 MUST 存储为 `appdata.json` 顶层 `readerModePresets`（List of {id, name, values}）；`values` MUST 只包含 design D2 键集合（19 个模式/布局/手势键）的键值对；MUST NOT 包含亮度、缩略图、E-Ink、自动阅读、预加载等非组合键。
 
 #### Scenario: 快照新建
 
@@ -31,7 +31,7 @@
 #### Scenario: 应用到漫画层
 
 - **WHEN** 用户在阅读器快捷设置面板选择方案「条漫」
-- **THEN** 方案内 18 键写入此漫画作用域，模式键经 `readerModeOverride` 生效；方案外的设置（如亮度）不变
+- **THEN** 方案内 19 键写入此漫画作用域，模式键经 `readerModeOverride` 生效；方案外的设置（如亮度）不变
 
 #### Scenario: 应用到全局层
 
