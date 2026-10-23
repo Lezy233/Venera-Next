@@ -45,13 +45,31 @@ class ShortcutAction {
     this.titleKey,
     this.context,
     this.defaultBindings,
-    this.runner,
-  );
+    this.runner, {
+    this.macOSBindings,
+  });
   final String id;
   final String titleKey;
   final ShortcutContext context;
   final List<SingleActivator> defaultBindings;
   final ShortcutRunner runner;
+  final List<SingleActivator>? macOSBindings;
+
+  List<SingleActivator> bindingsForPlatform({required bool macOS}) {
+    if (macOS && macOSBindings != null) return macOSBindings!;
+    return defaultBindings
+        .map(
+          (binding) => macOS && context == ShortcutContext.global
+              ? SingleActivator(
+                  binding.trigger,
+                  meta: binding.control,
+                  alt: binding.alt,
+                  shift: binding.shift,
+                )
+              : binding,
+        )
+        .toList();
+  }
 }
 
 const shortcutActions = <ShortcutAction>[
@@ -72,8 +90,11 @@ const shortcutActions = <ShortcutAction>[
     'app.toggleRightSidebar',
     'Toggle right sidebar',
     ShortcutContext.global,
-    [SingleActivator(LogicalKeyboardKey.keyB, control: true, alt: true)],
+    [SingleActivator(LogicalKeyboardKey.keyB, control: true, shift: true)],
     ShortcutRunner(ShortcutCommand.toggleRightSidebar),
+    macOSBindings: [
+      SingleActivator(LogicalKeyboardKey.keyB, meta: true, alt: true),
+    ],
   ),
   ShortcutAction('app.goHome', 'Go to Home', ShortcutContext.global, [
     SingleActivator(LogicalKeyboardKey.digit1, control: true),
@@ -207,11 +228,16 @@ abstract final class AppShortcutRegistry {
   static ShortcutAction action(String id) =>
       shortcutActions.firstWhere((a) => a.id == id);
 
-  static Map<String, String> overrides(Object? value) => value is Map
+  /// Normalize legacy single strings, including '' (explicitly unbound).
+  /// Return owned lists so serialized edits never mutate live settings.
+  static Map<String, List<String>> overrides(Object? value) => value is Map
       ? {
           for (final entry in value.entries)
-            if (entry.key is String && entry.value is String)
-              entry.key as String: entry.value as String,
+            if (entry.key is String &&
+                (entry.value is String || entry.value is List))
+              entry.key as String: entry.value is String
+                  ? (entry.value == '' ? <String>[] : [entry.value as String])
+                  : (entry.value as List).whereType<String>().toList(),
         }
       : {};
 
@@ -224,23 +250,15 @@ abstract final class AppShortcutRegistry {
     final result = <String, List<SingleActivator>>{};
     for (final action in shortcutActions) {
       final custom = saved[action.id];
-      var bindings = action.defaultBindings
-          .map(
-            (b) => macOS && action.context == ShortcutContext.global
-                ? SingleActivator(
-                    b.trigger,
-                    meta: b.control,
-                    alt: b.alt,
-                    shift: b.shift,
-                  )
-                : b,
-          )
-          .toList();
-      if (custom == '') {
-        bindings = [];
-      } else if (custom != null) {
-        final decoded = ShortcutCodec.decode(custom);
-        if (decoded != null) bindings = [decoded];
+      var bindings = action.bindingsForPlatform(macOS: macOS);
+      if (custom != null) {
+        // Each stored chord is decoded and deduplicated independently.
+        final unique = <String, SingleActivator>{};
+        for (final code in custom) {
+          final binding = ShortcutCodec.decode(code);
+          if (binding != null) unique[ShortcutCodec.encode(binding)] = binding;
+        }
+        bindings = unique.values.toList();
       }
       final domain = claimed.putIfAbsent(action.context, () => {});
       if (bindings.any((b) => domain.contains(ShortcutCodec.encode(b)))) {

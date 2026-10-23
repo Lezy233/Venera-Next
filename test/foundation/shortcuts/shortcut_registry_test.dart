@@ -24,6 +24,15 @@ void main() {
         );
         expect(bindings['app.openSettings']!.single.control, !mac);
         expect(bindings['app.openSettings']!.single.meta, mac);
+        expect(bindings['app.toggleRightSidebar']!.map(ShortcutCodec.encode), [
+          mac ? 'alt+meta+b' : 'ctrl+shift+b',
+        ]);
+        expect(
+          AppShortcutRegistry.resolve({
+            'app.toggleRightSidebar': ['ctrl+alt+b'],
+          }, macOS: mac)['app.toggleRightSidebar']!.map(ShortcutCodec.encode),
+          ['ctrl+alt+b'],
+        );
         expect(bindings['reader.nextPage']!.map(ShortcutCodec.encode), [
           'space',
           'pagedown',
@@ -145,6 +154,58 @@ void main() {
       expect(
         AppShortcutRegistry.resolve({
           'reader.moveLeft': 'space',
+        }, macOS: false)['reader.nextPage'],
+        isEmpty,
+      );
+    },
+  );
+
+  test(
+    'list overrides preserve order, empty semantics and legacy compatibility',
+    () {
+      final raw = {
+        'app.openSettings': ['ctrl+p', 'ctrl+shift+p', 'ctrl+p'],
+        'app.openSearch': <String>[],
+        'reader.moveLeft': 'j',
+        'reader.moveRight': '',
+      };
+      final effective = AppShortcutRegistry.resolve(raw, macOS: false);
+      expect(effective['app.openSettings']!.map(ShortcutCodec.encode), [
+        'ctrl+p',
+        'ctrl+shift+p',
+      ]);
+      expect(effective['app.openSearch'], isEmpty);
+      expect(effective['reader.moveLeft']!.map(ShortcutCodec.encode), ['j']);
+      expect(effective['reader.moveRight'], isEmpty);
+      expect(effective['reader.nextPage']!.map(ShortcutCodec.encode), [
+        'space',
+        'pagedown',
+      ]);
+      final migrated = AppShortcutRegistry.overrides(raw);
+      expect(migrated['reader.moveLeft'], ['j']);
+      expect(migrated['reader.moveRight'], isEmpty);
+      expect(
+        AppShortcutRegistry.conflict(
+          'app.openSearch',
+          ShortcutCodec.decode('ctrl+shift+p')!,
+          raw,
+          macOS: false,
+        )?.id,
+        'app.openSettings',
+      );
+      expect(
+        AppShortcutRegistry.conflict(
+          'reader.moveUp',
+          ShortcutCodec.decode('ctrl+shift+p')!,
+          raw,
+          macOS: false,
+        ),
+        isNull,
+      );
+      // Loading retains deterministic action-order conflict handling from D4.
+      expect(
+        AppShortcutRegistry.resolve({
+          'reader.moveLeft': ['space', 'j'],
         }, macOS: false)['reader.nextPage'],
         isEmpty,
       );

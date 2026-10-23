@@ -1169,28 +1169,36 @@ class ContinuousModeState extends State<ReaderContinuousView>
       },
       child: widget,
     );
-    var width = this.widget.readerSize().width;
-    var height = this.widget.readerSize().height;
-    if (data.limitImageWidth && width / height > 0.7 && data.vertical) {
-      width = height * 0.7;
-    }
-    if (data.vertical) {
-      final margin = data.sideMargin;
-      final percent = margin;
-      // Resize the flow itself so images retain their aspect ratio and scroll
-      // extents match the visible content, including waterfall and auto-reading.
-      width *= 1 - percent * 2 / 100;
-    }
+    // Use the body viewport after the desktop title-bar safe area is consumed.
+    // The route size includes that inset and would center/clip an oversized flow.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        var width = constraints.maxWidth;
+        var height = constraints.maxHeight;
+        if (data.limitImageWidth && width / height > 0.7 && data.vertical) {
+          width = height * 0.7;
+        }
+        if (data.vertical) {
+          final margin = data.sideMargin;
+          final percent = margin;
+          // Resize the flow itself so images retain their aspect ratio and scroll
+          // extents match the visible content, including waterfall and auto-reading.
+          width *= 1 - percent * 2 / 100;
+        }
 
-    return PhotoView.customChild(
-      backgroundDecoration: BoxDecoration(color: context.colorScheme.surface),
-      childSize: Size(width, height),
-      minScale: 1.0,
-      maxScale: 2.5,
-      strictScale: true,
-      controller: photoViewController,
-      onScaleUpdate: onScaleUpdate,
-      child: SizedBox(width: width, height: height, child: widget),
+        return PhotoView.customChild(
+          backgroundDecoration: BoxDecoration(
+            color: context.colorScheme.surface,
+          ),
+          childSize: Size(width, height),
+          minScale: 1.0,
+          maxScale: 2.5,
+          strictScale: true,
+          controller: photoViewController,
+          onScaleUpdate: onScaleUpdate,
+          child: SizedBox(width: width, height: height, child: widget),
+        );
+      },
     );
   }
 

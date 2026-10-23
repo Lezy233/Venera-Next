@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:photo_view/photo_view.dart';
 import 'package:venera_next/components/message.dart';
+import 'package:venera_next/design_system/tokens.dart';
 import 'package:venera_next/components/window_frame.dart';
 import 'package:venera_next/components/window_selection_task.dart';
 import 'package:venera_next/app_runtime/application_host.dart';
@@ -106,6 +107,65 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(const MethodChannel('window_manager'), null);
   });
+
+  for (final viewportMode in ReaderMode.values) {
+    testWidgets(
+      'desktop reader viewport avoids title bar in ${viewportMode.key}',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(1280, 900));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final fixture = await _ReaderFixture.create(tester);
+        try {
+          appdata.settings['readerMode'] = viewportMode.key;
+          appdata.settings['autoReaderMode'] = false;
+          await fixture.mount(tester, pushed: false);
+          final view = find.byType(
+            viewportMode.isGallery ? ReaderGalleryView : ReaderContinuousView,
+          );
+          final shell = find.byType(ReaderScaffold);
+          final shellTop = tester.getTopLeft(shell).dy;
+          expect(
+            MediaQuery.paddingOf(tester.element(shell)).top,
+            AppSizes.titleBarHeight,
+          );
+          final viewport = tester.getRect(view);
+          if (!viewportMode.isGallery) {
+            final photo = tester.widget<PhotoView>(
+              find
+                  .descendant(
+                    of: view,
+                    matching: find.byWidgetPredicate(
+                      (widget) =>
+                          widget is PhotoView && widget.childSize != null,
+                    ),
+                  )
+                  .first,
+            );
+            expect(photo.childSize!.height, viewport.height);
+          }
+          final titleBand = Rect.fromLTWH(
+            0,
+            shellTop,
+            1280,
+            AppSizes.titleBarHeight,
+          );
+          expect(viewport.overlaps(titleBand), false);
+          expect(viewport.top, shellTop + AppSizes.titleBarHeight);
+          fixture.frame.setWindowFrame(false);
+          await tester.pumpAndSettle();
+          expect(tester.getRect(view).top, shellTop);
+          fixture.frame.setWindowFrame(true);
+          await tester.pumpAndSettle();
+          expect(
+            tester.getRect(view).top,
+            greaterThanOrEqualTo(shellTop + AppSizes.titleBarHeight),
+          );
+        } finally {
+          await fixture.dispose(tester);
+        }
+      },
+    );
+  }
 
   for (final mode in [
     ReaderMode.galleryLeftToRight,

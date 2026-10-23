@@ -24,6 +24,7 @@ class _KeyboardShortcutsSettingsState extends State<KeyboardShortcutsSettings> {
   final _store = const ShortcutStore();
   final _focus = FocusNode();
   String? _capturing;
+  String? _replacing;
   String? _error;
   bool _busy = false;
 
@@ -62,9 +63,10 @@ class _KeyboardShortcutsSettingsState extends State<KeyboardShortcutsSettings> {
     super.dispose();
   }
 
-  void _capture(String id) {
+  void _capture(String id, [String? replacing]) {
     setState(() {
       _capturing = id;
+      _replacing = replacing;
       _error = null;
     });
     shortcutCaptureOwner.value = this;
@@ -116,7 +118,14 @@ class _KeyboardShortcutsSettingsState extends State<KeyboardShortcutsSettings> {
         !_busy &&
         !ShortcutCodec.isModifier(event.logicalKey)) {
       final binding = ShortcutCodec.capture(event);
-      unawaited(_edit(() => _store.assign(id, binding)));
+      final replacing = _replacing;
+      unawaited(
+        _edit(
+          () => replacing == null
+              ? _store.add(id, binding)
+              : _store.replace(id, replacing, binding),
+        ),
+      );
     }
     return KeyEventResult.handled;
   }
@@ -167,20 +176,52 @@ class _KeyboardShortcutsSettingsState extends State<KeyboardShortcutsSettings> {
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        _capturing == action.id
-                            ? 'Press a new shortcut…'.tl
-                            : effective[action.id]!.isEmpty
-                            ? 'No shortcut'.tl
-                            : effective[action.id]!
-                                  .map(
-                                    (b) => ShortcutCodec.format(
-                                      b,
-                                      macOS: App.isMacOS,
+                      if (effective[action.id]!.isEmpty) Text('No shortcut'.tl),
+                      Wrap(
+                        spacing: AppSpacing.sm,
+                        runSpacing: AppSpacing.xs,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          for (final binding in effective[action.id]!)
+                            InputChip(
+                              key: ValueKey(
+                                'shortcut-binding-${action.id}-${ShortcutCodec.encode(binding)}',
+                              ),
+                              label: Text(
+                                ShortcutCodec.format(
+                                  binding,
+                                  macOS: App.isMacOS,
+                                ),
+                              ),
+                              onPressed: _busy
+                                  ? null
+                                  : () => _capture(
+                                      action.id,
+                                      ShortcutCodec.encode(binding),
                                     ),
-                                  )
-                                  .join(' / '),
+                              onDeleted: _busy
+                                  ? null
+                                  : () => _edit(
+                                      () => _store.remove(
+                                        action.id,
+                                        ShortcutCodec.encode(binding),
+                                      ),
+                                    ),
+                              deleteButtonTooltipMessage: 'Remove shortcut'.tl,
+                            ),
+                          TextButton.icon(
+                            key: ValueKey('shortcut-add-${action.id}'),
+                            onPressed: _busy ? null : () => _capture(action.id),
+                            icon: const Icon(
+                              Icons.add,
+                              size: AppSizes.shellIconSize,
+                            ),
+                            label: Text('Add shortcut'.tl),
+                          ),
+                        ],
                       ),
+                      if (_capturing == action.id)
+                        Text('Press a new shortcut…'.tl),
                       if (_capturing == action.id && _error != null)
                         Text(
                           _error!,
@@ -190,7 +231,6 @@ class _KeyboardShortcutsSettingsState extends State<KeyboardShortcutsSettings> {
                         ),
                     ],
                   ),
-                  onTap: _busy ? null : () => _capture(action.id),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

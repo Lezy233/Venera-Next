@@ -51,8 +51,17 @@
 
 ## 6. 验收修订（owner 2026-10-22 反馈）
 
-- [ ] 6.1 诊断并修复「漫画页面被顶栏遮挡一部分」：先对照 cc71d9a^（改动前）判定是否本 change 引入（GUI 双版本对照，记录证据）；无论是否回归，在本 change 内修复并回归验证
-- [ ] 6.2 快捷键设置入口改为**独立主分类**（owner 裁决，取代 4.1 的 APP 内入口方案）：categories/icons/switch 三处登记 + settings.dart export，撤销 app.dart 的 CallbackSetting 入口；以修订后的 design D6 与 settings/navigation delta 为准
-- [ ] 6.3 同一动作**多键位**（owner 裁决）：覆盖存储改 List（design D3：键不存在=默认、空列表=显式解绑）；设置页逐键显示/添加/单独删除；冲突检测逐键进行；既有单键持久化数据兼容（读取旧格式视为单元素列表）
-- [ ] 6.4 win/linux 右栏切换默认键改 **Ctrl+Shift+B**（owner 裁决，macOS 保持 Cmd+Alt+B）：注册表默认值按平台求值；更新相关测试断言与 zh 文案
-- [ ] 6.5 复验：analyze 基线 50 无新增；快捷键相关测试（含 6.2–6.4 更新）全绿；GUI 走查遮挡修复 + 新入口 + 多键位 + Ctrl+Shift+B
+- [x] 6.1 诊断并修复「漫画页面被顶栏遮挡一部分」：先对照 cc71d9a^（改动前）判定是否本 change 引入（GUI 双版本对照，记录证据）；无论是否回归，在本 change 内修复并回归验证
+  - 真实应用 main.dart 双版本（隔离 XDG 数据、同一红边本地漫画、横向连续模式）对照：63f5ec4=cc71d9a^ 与 b690395 均为 viewport y=4、height=892、padding.top=36，顶栏 [4,40) 相交 36px，属于既有问题；GlobalShortcuts 不改变尺寸。ReaderScaffold 仅桌面正文消费 SafeArea，控件/WindowFrame 不改；修复后 viewport y=40、height=856、padding=0，相交 0px。三模式几何回归（画廊/纵向连续/横向连续，显示→隐藏→恢复）3 绿；日志 /tmp/shortcuts-revision-{before,current,fixed}-probe.log、geometry-{red,green}.log；截图 /tmp/shortcuts-revision-{before-reader,current-reader-probe,fixed-reader}.png，仅本地。
+- [x] 6.2 快捷键设置入口改为**独立主分类**（owner 裁决，取代 4.1 的 APP 内入口方案）：categories/icons/switch 三处登记 + settings.dart export，撤销 app.dart 的 CallbackSetting 入口；以修订后的 design D6 与 settings/navigation delta 为准
+  - SettingsPage 追加第 8 分类（保留既有索引），categories/icons 与两种布局的内容 switch 均登记 KeyboardShortcutsSettings；settings.dart 已有 export，保留；撤销 APP CallbackSetting。shortcut category follows settings navigation at 600.0/1000.0 两项通过，验证 compact push/back 与宽屏右栏初始着陆、根路由不 push；/tmp/shortcuts-revision-categories.log。
+- [x] 6.3 同一动作**多键位**（owner 裁决）：覆盖存储改 List（design D3：键不存在=默认、空列表=显式解绑）；设置页逐键显示/添加/单独删除；冲突检测逐键进行；既有单键持久化数据兼容（读取旧格式视为单元素列表）
+  - 覆盖归一化为 Map<String,List<String>>，兼容旧字符串/旧空字符串；缺省默认、空列表解绑，串行事务内逐键检查冲突并去重。UI 的 InputChip 点击替换/单独删除、添加按钮追加；清除与重置保留。新增双语 Add/Remove shortcut；新增列表求值与旧 JSON reload/并发追加/第二键冲突测试，并扩展真实捕获测试验证原键仍触发、替换只影响目标键、逐键删除即时失效。注册表+壳层快捷键 12 项全绿，/tmp/shortcuts-revision-multi-tests.log。
+- [x] 6.4 win/linux 右栏切换默认键改 **Ctrl+Shift+B**（owner 裁决，macOS 保持 Cmd+Alt+B）：注册表默认值按平台求值；更新相关测试断言与 zh 文案
+  - 常量动作表保留默认列表并增加 macOS 专用列表，bindingsForPlatform 统一求值；win/linux Ctrl+Shift+B、macOS Cmd+Alt+B，用户显式旧 Ctrl+Alt+B 覆盖仍保留。默认表/旧键不触发/新键右栏切换组件断言已更新，快捷键套件 12 项全绿（/tmp/shortcuts-revision-platform-tests.log）。词条不含硬编码键位示例，无需额外改译文。
+- [x] 6.5 复验：analyze 基线 50 无新增；快捷键相关测试（含 6.2–6.4 更新）全绿；GUI 走查遮挡修复 + 新入口 + 多键位 + Ctrl+Shift+B
+  - 中断恢复后完整复验：`fvm flutter test --no-pub test/foundation/shortcuts test/app_shell test/features/reader test/features/settings/settings_page_test.dart test/features/settings/settings_inplace_editing_test.dart test/features/settings/app_controls_persistence_test.dart`，952 项通过、25 项既有跳过；日志 /tmp/shortcuts-revision-regression-final.log。注册表/快捷键相关 12 项包含在内，分类导航 600/1000 宽度、追加/替换/删除、旧字符串迁移、逐键冲突、平台默认及菜单回归均通过。
+  - 6.1 补充：仅加 SafeArea 会使连续视图 PhotoView 仍取安全区外 Reader.size，产生二次居中裁切及 4 项 loading-neighbor 页码回归；以 LayoutBuilder 使用实际正文约束修正。新增内外高度一致断言先红后绿（/tmp/shortcuts-viewport-inner-red.log、/tmp/shortcuts-viewport-inner-green.log）；7 种模式的顶栏显示/隐藏/恢复几何测试 + 上述 4 项页码回归合计 11 绿，亦纳入 952 项完整回归。原方向键 handler/连发逻辑不改。
+  - 最终 `fvm flutter analyze --no-pub` = 50（tool/code_audit 38 + lib/test 12），无新增；/tmp/shortcuts-revision-analyze-final.log。
+  - DISPLAY=:1 运行真实 app.main（/tmp 临时入口仅生成本地测试漫画、分发输入及记录几何；隔离 XDG 数据目录 /tmp/shortcuts-revision-final-data）。画廊/纵向连续/横向连续 viewport 均 y=40、height=856，顶栏 [4,40) 交集 0px，红边完整；F12 隐藏后 y=4、恢复后 y=40。独立主分类直接可达；添加 Ctrl+Shift+P 后保留 Ctrl+,，点击旧键替换为 Ctrl+Shift+Q 后 P 保留，删除 P 后仅剩 Q，JSON 实际存储为列表。收藏页选 All 后 Ctrl+Shift+B 使 right=false→true→false，Ctrl+Alt+B 保持不变。日志 /tmp/shortcuts-revision-final-gui.log，截图 /tmp/shortcuts-revision-final-{reader,gallery,vertical,horizontal,fullscreen,restored,category,add,replace,delete,right-open,old-key-noop,right-closed}.png，仅本地。
+  - 前次中断前的 /tmp 对照文件已因桌面重启丢失，6.1 的双版本测量记录保留；本轮几何及 GUI 截证已重新生成。macOS 无实机，平台求值与菜单模型由测试覆盖；既有 setReaderActions/setLeftSidebar 构建期通知日志仅记录，不扩修。标准 main.dart Linux debug 构建通过并恢复正常 bundle（/tmp/shortcuts-revision-standard-build.log）；临时 GUI 入口不入库。契约文件/pubspec.* 零改动，截图不入库，不提交，待验收。

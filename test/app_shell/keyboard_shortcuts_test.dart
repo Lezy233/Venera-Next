@@ -7,6 +7,7 @@ import 'package:venera_next/app_shell/desktop_chrome.dart';
 import 'package:venera_next/app_shell/global_shortcuts.dart';
 import 'package:venera_next/app_shell/desktop_menus.dart';
 import 'package:venera_next/features/settings/keyboard_shortcuts.dart';
+import 'package:venera_next/features/settings/settings_page.dart';
 import 'package:venera_next/foundation/app.dart';
 import 'package:venera_next/foundation/appdata.dart';
 import 'package:venera_next/foundation/shortcuts/shortcut_registry.dart';
@@ -77,8 +78,45 @@ void main() {
     shortcutCaptureOwner.value = null;
   });
 
+  for (final width in [600.0, 1000.0]) {
+    testWidgets('shortcut category follows settings navigation at $width', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final navigator = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigator,
+          home: const SettingsPage(initialPage: 7),
+        ),
+      );
+      await tester.pumpAndSettle();
+      if (width < 720) {
+        expect(find.byType(KeyboardShortcutsSettings), findsNothing);
+        await tester.tap(find.text('Keyboard shortcuts'));
+        await tester.pumpAndSettle();
+        expect(navigator.currentState!.canPop(), true);
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(find.byType(KeyboardShortcutsSettings), findsNothing);
+      } else {
+        expect(find.byType(KeyboardShortcutsSettings), findsOneWidget);
+        expect(
+          tester.getTopLeft(find.byType(KeyboardShortcutsSettings)).dx,
+          greaterThanOrEqualTo(280),
+        );
+        expect(navigator.currentState!.canPop(), false);
+      }
+      expect(find.text('Keyboard shortcuts'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
-    'four legacy global actions and four navigation defaults preserve dispatch',
+    'global defaults dispatch with the platform right-sidebar exception',
     (tester) async {
       final chrome = DesktopChromeController();
       final body = FocusNode();
@@ -122,6 +160,8 @@ void main() {
       await tester.pump();
       await chord(tester, LogicalKeyboardKey.keyB);
       await chord(tester, LogicalKeyboardKey.keyB, alt: true);
+      expect(right, 0, reason: 'Ctrl+Alt+B is no longer the win/linux default');
+      await chord(tester, LogicalKeyboardKey.keyB, shift: true);
       expect([left, right], [1, 1]);
       for (final key in [
         LogicalKeyboardKey.digit1,
@@ -166,10 +206,9 @@ void main() {
       );
       final file = File('${root.path}/appdata.json');
       final saved = jsonDecode(file.readAsStringSync()) as Map;
-      expect(
-        saved['settings']['shortcutOverrides']['app.openSettings'],
+      expect(saved['settings']['shortcutOverrides']['app.openSettings'], [
         'ctrl+shift+p',
-      );
+      ]);
       appdata.settings['shortcutOverrides'] = <String, String>{};
       await flush(tester, appdata.loadDataForTesting(root.path));
       expect(
@@ -218,6 +257,98 @@ void main() {
   );
 
   testWidgets(
+    'multiple bindings serialize edits, migrate legacy data and survive reload',
+    (tester) async {
+      const store = ShortcutStore();
+      final file = File('${root.path}/appdata.json');
+      // Simulate an existing installation of the single-string version.
+      appdata.settings['shortcutOverrides'] = {
+        'app.openSettings': 'ctrl+p',
+        'reader.moveLeft': '',
+      };
+      await flush(tester, appdata.saveData(false));
+      appdata.settings['shortcutOverrides'] = {};
+      await flush(tester, appdata.loadDataForTesting(root.path));
+      expect(store.effective['app.openSettings']!.map(ShortcutCodec.encode), [
+        'ctrl+p',
+      ]);
+      expect(store.effective['reader.moveLeft'], isEmpty);
+      await flush(
+        tester,
+        Future.wait([
+          store.add('app.openSettings', ShortcutCodec.decode('ctrl+shift+p')!),
+          store.add('app.openSettings', ShortcutCodec.decode('ctrl+shift+q')!),
+        ]),
+      );
+      final expected = ['ctrl+p', 'ctrl+shift+p', 'ctrl+shift+q'];
+      expect(
+        store.effective['app.openSettings']!.map(ShortcutCodec.encode),
+        expected,
+      );
+      final saved = jsonDecode(file.readAsStringSync()) as Map;
+      expect(
+        saved['settings']['shortcutOverrides']['app.openSettings'],
+        expected,
+      );
+      expect(
+        saved['settings']['shortcutOverrides']['reader.moveLeft'],
+        <String>[],
+      );
+      appdata.settings['shortcutOverrides'] = {};
+      await flush(tester, appdata.loadDataForTesting(root.path));
+      expect(
+        store.effective['app.openSettings']!.map(ShortcutCodec.encode),
+        expected,
+      );
+      // Conflict with any binding, not just the first, rejects the whole edit.
+      final conflict = await flush(
+        tester,
+        store.add('app.openSearch', ShortcutCodec.decode('ctrl+shift+q')!),
+      );
+      expect(conflict?.id, 'app.openSettings');
+      expect(store.effective['app.openSearch']!.map(ShortcutCodec.encode), [
+        'ctrl+f',
+      ]);
+      await flush(
+        tester,
+        store.add('reader.moveLeft', ShortcutCodec.decode('ctrl+shift+q')!),
+      );
+      expect(store.effective['reader.moveLeft']!.map(ShortcutCodec.encode), [
+        'ctrl+shift+q',
+      ]);
+      await flush(
+        tester,
+        store.add('app.openSettings', ShortcutCodec.decode('ctrl+p')!),
+      );
+      expect(
+        store.effective['app.openSettings']!.map(ShortcutCodec.encode),
+        expected,
+      );
+      await flush(tester, store.remove('app.openSettings', 'ctrl+shift+p'));
+      expect(store.effective['app.openSettings']!.map(ShortcutCodec.encode), [
+        'ctrl+p',
+        'ctrl+shift+q',
+      ]);
+      await flush(tester, store.assign('app.openSettings', null));
+      expect(
+        (jsonDecode(file.readAsStringSync())
+            as Map)['settings']['shortcutOverrides']['app.openSettings'],
+        <String>[],
+      );
+      await flush(tester, store.reset('app.openSettings'));
+      expect(
+        AppShortcutRegistry.overrides(
+          appdata.settings['shortcutOverrides'],
+        ).containsKey('app.openSettings'),
+        false,
+      );
+      expect(store.effective['app.openSettings']!.map(ShortcutCodec.encode), [
+        'ctrl+,',
+      ]);
+    },
+  );
+
+  testWidgets(
     'settings capture consumes chord, rejects conflict, Esc cancels, clear and reset work',
     (tester) async {
       tester.view.physicalSize = const Size(1000, 1000);
@@ -241,7 +372,9 @@ void main() {
         ),
       );
       final row = find.byKey(const ValueKey('app.openSettings'));
-      await tester.tap(row);
+      await tester.tap(
+        find.byKey(const ValueKey('shortcut-add-app.openSettings')),
+      );
       await tester.pump();
       await chord(tester, LogicalKeyboardKey.keyB);
       await flush(tester, appdata.updateSettings((_) {}));
@@ -253,7 +386,9 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pump();
       expect(find.text('Press a new shortcut…'), findsNothing);
-      await tester.tap(row);
+      await tester.tap(
+        find.byKey(const ValueKey('shortcut-add-app.openSettings')),
+      );
       await tester.pump();
       await chord(tester, LogicalKeyboardKey.keyP, shift: true);
       await flush(tester, appdata.updateSettings((_) {}));
@@ -261,6 +396,39 @@ void main() {
       expect(opened, 0);
       await chord(tester, LogicalKeyboardKey.keyP, shift: true);
       expect(opened, 1);
+      expect(
+        find.descendant(of: row, matching: find.text('Ctrl+,')),
+        findsOneWidget,
+      );
+      await chord(tester, LogicalKeyboardKey.comma);
+      expect(opened, 2, reason: 'Adding retains the original default');
+      await tester.tap(
+        find.byKey(const ValueKey('shortcut-binding-app.openSettings-ctrl+,')),
+      );
+      await tester.pump();
+      await chord(tester, LogicalKeyboardKey.keyQ, shift: true);
+      await flush(tester, appdata.updateSettings((_) {}));
+      expect(
+        find.descendant(of: row, matching: find.text('Ctrl+,')),
+        findsNothing,
+      );
+      expect(find.text('Ctrl+Shift+P'), findsOneWidget);
+      expect(find.text('Ctrl+Shift+Q'), findsOneWidget);
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey('shortcut-binding-app.openSettings-ctrl+shift+p'),
+          ),
+          matching: find.byTooltip('Remove shortcut'),
+        ),
+      );
+      await flush(tester, appdata.updateSettings((_) {}));
+      expect(find.text('Ctrl+Shift+P'), findsNothing);
+      expect(find.text('Ctrl+Shift+Q'), findsOneWidget);
+      await chord(tester, LogicalKeyboardKey.keyP, shift: true);
+      expect(opened, 2);
+      await chord(tester, LogicalKeyboardKey.keyQ, shift: true);
+      expect(opened, 3);
       await tester.tap(
         find.descendant(of: row, matching: find.byTooltip('Clear shortcut')),
       );
@@ -277,13 +445,17 @@ void main() {
         find.descendant(of: row, matching: find.text('Ctrl+,')),
         findsOneWidget,
       );
-      await tester.tap(row);
+      await tester.tap(
+        find.byKey(const ValueKey('shortcut-add-app.openSettings')),
+      );
       await tester.pump();
       FocusManager.instance.primaryFocus!.unfocus();
       await tester.pump();
       expect(find.text('Press a new shortcut…'), findsNothing);
       expect(shortcutCaptureOwner.value, isNull);
-      await tester.tap(row);
+      await tester.tap(
+        find.byKey(const ValueKey('shortcut-add-app.openSettings')),
+      );
       await tester.pump();
       await tester.pumpWidget(const SizedBox());
       await tester.pump();

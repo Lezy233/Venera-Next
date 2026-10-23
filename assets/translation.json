@@ -1,5 +1,7 @@
 {
   "zh_CN": {
+    "Add shortcut": "添加键位",
+    "Remove shortcut": "删除此键位",
     "Keyboard shortcuts": "快捷键",
     "Open settings": "打开设置",
     "Focus search": "聚焦搜索",
@@ -1004,6 +1006,8 @@
     "WebDAV archive backup is disabled": "WebDAV 存档备份已停用。"
   },
   "zh_TW": {
+    "Add shortcut": "新增按鍵組合",
+    "Remove shortcut": "刪除此按鍵組合",
     "Keyboard shortcuts": "快捷鍵",
     "Open settings": "開啟設定",
     "Focus search": "聚焦搜尋",

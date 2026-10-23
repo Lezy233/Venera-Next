@@ -12,6 +12,7 @@ import 'package:venera_next/features/settings/network.dart';
 import 'package:venera_next/features/settings/explore_settings.dart';
 import 'package:venera_next/features/settings/app.dart';
 import 'package:venera_next/features/settings/reader.dart';
+import 'keyboard_shortcuts.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({this.initialPage = -1, super.key});
@@ -48,6 +49,7 @@ class _SettingsPageState extends State<SettingsPage> {
     "APP",
     "Network",
     "About",
+    "Keyboard shortcuts",
   ];
 
   final icons = <IconData>[
@@ -58,6 +60,7 @@ class _SettingsPageState extends State<SettingsPage> {
     Icons.apps,
     Icons.public,
     Icons.info,
+    Icons.keyboard,
   ];
 
   @override
@@ -261,6 +264,7 @@ class _SettingsPageState extends State<SettingsPage> {
       4 => const AppSettings(),
       5 => const NetworkSettings(),
       6 => const AboutSettings(),
+      7 => const KeyboardShortcutsSettings(),
       _ => throw UnimplementedError(),
     };
   }
@@ -298,6 +302,7 @@ class _SettingsDetailPage extends StatelessWidget {
       4 => const AppSettings(),
       5 => const NetworkSettings(),
       6 => const AboutSettings(),
+      7 => const KeyboardShortcutsSettings(),
       _ => throw UnimplementedError(),
     };
   }

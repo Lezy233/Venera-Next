@@ -29,6 +29,7 @@ import 'package:venera_next/features/reader/platform_effects_controller.dart';
 import 'shell_data.dart';
 import 'progress_navigation.dart';
 import 'package:venera_next/foundation/context.dart';
+import 'package:venera_next/foundation/app.dart';
 import 'package:venera_next/features/reader/image_export.dart';
 import 'package:venera_next/features/reader/image_export_binding.dart';
 import 'package:venera_next/foundation/image_work.dart';
@@ -523,7 +524,12 @@ class ReaderScaffoldState extends State<ReaderScaffold> {
     final topBarHeight = kTopBarHeight * titleScale;
     return Stack(
       children: [
-        Positioned.fill(child: _buildBody()),
+        // WindowFrame exposes its title strip as MediaQuery padding rather
+        // than reducing the route's constraints. Reserve it for the image
+        // viewport; reader controls already consume their own insets.
+        Positioned.fill(
+          child: App.isDesktop ? SafeArea(child: _buildBody()) : _buildBody(),
+        ),
         if (!isOnChapterCommentsPage)
           Positioned.fill(
             child: ReaderBrightnessOverlay(
