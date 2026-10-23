@@ -15,7 +15,7 @@
 | 3 | **desktop-shell-polish** ✅已归档 | 宽屏设置就地编辑（P2） | #1（断点）、#2（WebDAV 入口对齐） |
 | 4 | **desktop-search-context** ✅已归档 | 命令中心三上下文行为统一（P1-6） | #1（命令中心可见性规则） |
 | 5 | **reader-quick-settings-panel** ✅已归档 | 阅读内精简设置面板（P0-1 遗留） | #2 的作用域选择器（降级路径见 design.md D3） |
-| 6 | **keyboard-shortcuts**（BACKLOG F3，批次 A）✅实现完成待验收 | 动作注册表 + 用户自定义键位 + 冲突检测 + 快捷键设置页（commit cc71d9a） | 无强依赖（注册表为 F1 多栈预留扩展，见 design D8） |
+| 6 | **keyboard-shortcuts**（BACKLOG F3，批次 A）✅已归档 | 动作注册表 + 多键位自定义 + 冲突检测 + 独立主分类 + 平台默认键（2026-10-23 归档，commit b735663） | 无强依赖（注册表为 F1 多栈预留扩展，见 design D8） |
 
 ## 已完成（quick wins，不在 changes 中）
 
