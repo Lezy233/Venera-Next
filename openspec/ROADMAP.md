@@ -16,7 +16,7 @@
 | 4 | **desktop-search-context** ✅已归档 | 命令中心三上下文行为统一（P1-6） | #1（命令中心可见性规则） |
 | 5 | **reader-quick-settings-panel** ✅已归档 | 阅读内精简设置面板（P0-1 遗留） | #2 的作用域选择器（降级路径见 design.md D3） |
 | 6 | **keyboard-shortcuts**（BACKLOG F3，批次 A）✅已归档 | 动作注册表 + 多键位自定义 + 冲突检测 + 独立主分类 + 平台默认键（2026-10-23 归档，commit b735663） | 无强依赖（注册表为 F1 多栈预留扩展，见 design D8） |
-| 7 | **reader-mode-presets**（BACKLOG F4，批次 A）✅实现完成待验收 | 阅读模式方案 CRUD：命名快照/应用/管理 + 面板方案切换（commit 1c8fbc3） | settings-ia-cleanup 作用域选择器（已归档）；quick-settings 面板 |
+| 7 | **reader-mode-presets**（BACKLOG F4，批次 A）✅已归档 | 阅读模式方案 CRUD：命名快照/应用/管理 + 面板方案切换（2026-10-23 归档，commit 1c8fbc3） | settings-ia-cleanup 作用域选择器（已归档）；quick-settings 面板 |
 
 ## 已完成（quick wins，不在 changes 中）
 

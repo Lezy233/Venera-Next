@@ -32,9 +32,8 @@ Venera-Next 是 PC 优先的 Flutter 漫画阅读器，fork 自 venera-next，**
 ## 4. 当前状态（规划者维护，执行前核对）
 
 - 分支：`redesign-2026`，已与远程同步（github.com/Lezy233/Venera-Next）。
-- 待 owner 验收：`reader-mode-presets`（BACKLOG F4，2026-10-23 实现完成，commit 1c8fbc3；验收后归档）。
-- 已完成并归档：`design-system-foundation`（设计基座 + 验收缺陷 5.1–5.3 修复）；`settings-ia-cleanup`（2026-10-21 归档）；`save-bar-layout-fix`（2026-10-21 归档，commit 9669b5c）；`desktop-shell-polish`（2026-10-21 归档，commit ae00919）；`desktop-search-context`（2026-10-21 归档，commit 5833677）；`reader-quick-settings-panel`（2026-10-22 归档，commit 11c495e）；`save-feedback-placement-fix`（2026-10-22 归档，commit 63d45e7）；`chrome-binding-lifecycle-fix`（2026-10-22 归档，commit 0121b81，BACKLOG B1）；`keyboard-shortcuts`（2026-10-23 归档，commit b735663，BACKLOG F3，批次 A——动作注册表/多键位自定义/冲突检测/独立主分类/平台默认键）。
-- ROADMAP 队列已清空，bugfix 候选已清。下一批：BACKLOG 批次 A 剩 F4（阅读模式方案 CRUD）；F1/F2（批次 B 锚点）与 F5–F7（批次 C）由 owner 排期，见 `openspec/BACKLOG.md`。
+- 已完成并归档：`design-system-foundation`（设计基座 + 验收缺陷 5.1–5.3 修复）；`settings-ia-cleanup`（2026-10-21 归档）；`save-bar-layout-fix`（2026-10-21 归档，commit 9669b5c）；`desktop-shell-polish`（2026-10-21 归档，commit ae00919）；`desktop-search-context`（2026-10-21 归档，commit 5833677）；`reader-quick-settings-panel`（2026-10-22 归档，commit 11c495e）；`save-feedback-placement-fix`（2026-10-22 归档，commit 63d45e7）；`chrome-binding-lifecycle-fix`（2026-10-22 归档，commit 0121b81，BACKLOG B1）；`keyboard-shortcuts`（2026-10-23 归档，commit b735663，BACKLOG F3，批次 A——动作注册表/多键位自定义/冲突检测/独立主分类/平台默认键）；`reader-mode-presets`（2026-10-23 归档，commit 1c8fbc3，BACKLOG F4，批次 A——阅读模式方案 CRUD + 面板方案切换）。
+- ROADMAP 队列已清空，bugfix 候选已清，批次 A（F3+F4）完成。下一批：批次 B 锚点 F1（页面多开，propose 首要做 design-spec.md 框架容纳检查）或批次 C（F5/F6+F7），排期由 owner 决定，见 `openspec/BACKLOG.md`。
 
 ## 5. 最小阅读清单
 
