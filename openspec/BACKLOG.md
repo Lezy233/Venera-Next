@@ -25,7 +25,7 @@
 | ~~F5~~ ✅已完成（2026-10-25，favorite-series，批次 C） | 收藏按系列手动归类 | 收藏页把多平台同一系列漫画归入用户自定义的"系列"组 | 跨源收藏的最大痛点：同一作品散在多处 | 中 | 低（数据模型 + 收藏页 UI）；可复用现有文件夹机制或新建 series 实体 | settings-ia-cleanup（收藏设置分类可能调整） | C |
 | F6 | 自定义聚合搜索方案 | 用户定义多套聚合搜索组合（参与源/顺序/过滤条件），一键切换 | 不同检索目的（找新漫/追作者/补全）需要不同源组合 | 中 | 低-中（聚合搜索已有 `aggregated_search_page` 基础） | 无强依赖 | C |
 | F7 | 作者标签多平台搜索 | 从作者标签一键跨源检索该作者全部作品 | 追作者的刚需；现有搜索需按作者字段过滤 | 小-中 | 低（依赖源元数据提供作者字段） | 与 F6 同动搜索基础设施，建议合并实施 | C |
-| ~~B1~~ ✅已完成（2026-10-22，chrome-binding-lifecycle-fix，commit 0121b81，待验收归档） | 修复 chrome 构建期绑定缺陷 | `main_page.dart:74` didChangeDependencies 同步绑定动作 → `desktop_chrome.dart:109` 触发 setState-during-build；移至帧后回调并稳定回调引用（3995a9f 引入，save-bar-layout-fix 诊断附带发现） | 启动即报红的框架错误，可能掩盖其他构建期问题 | 小 | 低（纯生命周期时序修复） | 无 | A |
+| ~~B1~~ ✅已完成（2026-10-22，chrome-binding-lifecycle-fix，commit 0121b81） | 修复 chrome 构建期绑定缺陷 | `main_page.dart:74` didChangeDependencies 同步绑定动作 → `desktop_chrome.dart:109` 触发 setState-during-build；移至帧后回调并稳定回调引用（3995a9f 引入，save-bar-layout-fix 诊断附带发现） | 启动即报红的框架错误，可能掩盖其他构建期问题 | 小 | 低（纯生命周期时序修复） | 无 | A |
 
 ## 批次建议
 
