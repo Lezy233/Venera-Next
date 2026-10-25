@@ -12,17 +12,23 @@ Venera-Next 是 PC 优先的 Flutter 漫画阅读器，fork 自 venera-next，**
 
 | 角色 | 承担者 | 职责 | 禁区 |
 |------|--------|------|------|
-| **规划者** | Kimi | 写 proposal/spec/design/tasks；验收判定时对照 spec 判「符合/不符合/契约该改」；维护 BACKLOG/ROADMAP/design-spec.md | 不执行实现任务，不做代码 debug |
-| **执行者** | dsh / deepseek-v4.1f | 按 change 的 tasks.md 逐个实现并勾选；flutter analyze 自检；交付说明 | 不得改 proposal/spec/design、design-spec.md、openspec/specs/ 下正式 spec；发现契约冲突须停止并报告，不自行改契约 |
+| **规划者** | codex（2026-10-25 起，自 Kimi 移交；此前为 Kimi） | 写 proposal/spec/design/tasks；验收判定时对照 spec 判「符合/不符合/契约该改」；维护 BACKLOG/ROADMAP/design-spec.md | 不做代码 debug（与执行者同体时除外，见下） |
+| **执行者** | codex（herdr pane w3:p2） | 按 change 的 tasks.md 逐个实现并勾选；flutter analyze 自检；交付说明 | 不得改 proposal/spec/design、design-spec.md、openspec/specs/ 下正式 spec；发现契约冲突须停止并报告，不自行改契约 |
 | **验收人** | owner（人类） | 最终人工验收；验收通过后才归档 | — |
 
-执行 agent 若被 owner 直接派活，默认走「执行者」列；若被 Kimi 派活做规划产物，走「规划者」列。
+**同体协议（owner 2026-10-25 裁决，为节省 Kimi 额度，规划与执行由 codex 一肩挑）**：失去独立规划者复核，用以下自检协议补强——
+1. 实现完成后、提交前，必须**独立复验**：重跑 `fvm flutter analyze --no-pub`（=50 项基线，零新增）、重跑新增测试与相关回归套件、核对 tasks.md 勾选、核对受保护文件（design-spec.md、openspec/specs/**、pubspec.yaml/lock）零 diff；复验结果写进交付报告。
+2. **设计裁决与事实勘误分离**：proposal/design/spec/tasks 中的事实错误（计数、路径、与代码现状不符）可自行勘误并提交；**涉及取舍的设计裁决**（语义、交互、范围变更）必须停下来问 owner，不得自问自答。
+3. owner 的人工验收仍是最终闸门；交付报告必须附「验收路径建议」。
+
+执行 agent 若被 owner 直接派活，默认走「执行者」列；若被派活做规划产物，走「规划者」列。
 
 ## 3. 硬规则（踩过坑，勿重蹈）
 
 - **`pubspec.lock` 禁止重新生成**（项目铁律；flutter pub upgrade/add 会动它，动完必须还原）。
 - 新 UI 文案必须走 `.tl` 翻译系统，并在 `assets/translation.json` 补 **zh_CN 和 zh_TW** 词条。
-- `flutter analyze` 基线**已有 12 个预存在问题**（含 `settings_page_test.dart` 的 pdfrx 0.4.5 编译冲突，基线上同样失败）。交付标准 = **不新增**问题，不是清零；不要顺手修基线问题。
+- `flutter analyze` 基线 = **50 项**（tool/code_audit 环境 38 项 + lib/test 预存在 12 项，含 `folder_order_ownership_test.dart` 编译错误与 pdfrx 0.4.5 冲突）。交付标准 = **不新增**问题，不是清零；不要顺手修基线问题。
+- **环境要点**：Flutter 走 fvm 3.47.7（.fvmrc）；跑 fvm 前 `export https_proxy=http://127.0.0.1:7897 http_proxy=http://127.0.0.1:7897`；pub-cache 热补丁 `~/.pub-cache/hosted/pub.dev/pdfrx_engine-0.4.5/lib/src/native/pdf_file_cache.dart` 368/380/382/392 行 `cache.`→`cache!.`（被清需重打）；GUI 验证 `DISPLAY=:1` 用隔离数据目录，截图只留 /tmp。
 - **阅读器深色例外已彻底移除**（owner 2026-10-20 决定）：阅读器 chrome 跟随应用当前主题，任何 change 不得重新引入深色沉浸例外。
 - 设计方向 = **现代极简**：浅色内容区 + 浅色壳，动态取色为唯一强调色来源，层级靠留白与 1px 分隔线。深色内容区主题是二期。
 - 每完成一个任务**立即**在 tasks.md 勾选 `[x]` 并写备注，不批量补勾。
@@ -47,8 +53,10 @@ Venera-Next 是 PC 优先的 Flutter 漫画阅读器，fork 自 venera-next，**
 ## 6. Herdr 协作约定（如运行在 herdr 中）
 
 - 本机 herdr 0.9.5。Kimi Code 原生支持（`--kind kimi`）；**dsh-tui 不被识别**，只当普通终端。
-- orchestrator（通常是 Kimi）驱动 dsh 用 **pane 原语**：
-  喂任务 `herdr pane send-text <pane> "<任务文本>"`（+ Enter），
-  等交付 `herdr pane wait-output <pane> --regex "交付|完成"`，读结果 `herdr pane read <pane>`。
+- orchestrator 驱动执行 agent（codex，pane w3:p2）用 **agent 原语**：
+  派活 `herdr agent prompt w3:p2 "<任务全文>"`（长文本先写 /tmp 文件再 `"$(cat /tmp/x.txt)"`），
+  读交付 `herdr agent read w3:p2 --source recent-unwrapped --lines 200`，
+  阻塞处理 `herdr agent wait w3:p2 --until blocked` + `herdr agent send-keys w3:p2 <key>`（选择题 down/up+enter，打开问题 shift+left）。
 - 反馈回路（三层，按序使用）：① herdr 读屏（即时）→ ② openspec tasks.md 勾选 + 交付说明（会话内）→ ③ git commit/push（持久，全员可见）。
 - 状态真相永远在仓库文件里：任何 agent 报告「完成」时，先用 git log / tasks.md 核对，再看屏幕说法。
+- openspec CLI：`openspec validate --changes <name>` / `openspec validate --specs` / `openspec archive <name> --yes`（owner 验收通过后）。

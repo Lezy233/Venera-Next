@@ -1,6 +1,6 @@
 # Venera-Next UI/UX 改造路线图
 
-> 分工：Kimi（规划）→ dsh / deepseek-v4.1f（执行/debug）→ owner（人工验收 → archive）
+> 分工：codex（规划 + 执行，2026-10-25 起同体，自检协议见 AGENTS.md §2）→ owner（人工验收 → archive）
 > 规则见 `openspec/config.yaml` 的 context 与 operations。已完成的 quick wins 见 `doc/ui-audit-2026-10-20.md`。
 > 设计方向（2026-10-20 锁定，同日修订）：现代极简——浅色内容区 + 浅色壳，动态取色为唯一强调色来源；阅读器跟随主题不设例外；深色内容区主题为二期。详见 design-system-foundation。
 
