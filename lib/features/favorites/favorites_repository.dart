@@ -2,6 +2,7 @@ import 'package:venera_next/foundation/sqlite_transaction.dart';
 import 'package:sqlite3/sqlite3.dart';
 import 'favorite_models.dart';
 import 'favorite_row.dart';
+import 'favorite_series.dart';
 
 /// Favorite persistence on a caller-owned connection; no cache or notifications.
 class FavoritesRepository {
@@ -15,7 +16,135 @@ class FavoritesRepository {
     db.execute(
       'CREATE TABLE IF NOT EXISTS folder_sync (folder_name TEXT PRIMARY KEY, source_key TEXT, source_folder TEXT);',
     );
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS favorite_series (
+        id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE, display_order INTEGER NOT NULL
+      );
+    ''');
+    db.execute('''
+      CREATE TABLE IF NOT EXISTS favorite_series_items (
+        series_id TEXT NOT NULL, comic_id TEXT NOT NULL, comic_type INTEGER NOT NULL,
+        PRIMARY KEY (series_id, comic_id, comic_type),
+        FOREIGN KEY (series_id) REFERENCES favorite_series(id) ON DELETE CASCADE
+      );
+    ''');
   });
+
+  List<FavoriteSeries> series() => db
+      .select(
+        'SELECT id, name, display_order FROM favorite_series ORDER BY display_order, id;',
+      )
+      .map(
+        (row) => FavoriteSeries(
+          id: row['id'] as String,
+          name: row['name'] as String,
+          displayOrder: row['display_order'] as int,
+        ),
+      )
+      .toList();
+
+  FavoriteSeries createSeries(
+    String id,
+    String name,
+    int order,
+  ) => _transaction(() {
+    db.execute(
+      'INSERT INTO favorite_series (id, name, display_order) VALUES (?, ?, ?);',
+      [id, name, order],
+    );
+    return FavoriteSeries(id: id, name: name, displayOrder: order);
+  });
+
+  void renameSeries(String id, String name) => _transaction(() {
+    db.execute('UPDATE favorite_series SET name = ? WHERE id = ?;', [name, id]);
+  });
+
+  void deleteSeries(String id) => _transaction(() {
+    db.execute('DELETE FROM favorite_series_items WHERE series_id = ?;', [id]);
+    db.execute('DELETE FROM favorite_series WHERE id = ?;', [id]);
+  });
+
+  void reorderSeries(List<String> ids) => _transaction(() {
+    for (var i = 0; i < ids.length; i++) {
+      db.execute('UPDATE favorite_series SET display_order = ? WHERE id = ?;', [
+        i,
+        ids[i],
+      ]);
+    }
+  });
+
+  List<(String, int)> seriesMembers(String seriesId) => db
+      .select(
+        'SELECT comic_id, comic_type FROM favorite_series_items WHERE series_id = ?;',
+        [seriesId],
+      )
+      .map((row) => (row['comic_id'] as String, row['comic_type'] as int))
+      .toList();
+
+  void addSeriesMembers(
+    String seriesId,
+    Iterable<(String, int)> identities,
+  ) => _transaction(() {
+    for (final (id, type) in identities) {
+      db.execute(
+        'INSERT OR IGNORE INTO favorite_series_items (series_id, comic_id, comic_type) VALUES (?, ?, ?);',
+        [seriesId, id, type],
+      );
+    }
+  });
+
+  void removeSeriesMembers(
+    String seriesId,
+    Iterable<(String, int)> identities,
+  ) => _transaction(() {
+    for (final (id, type) in identities) {
+      db.execute(
+        'DELETE FROM favorite_series_items WHERE series_id = ? AND comic_id = ? AND comic_type = ?;',
+        [seriesId, id, type],
+      );
+    }
+  });
+
+  int seriesMemberCount(String seriesId) =>
+      db.select(
+            'SELECT COUNT(*) AS c FROM favorite_series_items WHERE series_id = ?;',
+            [seriesId],
+          ).first['c']
+          as int;
+
+  void cleanupOrphanSeriesMembers(Iterable<String> folders) => _transaction(() {
+    final identities = db.select(
+      'SELECT series_id, comic_id, comic_type FROM favorite_series_items;',
+    );
+    for (final row in identities) {
+      final id = row['comic_id'] as String;
+      final type = row['comic_type'] as int;
+      final exists = folders.any((folder) => comicExists(folder, id, type));
+      if (!exists) {
+        db.execute(
+          'DELETE FROM favorite_series_items WHERE series_id = ? AND comic_id = ? AND comic_type = ?;',
+          [row['series_id'], id, type],
+        );
+      }
+    }
+  });
+
+  List<FavoriteItem> getSeriesComics(
+    String seriesId,
+    Iterable<String> folders,
+  ) {
+    final result = <FavoriteItem>[];
+    for (final (id, type) in seriesMembers(seriesId)) {
+      for (final folder in folders) {
+        final item = findComic(folder, id, type);
+        if (item != null) {
+          result.add(item);
+          break;
+        }
+      }
+    }
+    return result;
+  }
 
   Set<String> _columns(String folder) => db
       .select('PRAGMA table_info(${_table(folder)});')
@@ -336,7 +465,9 @@ class FavoritesRepository {
             .map((row) => row['name'] as String)
             .toList()
           ..remove('folder_sync')
-          ..remove('folder_order');
+          ..remove('folder_order')
+          ..remove('favorite_series')
+          ..remove('favorite_series_items');
     final knownFolders = folders.toSet();
     final orders = <String, int>{};
     for (final row in db.select(

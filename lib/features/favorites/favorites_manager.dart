@@ -11,6 +11,7 @@ import 'package:venera_next/foundation/sqlite_transaction.dart';
 import 'favorite_identity_index.dart';
 import 'package:venera_next/foundation/file_replacement.dart';
 import 'favorites_repository.dart';
+import 'favorite_series.dart';
 import 'favorite_models.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -27,6 +28,7 @@ import 'dart:io';
 import 'package:venera_next/foundation/app.dart';
 import 'package:venera_next/features/comic_source/comic_source_api.dart';
 import 'package:venera_next/foundation/comic_type.dart';
+import 'package:uuid/uuid.dart';
 
 typedef FollowUpdatesChangeListener = void Function();
 
@@ -916,6 +918,86 @@ class LocalFavoritesManager with ChangeNotifier {
 
   List<String> get folderNames => _repository.folderNames();
 
+  List<FavoriteSeries> get series => _repository.series();
+
+  FavoriteSeries? seriesById(String id) =>
+      series.where((item) => item.id == id).firstOrNull;
+
+  String _validateSeriesName(String raw, {String? except}) {
+    final name = raw.trim();
+    if (name.isEmpty) throw const FormatException('Series name is empty');
+    if (series.any(
+      (item) =>
+          item.id != except && item.name.toLowerCase() == name.toLowerCase(),
+    )) {
+      throw const FormatException('Series name already exists');
+    }
+    return name;
+  }
+
+  Future<FavoriteSeries> createSeries(String rawName) => _mutate(() {
+    final name = _validateSeriesName(rawName);
+    final id = const Uuid().v4();
+    final created = _repository.createSeries(id, name, series.length);
+    notifyListeners();
+    return created;
+  });
+
+  Future<void> renameSeries(String id, String rawName) => _mutate(() {
+    final name = _validateSeriesName(rawName, except: id);
+    _repository.renameSeries(id, name);
+    notifyListeners();
+  });
+
+  Future<void> deleteSeries(String id) => _mutate(() {
+    _repository.deleteSeries(id);
+    notifyListeners();
+  });
+
+  Future<void> reorderSeries(List<String> ids) => _mutate(() {
+    final known = series.map((item) => item.id).toSet();
+    final order = [
+      ...ids.where(known.contains),
+      ...known.difference(ids.toSet()),
+    ];
+    _repository.reorderSeries(order);
+    notifyListeners();
+  });
+
+  List<(String, int)> seriesMemberIdentities(String id) =>
+      _repository.seriesMembers(id);
+
+  List<FavoriteItem> getSeriesComics(String id) =>
+      _repository.getSeriesComics(id, folderNames);
+
+  Future<void> addToSeries(String id, Iterable<FavoriteItem> comics) {
+    final identities = comics
+        .map((item) => (item.id, item.type.value))
+        .toList();
+    return _mutate(() {
+      _repository.addSeriesMembers(id, identities);
+      notifyListeners();
+    });
+  }
+
+  Future<void> removeFromSeries(String id, Iterable<FavoriteItem> comics) {
+    final identities = comics
+        .map((item) => (item.id, item.type.value))
+        .toList();
+    return _mutate(() {
+      _repository.removeSeriesMembers(id, identities);
+      notifyListeners();
+    });
+  }
+
+  Future<void> removeIdentitiesFromSeries(
+    String id,
+    Iterable<(String, int)> identities,
+  ) => _mutate(() {
+    _repository.removeSeriesMembers(id, identities);
+    notifyListeners();
+  });
+
   int maxValue(String folder) => _repository.maxValue(folder);
 
   int minValue(String folder) => _repository.minValue(folder);
@@ -1181,6 +1263,7 @@ class LocalFavoritesManager with ChangeNotifier {
   Future<void> _deleteFolder(String name) async {
     final removedIdentities = _repository.identities(name);
     _commitFavoriteTransaction(() => _repository.deleteFolder(name));
+    _repository.cleanupOrphanSeriesMembers(folderNames);
     try {
       counts.remove(name);
       _refreshIdentityCounts(removedIdentities);
@@ -1342,6 +1425,7 @@ class LocalFavoritesManager with ChangeNotifier {
         }
       },
       () => _syncFollowUpdatesIfAffected(removed.keys),
+      () => _repository.cleanupOrphanSeriesMembers(folderNames),
       notifyListeners,
     ]);
   }

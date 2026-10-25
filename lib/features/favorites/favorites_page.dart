@@ -17,6 +17,7 @@ import 'package:venera_next/foundation/translations.dart';
 import 'package:venera_next/foundation/widget_utils.dart';
 import 'package:venera_next/features/favorites/favorites_constants.dart';
 import 'package:venera_next/features/favorites/local_favorites_page.dart';
+import 'package:venera_next/features/favorites/local_favorite_series_page.dart';
 import 'package:venera_next/features/favorites/network_favorites_page.dart';
 import 'package:venera_next/features/favorites/side_bar.dart';
 
@@ -34,6 +35,7 @@ class FavoritesPage extends StatefulWidget {
 class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
   Route<void>? _folderSelector;
   String? folder;
+  String? seriesId;
 
   bool isNetwork = false;
 
@@ -53,6 +55,7 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
     setState(() {
       this.isNetwork = isNetwork;
       this.folder = folder;
+      seriesId = null;
     });
     folderList?.update();
     saveSetting(
@@ -60,6 +63,19 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
       () => appdata.updateImplicit((draft) {
         draft['favoriteFolder'] = {'name': folder, 'isNetwork': isNetwork};
       }),
+    );
+  }
+
+  void setSeries(String? id) {
+    if (!acceptsSettingsChanges) return;
+    setState(() {
+      seriesId = id;
+      folder = null;
+      isNetwork = false;
+    });
+    saveSetting(
+      'favoriteSeries',
+      () => appdata.updateImplicit((draft) => draft['favoriteSeries'] = id),
     );
   }
 
@@ -74,6 +90,11 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
         !isNetwork &&
         !FavoritesScope.read(context).existsFolder(folder!)) {
       folder = null;
+    }
+    final storedSeries = appdata.implicitData['favoriteSeries'];
+    if (storedSeries is String &&
+        FavoritesScope.read(context).seriesById(storedSeries) != null) {
+      seriesId = storedSeries;
     }
     final preferences = GlobalPreferenceStore(appdata.settings);
     _leftBarWidth = preferences
@@ -133,8 +154,10 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
                         : const Duration(milliseconds: 200),
                     child: FavoritesFolderSidebar(
                       selectedFolder: folder,
+                      selectedSeries: seriesId,
                       isNetworkSelected: isNetwork,
                       onFolderSelected: setFolder,
+                      onSeriesSelected: setSeries,
                       onFolderListReady: (list) {
                         folderList = list;
                       },
@@ -239,6 +262,7 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
               child: FavoritesFolderSidebar(
                 withAppbar: true,
                 selectedFolder: folder,
+                selectedSeries: seriesId,
                 isNetworkSelected: isNetwork,
                 onFolderSelected: (network, name) {
                   if (mounted &&
@@ -246,6 +270,7 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
                     setFolder(network, name);
                   }
                 },
+                onSeriesSelected: setSeries,
                 onFolderListReady: (list) {
                   folderList = list;
                 },
@@ -296,6 +321,13 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
   }
 
   Widget buildBody() {
+    if (seriesId != null) {
+      return LocalFavoriteSeriesPage(
+        seriesId: seriesId!,
+        key: PageStorageKey('series_$seriesId'),
+        showFolders: showFolderSelector,
+      );
+    }
     if (folder == null) {
       return CustomScrollView(
         slivers: [

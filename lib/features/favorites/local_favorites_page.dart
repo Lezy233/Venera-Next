@@ -36,6 +36,8 @@ import 'package:venera_next/features/favorites/folder_rename_dialog.dart';
 import 'package:venera_next/features/favorites/favorite_confirmation_dialog.dart';
 import 'package:venera_next/features/favorites/favorite_transfer_dialog.dart';
 import 'package:venera_next/features/favorites/favorite_metadata_dialog.dart';
+import 'package:venera_next/features/favorites/favorite_selection.dart';
+import 'package:venera_next/features/favorites/favorite_series.dart';
 import 'package:venera_next/features/local_comics/local_comics.dart';
 import 'package:venera_next/features/reader/reader.dart';
 import 'package:venera_next/foundation/app.dart';
@@ -835,6 +837,7 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
     _retireUpdateFlyout();
     _observedManager.removeListener(updateComics);
     scrollController.dispose();
+    _selectionFocusNode.dispose();
     super.dispose();
   }
 
@@ -869,6 +872,9 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
       }
     });
   }
+
+  bool _selectionIsCurrent() =>
+      _canReadObservedFolder && widget.folder.isNotEmpty && multiSelectMode;
 
   bool downloadComic(FavoriteItem c) {
     final library = LocalManager();
@@ -906,6 +912,9 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
   }
 
   var scrollController = ScrollController();
+  late final FocusNode _selectionFocusNode = FocusNode(
+    debugLabel: 'local-favorites-selection',
+  );
 
   void _syncChrome() {
     final chrome = _chrome;
@@ -936,6 +945,9 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
   Widget build(BuildContext context) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _syncChrome();
+      if (mounted && multiSelectMode && !_selectionFocusNode.hasFocus) {
+        _selectionFocusNode.requestFocus();
+      }
     });
     final target = widget;
     final selection = selectedComics.keys.cast<FavoriteItem>().toList();
@@ -1106,9 +1118,9 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                     },
                   ),
                 ),
-              if (!isAllFolder)
-                MenuButton(
-                  entries: [
+              MenuButton(
+                entries: [
+                  if (!isAllFolder) ...[
                     MenuEntry(
                       icon: Icons.edit_outlined,
                       text: "Rename".tl,
@@ -1226,7 +1238,13 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                       },
                     ),
                   ],
-                ),
+                  MenuEntry(
+                    icon: Icons.check_box_outlined,
+                    text: 'Select comics'.tl,
+                    onClick: _enterMultiSelect,
+                  ),
+                ],
+              ),
             ],
           )
         else if (multiSelectMode)
@@ -1292,6 +1310,11 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                         );
                       },
                     ),
+                  MenuEntry(
+                    icon: Icons.collections_bookmark_outlined,
+                    text: 'Add to series'.tl,
+                    onClick: _addSelectionToSeries,
+                  ),
                   MenuEntry(
                     icon: Icons.select_all,
                     text: "Select All".tl,
@@ -1629,13 +1652,164 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
           });
         }
       },
-      child: _buildBodyWithFilterPanel(body),
+      child: Focus(
+        focusNode: _selectionFocusNode,
+        canRequestFocus: multiSelectMode,
+        skipTraversal: true,
+        onKeyEvent: (node, event) {
+          if (consumeFavoriteSelectionEscape(
+            event,
+            active: multiSelectMode,
+            onExit: _cancel,
+          )) {
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: _buildBodyWithFilterPanel(body),
+      ),
     );
   }
 
   void _cancelMetadataUpdates() {
     for (final task in _metadataTasks.toList()) {
       task.cancel();
+    }
+  }
+
+  void _enterMultiSelect() {
+    if (multiSelectMode) return;
+    setState(() => multiSelectMode = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && multiSelectMode) _selectionFocusNode.requestFocus();
+    });
+  }
+
+  Future<String?> _askSeriesName() async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Create series'.tl),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(hintText: 'New Name'.tl),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'.tl),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: Text('Save'.tl),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    return result;
+  }
+
+  Future<String?> _chooseSeries() {
+    final series = _observedManager.series;
+    var selected = series.first.id;
+    return showDialog<String>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Add to series'.tl),
+          content: SizedBox(
+            width: 360,
+            child: RadioGroup<String>(
+              groupValue: selected,
+              onChanged: (value) {
+                if (value == null) return;
+                setDialogState(() => selected = value);
+              },
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final item in series)
+                    RadioListTile<String>(
+                      value: item.id,
+                      title: Text(item.name),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel'.tl),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, selected),
+              child: Text('Add'.tl),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addSelectionToSeries() async {
+    if (!_selectionIsCurrent() || selectedComics.isEmpty) return;
+    final available = _observedManager.series;
+    String? seriesId;
+    if (available.isEmpty) {
+      final create = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Add to series'.tl),
+          content: Text('No series available. Create a series first.'.tl),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel'.tl),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text('Create series'.tl),
+            ),
+          ],
+        ),
+      );
+      if (create != true || !mounted) return;
+      final name = await _askSeriesName();
+      if (name == null || name.trim().isEmpty || !mounted) return;
+      try {
+        final created = await _observedManager.createSeries(name);
+        seriesId = created.id;
+      } catch (error) {
+        if (mounted) {
+          context.showMessage(message: favoriteSeriesErrorMessage(error));
+        }
+        return;
+      }
+    } else {
+      seriesId = await _chooseSeries();
+    }
+    if (seriesId == null || !mounted || !_selectionIsCurrent()) return;
+    final validIdentities = _observedManager
+        .getAllComics()
+        .map((comic) => (comic.id, comic.type.value))
+        .toSet();
+    final selected = selectedComics.keys
+        .cast<FavoriteItem>()
+        .map((comic) => comic.detached())
+        .where(
+          (comic) => validIdentities.contains((comic.id, comic.type.value)),
+        )
+        .toList();
+    if (selected.isEmpty) return;
+    await _observedManager.addToSeries(seriesId, selected);
+    if (mounted) {
+      context.showMessage(
+        message: 'Added @c comics to series'.tlParams({'c': selected.length}),
+      );
     }
   }
 
