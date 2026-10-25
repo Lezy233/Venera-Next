@@ -12,16 +12,11 @@ Venera-Next 是 PC 优先的 Flutter 漫画阅读器，fork 自 venera-next，**
 
 | 角色 | 承担者 | 职责 | 禁区 |
 |------|--------|------|------|
-| **规划者** | codex（2026-10-25 起，自 Kimi 移交；此前为 Kimi） | 写 proposal/spec/design/tasks；验收判定时对照 spec 判「符合/不符合/契约该改」；维护 BACKLOG/ROADMAP/design-spec.md | 不做代码 debug（与执行者同体时除外，见下） |
-| **执行者** | codex（herdr pane w3:p2） | 按 change 的 tasks.md 逐个实现并勾选；flutter analyze 自检；交付说明 | 不得改 proposal/spec/design、design-spec.md、openspec/specs/ 下正式 spec；发现契约冲突须停止并报告，不自行改契约 |
+| **规划者** | codex「architect」（pane w3:p4） | 写 proposal/spec/design/tasks；驱动 executor 派活与验收；维护 BACKLOG/ROADMAP/design-spec.md；owner 验收后归档推送 | 不写实现代码、不做实现 debug |
+| **执行者** | codex「executor」（pane w3:p2） | 按 change 的 tasks.md 逐个实现并勾选；flutter analyze 自检；交付说明 | 不得改 proposal/spec/design、design-spec.md、openspec/specs/ 下正式 spec；发现契约冲突须停止并报告 architect，不自行改契约；**architect 批准前不得提交** |
 | **验收人** | owner（人类） | 最终人工验收；验收通过后才归档 | — |
 
-**同体协议（owner 2026-10-25 裁决，为节省 Kimi 额度，规划与执行由 codex 一肩挑）**：失去独立规划者复核，用以下自检协议补强——
-1. 实现完成后、提交前，必须**独立复验**：重跑 `fvm flutter analyze --no-pub`（=50 项基线，零新增）、重跑新增测试与相关回归套件、核对 tasks.md 勾选、核对受保护文件（design-spec.md、openspec/specs/**、pubspec.yaml/lock）零 diff；复验结果写进交付报告。
-2. **设计裁决与事实勘误分离**：proposal/design/spec/tasks 中的事实错误（计数、路径、与代码现状不符）可自行勘误并提交；**涉及取舍的设计裁决**（语义、交互、范围变更）必须停下来问 owner，不得自问自答。
-3. owner 的人工验收仍是最终闸门；交付报告必须附「验收路径建议」。
-
-执行 agent 若被 owner 直接派活，默认走「执行者」列；若被派活做规划产物，走「规划者」列。
+协作闭环（architect 驱动）：① architect 派活 `herdr agent prompt executor "<任务全文>"`（工件以 HEAD 为准、含硬规则清单）；② 读交付 `herdr agent read executor --source recent-unwrapped`；③ architect **独立复核**（复跑 analyze 计数、复跑新增测试与相关回归、tasks 勾选、受保护文件零 diff、抽查 GUI 截图）后判「符合/不符合」，批准时给提交信息；不符合带 spec 依据打回；④ executor blocked（审批/提问）时 architect 读屏判断：只读审批用 send-keys 批，设计取舍类问题转 owner 拍板；⑤ 完成一个 change 后 architect 向 owner 交付报告 + 验收路径建议，owner 说「验收通过，归档推送」后 architect 执行 archive + 三文件同步 + push。
 
 ## 3. 硬规则（踩过坑，勿重蹈）
 
