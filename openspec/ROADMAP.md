@@ -8,6 +8,8 @@
 
 功能愿望与新功能规划见 `openspec/BACKLOG.md`（愿景 + 候选清单 + 批次建议）。
 
+2026-11-01 owner 反馈的 B2–B4、F8–F11 及依赖/验收条件见 BACKLOG「Owner 反馈 TODO」：优先补齐当前 `search-profiles-author` 作者入口，再修阅读方案状态恢复和卡片点击；搜索目标记忆、方案排序、收藏分类折叠及多级排序随后排期。此为建议顺序，尚未逐项开启 change。
+
 | # | Change | 内容 | 前置依赖 |
 |---|--------|------|----------|
 | 1 | **design-system-foundation** | 设计方向确认 + design-spec.md + token/断点系统 + 壳层规范 | 无（最先做；方向任务 1.1 需 owner 确认） |
