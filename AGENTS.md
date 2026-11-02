@@ -33,8 +33,8 @@ Venera-Next 是 PC 优先的 Flutter 漫画阅读器，fork 自 venera-next，**
 ## 4. 当前状态（规划者维护，执行前核对）
 
 - 分支：`redesign-2026`，已与远程同步（github.com/Lezy233/Venera-Next）。
-- 已完成并归档：`design-system-foundation`（设计基座 + 验收缺陷 5.1–5.3 修复）；`settings-ia-cleanup`（2026-10-21 归档）；`save-bar-layout-fix`（2026-10-21 归档，commit 9669b5c）；`desktop-shell-polish`（2026-10-21 归档，commit ae00919）；`desktop-search-context`（2026-10-21 归档，commit 5833677）；`reader-quick-settings-panel`（2026-10-22 归档，commit 11c495e）；`save-feedback-placement-fix`（2026-10-22 归档，commit 63d45e7）；`chrome-binding-lifecycle-fix`（2026-10-22 归档，commit 0121b81，BACKLOG B1）；`keyboard-shortcuts`（2026-10-23 归档，commit b735663，BACKLOG F3，批次 A——动作注册表/多键位自定义/冲突检测/独立主分类/平台默认键）；`reader-mode-presets`（2026-10-23 归档，commit 1c8fbc3，BACKLOG F4，批次 A——阅读模式方案 CRUD + 面板方案切换）；`favorite-series`（2026-10-25 归档，批次 C F5——跨来源手动系列、收藏交互入口、多选 Escape、批量加入系列）。
-- 批次 A（F3+F4）和批次 C 的 F5 已完成。剩余候选：F6+F7 搜索方案与作者跨源搜索，或批次 B 锚点 F1 页面多开；排期由 owner 决定，见 `openspec/BACKLOG.md`。
+- 已完成并归档：`design-system-foundation`（设计基座 + 验收缺陷 5.1–5.3 修复）；`settings-ia-cleanup`（2026-10-21 归档）；`save-bar-layout-fix`（2026-10-21 归档，commit 9669b5c）；`desktop-shell-polish`（2026-10-21 归档，commit ae00919）；`desktop-search-context`（2026-10-21 归档，commit 5833677）；`reader-quick-settings-panel`（2026-10-22 归档，commit 11c495e）；`save-feedback-placement-fix`（2026-10-22 归档，commit 63d45e7）；`chrome-binding-lifecycle-fix`（2026-10-22 归档，commit 0121b81，BACKLOG B1）；`keyboard-shortcuts`（2026-10-23 归档，commit b735663，BACKLOG F3，批次 A——动作注册表/多键位自定义/冲突检测/独立主分类/平台默认键）；`reader-mode-presets`（2026-10-23 归档，commit 1c8fbc3，BACKLOG F4，批次 A——阅读模式方案 CRUD + 面板方案切换）；`favorite-series`（2026-10-25 归档，批次 C F5——跨来源手动系列、收藏交互入口、多选 Escape、批量加入系列）；`search-profiles-author`（2026-11-03 owner验收通过并归档，实现commit c5429bb，批次 C F6+F7——搜索方案与收藏创作者平台名称树，替代旧B2作者聚合入口）。
+- 批次 A（F3+F4）和批次 C（F5+F6+F7）已完成。剩余：B3 阅读方案状态恢复、B4 卡片标题点击、F8 搜索目标记忆、F9 阅读方案排序、F10 收藏多级排序、F11 收藏分类折叠，以及批次 B 的 F1 页面多开 → F2 预览；统一视觉美化后置。上述任务均未启动，排期由 owner 决定，见 `openspec/BACKLOG.md`。
 
 ## 5. 最小阅读清单
 

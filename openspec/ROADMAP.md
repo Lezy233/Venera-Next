@@ -8,9 +8,9 @@
 
 功能愿望与新功能规划见 `openspec/BACKLOG.md`（愿景 + 候选清单 + 批次建议）。
 
-2026-11-01 owner 反馈的 B2–B4、F8–F11 及依赖/验收条件见 BACKLOG「Owner 反馈 TODO」：优先补齐当前 `search-profiles-author` 作者入口，再修阅读方案状态恢复和卡片点击；搜索目标记忆、方案排序、收藏分类折叠及多级排序随后排期。此为建议顺序，尚未逐项开启 change。
+2026-11-01 owner 反馈的 B2–B4、F8–F11 及依赖/验收条件见 BACKLOG「Owner 反馈 TODO」：`search-profiles-author` 已验收归档，接下来建议修阅读方案状态恢复和卡片点击；搜索目标记忆、方案排序、收藏分类折叠及多级排序随后排期。此为建议顺序，尚未逐项开启 change。
 
-2026-11-02 owner实际搜索未得到结果，已批准废止B2详情跨平台入口及原F7专用作者聚合链路。当前 `search-profiles-author` 四件套已修订：F6搜索方案保留，F7改为收藏右栏单选创作者的平台名称树，可维护同源多名称并点击普通单源搜索；待执行与重新验收。B3/B4/F8–F11尚未启动。
+2026-11-02 owner实际搜索未得到结果，已批准废止B2详情跨平台入口及原F7专用作者聚合链路。`search-profiles-author` 最终设计：F6搜索方案保留，F7改为收藏右栏单选创作者的平台名称树，可维护同源多名称并点击普通单源搜索。2026-11-03实现与自动化独立复核完成：113项测试全通过、0skip，analyze50=38+12零新增；F6/F7 GUI证据已重留并独立抽查通过，正常生产构建已恢复，owner于2026-11-03验收通过，已归档（实现commit c5429bb）。B3/B4/F8–F11尚未启动。
 
 | # | Change | 内容 | 前置依赖 |
 |---|--------|------|----------|
@@ -22,6 +22,9 @@
 | 6 | **keyboard-shortcuts**（BACKLOG F3，批次 A）✅已归档 | 动作注册表 + 多键位自定义 + 冲突检测 + 独立主分类 + 平台默认键（2026-10-23 归档，commit b735663） | 无强依赖（注册表为 F1 多栈预留扩展，见 design D8） |
 | 7 | **reader-mode-presets**（BACKLOG F4，批次 A）✅已归档 | 阅读模式方案 CRUD：命名快照/应用/管理 + 面板方案切换（2026-10-23 归档，commit 1c8fbc3） | settings-ia-cleanup 作用域选择器（已归档）；quick-settings 面板 |
 | 8 | **favorite-series**（BACKLOG F5，批次 C）✅已归档 | 跨来源手动系列 + 收藏文件夹右键操作 + 顶部多选入口 + Escape 退出 + 批量加入系列（2026-10-25 归档，commit ce5be2a） | settings-ia-cleanup（已归档） |
+| 9 | **search-profiles-author**（BACKLOG F6+F7，批次 C）✅已归档 | 搜索方案CRUD/来源排序及选项 + 收藏单选创作者平台名称树/手动维护/普通单源搜索（2026-11-03 owner验收，实现commit c5429bb，替代旧B2） | 既有搜索及收藏作者alias基础；F8前置已满足 |
+
+剩余排期：B3 → B4；F8、B3后的F9、可独立排期的F11，最后确认F10排序语义；F1 → F2仍为批次B候选。统一视觉美化按owner决定后置。
 
 ## 已完成（quick wins，不在 changes 中）
 
@@ -32,4 +35,4 @@
 ## 验收后归档
 
 每个 change 由 owner 验收后运行 `openspec archive <name>`，delta spec 合并进 `openspec/specs/`。
-归档前执行 agent 必须完成：flutter analyze 干净、tasks.md 全部勾选、新增词条已补 zh_CN/zh_TW。
+归档前执行 agent 必须完成：flutter analyze 基线50项零新增、tasks.md 全部勾选、新增词条已补 zh_CN/zh_TW。
