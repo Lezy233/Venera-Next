@@ -12,3 +12,4 @@ export 'settings_page.dart';
 export 'sponsors.dart';
 export 'webdav_connection_fields.dart';
 export 'keyboard_shortcuts.dart';
+export 'package:venera_next/features/search/search_profiles.dart';

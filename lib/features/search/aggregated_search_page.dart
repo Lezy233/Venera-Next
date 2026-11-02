@@ -1,30 +1,33 @@
-import 'package:venera_next/foundation/application_preferences.dart';
-import 'package:venera_next/foundation/global_preference_store.dart';
 import "package:flutter/material.dart";
 import 'package:shimmer_animation/shimmer_animation.dart';
 import "package:venera_next/components/appbar.dart";
 import "package:venera_next/components/gesture.dart";
 import "package:venera_next/components/scroll.dart";
 import "package:venera_next/features/comic_widgets/comic_widgets.dart";
-import "package:venera_next/foundation/appdata.dart";
 import "package:venera_next/foundation/context.dart";
 import "package:venera_next/features/comic_source/comic_source.dart";
 import "package:venera_next/foundation/translations.dart";
 import "package:venera_next/foundation/widget_utils.dart";
 
 import "search_result_page.dart";
+import 'search_profile.dart';
 
 class AggregatedSearchPage extends StatefulWidget {
-  const AggregatedSearchPage({super.key, required this.keyword});
+  const AggregatedSearchPage({
+    super.key,
+    required this.keyword,
+    this.profileId,
+  });
 
   final String keyword;
+  final String? profileId;
 
   @override
   State<AggregatedSearchPage> createState() => _AggregatedSearchPageState();
 }
 
 class _AggregatedSearchPageState extends State<AggregatedSearchPage> {
-  late final List<ComicSource> sources;
+  late final List<ResolvedSearchProfileSource> sources;
 
   late final SearchBarController controller;
 
@@ -32,22 +35,20 @@ class _AggregatedSearchPageState extends State<AggregatedSearchPage> {
 
   @override
   void initState() {
-    var all = ComicSource.all()
-        .where((e) => e.searchPageData != null)
-        .map((e) => e.key)
-        .toList();
-    var settings =
-        GlobalPreferenceStore(
-          appdata.settings,
-        ).read(DiscoveryPreferences.searchSources) ??
-        const <String>[];
-    var sources = <String>[];
-    for (var source in settings) {
-      if (all.contains(source)) {
-        sources.add(source);
-      }
+    // null explicitly means legacy global settings. The search entry resolves
+    // the default once when initialized; a user's Global choice stays global.
+    final selected = widget.profileId == null
+        ? null
+        : SearchProfileManager.instance.byId(widget.profileId!);
+    if (selected != null) {
+      sources = SearchProfileManager.instance.resolve(selected);
+    } else {
+      sources = [
+        for (final item in searchProfileSourcesFromGlobals())
+          if (ComicSource.find(item.sourceKey) case final source?)
+            ResolvedSearchProfileSource(source: source, options: item.options),
+      ];
     }
-    this.sources = sources.map((e) => ComicSource.find(e)!).toList();
     _keyword = widget.keyword;
     controller = SearchBarController(
       currentText: widget.keyword,
@@ -70,8 +71,9 @@ class _AggregatedSearchPageState extends State<AggregatedSearchPage> {
           delegate: SliverChildBuilderDelegate((context, index) {
             final source = sources[index];
             return _SliverSearchResult(
-              key: ValueKey(source.key),
-              source: source,
+              key: ValueKey(source.source.key),
+              source: source.source,
+              options: source.options,
               keyword: _keyword,
             );
           }, childCount: sources.length),
@@ -84,11 +86,13 @@ class _AggregatedSearchPageState extends State<AggregatedSearchPage> {
 class _SliverSearchResult extends StatefulWidget {
   const _SliverSearchResult({
     required this.source,
+    required this.options,
     required this.keyword,
     super.key,
   });
 
   final ComicSource source;
+  final List<String> options;
 
   final String keyword;
 
@@ -111,36 +115,26 @@ class _SliverSearchResultState extends State<_SliverSearchResult>
   String? error;
 
   void load() async {
-    final data = widget.source.searchPageData!;
-    var options = (data.searchOptions ?? [])
-        .map((e) => e.defaultValue)
-        .toList();
-    if (data.loadPage != null) {
-      var res = await data.loadPage!(widget.keyword, 1, options);
-      if (!res.error) {
-        setState(() {
+    try {
+      final data = widget.source.searchPageData!;
+      final res = data.loadPage != null
+          ? await data.loadPage!(widget.keyword, 1, widget.options)
+          : await data.loadNext!(widget.keyword, null, widget.options);
+      if (!mounted) return;
+      setState(() {
+        if (res.error) {
+          error = res.errorMessage ?? 'Unknown error'.tl;
+        } else {
           comics = res.data;
-          isLoading = false;
-        });
-      } else {
-        setState(() {
-          error = res.errorMessage ?? "Unknown error".tl;
-          isLoading = false;
-        });
-      }
-    } else if (data.loadNext != null) {
-      var res = await data.loadNext!(widget.keyword, null, options);
-      if (!res.error) {
-        setState(() {
-          comics = res.data;
-          isLoading = false;
-        });
-      } else {
-        setState(() {
-          error = res.errorMessage ?? "Unknown error".tl;
-          isLoading = false;
-        });
-      }
+        }
+        isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        error = 'Unknown error'.tl;
+        isLoading = false;
+      });
     }
   }
 
@@ -181,6 +175,7 @@ class _SliverSearchResultState extends State<_SliverSearchResult>
           () => SearchResultPage(
             text: widget.keyword,
             sourceKey: widget.source.key,
+            options: widget.options,
           ),
         );
       },

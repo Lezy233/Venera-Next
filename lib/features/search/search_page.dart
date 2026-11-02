@@ -30,6 +30,7 @@ import 'package:venera_next/features/comic_details/comic_details.dart';
 import 'aggregated_search_page.dart';
 import 'search_result_page.dart';
 import 'search_shortcuts.dart';
+import 'search_profile.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -49,6 +50,7 @@ class _SearchPageState extends State<SearchPage> {
       ComicSource.find(searchTarget)!.searchPageData!;
 
   bool aggregatedSearch = false;
+  String? profileId;
 
   var focusNode = FocusNode();
 
@@ -61,7 +63,12 @@ class _SearchPageState extends State<SearchPage> {
   void search([String? text]) {
     if (aggregatedSearch) {
       context
-          .to(() => AggregatedSearchPage(keyword: text ?? controller.text))
+          .to(
+            () => AggregatedSearchPage(
+              keyword: text ?? controller.text,
+              profileId: profileId,
+            ),
+          )
           .then((_) => update());
     } else {
       context
@@ -167,6 +174,7 @@ class _SearchPageState extends State<SearchPage> {
         searchSources.contains(defaultSearchTarget)) {
       searchTarget = defaultSearchTarget;
     }
+    profileId = SearchProfileManager.instance.defaultProfile?.id;
     controller = SearchBarController(onSearch: search);
     appdata.settings.addListener(updateSearchSourcesIfNeeded);
     super.initState();
@@ -313,6 +321,42 @@ class _SearchPageState extends State<SearchPage> {
                 },
               ),
             ),
+            if (SearchProfileManager.instance.all.isNotEmpty)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.bookmarks_outlined),
+                title: Text('Search profile'.tl),
+                trailing: SizedBox(
+                  width: 160,
+                  child: DropdownButton<String?>(
+                    isExpanded: true,
+                    value:
+                        SearchProfileManager.instance.byId(profileId ?? '') ==
+                            null
+                        ? null
+                        : profileId,
+                    hint: Text('Global settings'.tl),
+                    items: [
+                      DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('Global settings'.tl),
+                      ),
+                      for (final profile in SearchProfileManager.instance.all)
+                        DropdownMenuItem<String?>(
+                          value: profile.id,
+                          child: Text(
+                            profile.name,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: (value) => setState(() {
+                      profileId = value;
+                      if (value != null) aggregatedSearch = true;
+                    }),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

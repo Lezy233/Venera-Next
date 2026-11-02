@@ -8,6 +8,7 @@ import 'package:venera_next/features/settings/keyword_blocking.dart';
 import 'package:venera_next/foundation/translations.dart';
 import 'package:venera_next/foundation/widget_utils.dart';
 import 'package:venera_next/routing/app_navigation.dart';
+import 'package:venera_next/features/search/search_profiles.dart';
 
 class ExploreSettings extends StatefulWidget {
   const ExploreSettings({super.key});
@@ -46,6 +47,10 @@ class _ExploreSettingsState extends State<ExploreSettings> {
         PopupWindowSetting(
           title: "Search Sources".tl,
           builder: setSearchSourcesWidget,
+        ).toSliver(),
+        PopupWindowSetting(
+          title: "Search profiles".tl,
+          builder: () => const SearchProfilesSettings(),
         ).toSliver(),
         SwitchSetting.preference(
           title: "Show favorite status on comic tile".tl,

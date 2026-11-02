@@ -1,3 +1,4 @@
+import 'creator_platform_names_view.dart';
 import 'package:venera_next/features/history/history_scope.dart';
 import 'package:venera_next/features/favorites/favorites_scope.dart';
 import 'package:venera_next/foundation/global_preference_store.dart';
@@ -118,6 +119,14 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
   late final String _observedDataPath;
   WindowSelectionTask? _queryOwner;
   final _metadataTasks = <WindowSelectionTask>{};
+
+  int _creatorRevision = 0;
+
+  Widget _platformNames(Set<String> authors) => CreatorPlatformNamesView(
+    creators: Set.of(authors),
+    revision: _creatorRevision,
+    isCurrent: () => _canReadObservedFolder,
+  );
 
   Map<String, String> get _authorAliases {
     final stored = appdata.implicitData['local_favorites_author_aliases'];
@@ -304,31 +313,50 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
         if (entry.value.isNotEmpty && entry.key != entry.value)
           entry.key: entry.value,
     };
+    final before = appdata.implicitData['local_favorites_author_aliases'];
     unawaited(
       appdata
           .updateImplicit((draft) {
+            if (!_canReadObservedFolder) throw const SelectionCancelled();
             draft['local_favorites_author_aliases'] = cleaned;
           })
           .then<void>(
-            (_) {},
+            (_) {
+              if (!_canReadObservedFolder) return;
+              final mapped = authorFilters
+                  .map((value) => cleaned[value] ?? value)
+                  .toSet();
+              final changed =
+                  mapped.length != authorFilters.length ||
+                  !mapped.containsAll(authorFilters);
+              setState(() {
+                authorFilters = mapped;
+                _creatorRevision++;
+              });
+              if (changed) _persistFilters();
+            },
             onError: (Object error, StackTrace stack) {
+              if (_canReadObservedFolder &&
+                  jsonEncode(
+                        appdata.implicitData['local_favorites_author_aliases'],
+                      ) ==
+                      jsonEncode(cleaned)) {
+                if (before == null) {
+                  appdata.implicitData.remove('local_favorites_author_aliases');
+                } else {
+                  appdata.implicitData['local_favorites_author_aliases'] =
+                      before;
+                }
+                if (mounted) {
+                  context.showMessage(
+                    message: 'Could not save platform names'.tl,
+                  );
+                }
+              }
               Log.error('Favorite author aliases', error, stack);
             },
           ),
     );
-    final mapped = authorFilters
-        .map((value) => cleaned[value] ?? value)
-        .toSet();
-    setState(() {
-      if (mapped.length != authorFilters.length ||
-          !mapped.containsAll(authorFilters)) {
-        authorFilters = mapped;
-      }
-    });
-    if (mapped.length != authorFilters.length ||
-        !mapped.containsAll(authorFilters)) {
-      _persistFilters();
-    }
   }
 
   void _persistFilters() {
@@ -383,13 +411,6 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
   void _setSortMode(String value) {
     setState(() => sortMode = value);
     _persistSortMode();
-  }
-
-  void _toggleAuthorFilter(String value) {
-    setState(() {
-      if (!authorFilters.remove(value)) authorFilters.add(value);
-    });
-    _persistFilters();
   }
 
   void _toggleTagFilter(String value) {
@@ -583,6 +604,7 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                     onAuthorShareChanged: _setFilterAuthorShare,
                     onAuthorExpandedChanged: _setAuthorSectionExpanded,
                     onTagExpandedChanged: _setTagSectionExpanded,
+                    platformNames: _platformNames(authorFilters),
                   ),
                 ),
               ],
@@ -641,44 +663,51 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
     final request = ++_filterRequest;
     bool isCurrent() =>
         mounted && widget.folder == folder && request == _filterRequest;
+    final sheetAuthors = Set<String>.of(authorFilters);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-            ),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-              child: _FavoriteFilterEditor(
-                readFilter: readFilterSelect,
-                sortMode: sortMode,
-                authors: authorFilters,
-                tags: tagFilters,
-                authorOptions: _withSelected(
-                  _availableAuthors(),
-                  authorFilters,
+        return StatefulBuilder(
+          builder: (context, updateSheet) => SafeArea(
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                child: _FavoriteFilterEditor(
+                  readFilter: readFilterSelect,
+                  sortMode: sortMode,
+                  authors: sheetAuthors,
+                  platformNames: _platformNames(sheetAuthors),
+                  tags: tagFilters,
+                  authorOptions: _withSelected(
+                    _availableAuthors(),
+                    authorFilters,
+                  ),
+                  tagOptions: _withSelected(_availableTags(), tagFilters),
+                  editable: true,
+                  onReadFilter: (value) {
+                    if (!isCurrent()) return;
+                    _setReadFilter(value);
+                  },
+                  onSortMode: (value) {
+                    if (!isCurrent()) return;
+                    _setSortMode(value);
+                  },
+                  onAuthorToggle: (value) {
+                    if (!isCurrent()) return;
+                    updateSheet(() {
+                      if (!sheetAuthors.remove(value)) sheetAuthors.add(value);
+                    });
+                    _setAuthorFilters(sheetAuthors);
+                  },
+                  onTagToggle: (value) {
+                    if (!isCurrent()) return;
+                    _toggleTagFilter(value);
+                  },
                 ),
-                tagOptions: _withSelected(_availableTags(), tagFilters),
-                editable: true,
-                onReadFilter: (value) {
-                  if (!isCurrent()) return;
-                  _setReadFilter(value);
-                },
-                onSortMode: (value) {
-                  if (!isCurrent()) return;
-                  _setSortMode(value);
-                },
-                onAuthorToggle: (value) {
-                  if (!isCurrent()) return;
-                  _toggleAuthorFilter(value);
-                },
-                onTagToggle: (value) {
-                  if (!isCurrent()) return;
-                  _toggleTagFilter(value);
-                },
               ),
             ),
           ),
@@ -1083,6 +1112,7 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                             initTags: tagFilters,
                             availableAuthors: availableAuthors,
                             availableTags: availableTags,
+                            platformNames: _platformNames,
                             updateConfig:
                                 (readFilter, nextSortMode, authors, tags) {
                                   if (!mounted ||
@@ -1994,8 +2024,10 @@ class _LocalFavoritesFilterDialog extends StatefulWidget {
     required this.availableAuthors,
     required this.availableTags,
     required this.updateConfig,
+    required this.platformNames,
   });
 
+  final Widget Function(Set<String>) platformNames;
   final String folder;
   final String initReadFilterSelect;
   final String initSortMode;
@@ -2072,6 +2104,7 @@ class _LocalFavoritesFilterDialogState
                     authorOptions: authorOptions,
                     tagOptions: tagOptions,
                     editable: _editable,
+                    platformNames: widget.platformNames(authors),
                     onReadFilter: (value) => setState(() => readFilter = value),
                     onSortMode: (value) => setState(() => sortMode = value),
                     onAuthorToggle: (value) => setState(() {
@@ -2165,8 +2198,10 @@ class _FavoriteFilterEditor extends StatelessWidget {
     required this.onSortMode,
     required this.onAuthorToggle,
     required this.onTagToggle,
+    this.platformNames,
   });
 
+  final Widget? platformNames;
   final String readFilter;
   final String sortMode;
   final Set<String> authors;
@@ -2208,6 +2243,7 @@ class _FavoriteFilterEditor extends StatelessWidget {
           editable: editable,
           onToggle: onAuthorToggle,
         ),
+        ?platformNames,
         _CollapsibleFilterChips(
           title: "Tags",
           options: tagOptions,
@@ -2349,8 +2385,10 @@ class _FilterSectionPanes extends StatefulWidget {
     required this.onAuthorShareChanged,
     required this.onAuthorExpandedChanged,
     required this.onTagExpandedChanged,
+    required this.platformNames,
   });
 
+  final Widget platformNames;
   final List<String> authorOptions;
   final List<String> tagOptions;
   final Set<String> authors;
@@ -2510,6 +2548,7 @@ class _FilterSectionPanesState extends State<_FilterSectionPanes> {
       onQueryChanged: onQueryChanged,
       onChanged: widget.onAuthorsChanged,
       height: height,
+      footer: widget.platformNames,
     );
     if (!divider) return section;
     return DecoratedBox(
@@ -2534,6 +2573,7 @@ class _FilterSectionPanesState extends State<_FilterSectionPanes> {
     required ValueChanged<String> onQueryChanged,
     required ValueChanged<Set<String>> onChanged,
     required double height,
+    Widget? footer,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     return SizedBox(
@@ -2640,22 +2680,30 @@ class _FilterSectionPanesState extends State<_FilterSectionPanes> {
                   Expanded(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                      child: options.isEmpty
-                          ? Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              child: Text(
-                                'No search results found'.tl,
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            )
-                          : Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [
-                                for (final option in options)
-                                  _chip(option, selected, onChanged),
-                              ],
-                            ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          options.isEmpty
+                              ? Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
+                                  child: Text(
+                                    'No search results found'.tl,
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                )
+                              : Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: [
+                                    for (final option in options)
+                                      _chip(option, selected, onChanged),
+                                  ],
+                                ),
+                          ?footer,
+                        ],
+                      ),
                     ),
                   ),
                 ],

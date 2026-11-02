@@ -12,15 +12,15 @@
 ## 2. 创作者平台名称（新F7）
 
 - [x] 2.1 删除旧详情跨平台按钮、作者fallback、专用intent/converter/parser/聚合作者分支及专用测试/孤立词条，保留原单源标签/快捷方式与F6。备注：定向移除 AuthorSearchAction/Intent/Query/Resolution、source getter/parser 及聚合作者分支，删除旧专用测试/词条；全 lib/test/translation 检索无旧接口残留，F6 profile/options 路径保留。
-- [x] 2.2 实现全部本地收藏原名按来源收集、anchor/alias归属、手动名称与隐藏记录模型和持久化；含CRUD/去重/坏数据/归并重置/失败及写入归属。备注：creator_platform_names.dart 通过 allComics()逐folder原名收集、动态alias/稳定anchor、版本化entries/hidden、latest-draft updateImplicit、失败回滚及页面/目录/store generation守卫；10项模型/真实数据库持久化测试通过（/tmp/f7-model-tests.log），含同id/type跨folder不同tag与同id跨type两源。
-- [x] 2.3 接入生产收藏右栏创作者区：单选树、零选/多选隐藏、平台折叠、同源多名称、显式添加/编辑/删除、键盘及有界滚动。备注：生产 _FilterSectionPanes 作者列表与平台树共享有界滚动空间；零/多选隐藏，平台标题仅折叠，名称TextButton+显式添加/更多菜单。真实260px侧栏及Tab/Enter/Space测试通过（/tmp/f7-ui-tests-v5.log）。
+- [x] 2.2 实现全部本地收藏原名按来源收集、anchor/alias归属、手动名称与隐藏记录模型和持久化；含CRUD/去重/坏数据/归并重置/失败及写入归属。备注：creator_platform_names.dart 通过 allComics()逐folder原名收集、动态alias/稳定anchor、版本化entries/hidden、latest-draft updateImplicit、失败回滚及页面/目录/store generation守卫；10项模型/真实数据库持久化测试通过（/tmp/search-architect-tests-restored.log），含同id/type跨folder不同tag与同id跨type两源。
+- [x] 2.3 接入生产收藏右栏创作者区：单选树、零选/多选隐藏、平台折叠、同源多名称、显式添加/编辑/删除、键盘及有界滚动。备注：生产 _FilterSectionPanes 作者列表与平台树共享有界滚动空间；零/多选隐藏，平台标题仅折叠，名称TextButton+显式添加/更多菜单。真实260px侧栏及Tab/Enter/Space测试通过（/tmp/search-architect-tests-restored.log）。
 - [x] 2.4 接入现有窄屏筛选入口，使用其当前本地作者选择和同一平台树组件，不重置筛选/导航返回状态。备注：_LocalFavoritesFilterDialog依据其本地authors构建同树；_showFilterSheet用StatefulBuilder维护实时本地选择。窄屏生产弹窗选择与搜索返回测试通过，底层未应用筛选未被覆盖。
 - [x] 2.5 名称点击使用绑定sourceKey的普通搜索与正常默认options，分页一致；失效来源保留并禁用，无标签/作者转换或聚合方案依赖。备注：树行直达绑定key的普通SearchResultPage，传原名与该源当前默认options；未用tag/author/profile通道。真实结果页Next分页及语言过滤开/关等价测试通过，卸载记录模型保留。
 
 ## 3. 设置与验证
 
-- [ ] 3.1 Explore设置和搜索入口的F6方案管理/选择UI。备注：独立复核重开：现有SearchProfilesSettings仅名称新建/重命名/删除，无来源启用/顺序/options编辑，未满足方案CRUD与恢复契约；须补可达更新编辑入口，并修正显式选择全局设置时不能被默认方案覆盖。新F7仍不增加搜索方案入口。
+- [x] 3.1 Explore设置和搜索入口的F6方案管理/选择UI。备注：补齐 SearchProfileEditor 可达来源启用/上下移动/schema options与保存更新；管理页创建/重命名表单校验及持久化错误均本地化、保留错误态可重试，DialogRoute.completed后释放控制器。null现明确为Global settings，默认仅在搜索入口初始化求值。5项真实编辑/选择/分页snapshot及IO失败重试回归通过（/tmp/search-architect-tests-restored.log）。
 - [x] 3.2 新增平台名称/管理/错误状态`.tl`双语，清理仅服务旧F7的词条。备注：新增平台树、CRUD、来源不可用/空态/错误等12项词条，zh_CN/zh_TW齐备，旧作者聚合/跨平台按钮孤立词条已删除。
-- [ ] 3.3 添加模型/持久化/CRUD/自动名称隐藏恢复/alias/来源失效/数据目录切换及生产宽窄入口、选择零请求、准确单源关键词/default options/分页/返回状态测试；更新F6测试去除旧作者API依赖并跑相关回归。备注：待实现。
-- [ ] 3.4 跑相关测试（原生库可用时不得依赖skip）和flutter analyze，确认50=38+12零新增，diff-check及受保护文件零diff。备注：待实现。
-- [ ] 3.5 隔离数据GUI验证F6方案管理/切换及新F7生产收藏入口：同源两名+另一源一名、单选/多选、维护后重进、正确单源搜索和返回、窄屏；截图仅/tmp，区分受控来源链路与真实平台内容命中。恢复正常生产构建并停止临时fixture。备注：待实现，不沿用旧B2截图作为证据。
+- [x] 3.3 添加模型/持久化/CRUD/自动名称隐藏恢复/alias/来源失效/数据目录切换及生产宽窄入口、选择零请求、准确单源关键词/default options/分页/返回状态测试；更新F6测试去除旧作者API依赖并跑相关回归。备注：新F7模型10项、真实生产收藏宽窄/CRUD/键盘/普通搜索分页/语言过滤等价UI7项；F6方案编辑/显式全局/快照/schema/失败重试回归5项，均通过。旧F7测试已删除，F6原测试保留；最终相关全回归见3.4。
+- [x] 3.4 跑相关测试（原生库可用时不得依赖skip）和flutter analyze，确认50=38+12零新增，diff-check及受保护文件零diff。备注：本轮恢复后architect独立复跑相关搜索/收藏/作者管理/系列/原生来源能力回归113项通过、0skip（/tmp/search-architect-tests-restored.log，原生bundle/lib）；analyze原始/唯一50=38tool+12其余（/tmp/search-architect-analyze-restored.log），无新增。OpenSpec、diff-check及受保护文件零diff通过；实现hash与/tmp/search-architect-reviewed-files.json一致。本轮仅重建/tmp GUI harness，未变更产品/测试代码；此前112项executor日志已丢失，不作为现存证据引用。
+- [x] 3.5 隔离数据GUI验证F6方案管理/切换及新F7生产收藏入口：同源两名+另一源一名、单选/多选、维护后重进、正确单源搜索和返回、窄屏；截图仅/tmp，区分受控来源链路与真实平台内容命中。恢复正常生产构建并停止临时fixture。备注：本轮全新隔离数据DISPLAY=:1生产页面GUI完成，受控平台A/B返回模拟作品。F6来源B优先/Other、A关闭保存重进：/tmp/search-f6-saved-reentered.png；默认方案选择/仅B结果：/tmp/search-f6-selection.png、/tmp/search-f6-profile-result.png；显式Global两源：/tmp/search-f6-global-menu.png、/tmp/search-f6-global-result.png。F7宽屏同源两名+另一源：/tmp/search-tree-wide.png；375px本地选择树：/tmp/search-f7-compact-tree.png；添加后编辑并关闭重进保留edited alias：/tmp/search-f7-maintained-reentered.png（implicitData.json落盘确认）；普通单源作品1/2页与返回：/tmp/search-f7-name-result.png、/tmp/search-f7-name-page2.png、/tmp/search-f7-return-filter.png；多选隐藏：/tmp/search-f7-multiselect-hidden.png。仅验证受控普通搜索链路，不声称真实平台内容命中。临时fixture进程已停止，/tmp目标已改.txt；正常lib/main.dart生产构建成功（/tmp/search-production-build-restored.log），lib/main.dart零diff。GUI构建/运行日志：/tmp/search-gui-build.log、/tmp/search-gui-run.log；截图均未入库。
