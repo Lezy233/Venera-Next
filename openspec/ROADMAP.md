@@ -23,7 +23,7 @@
 | 7 | **reader-mode-presets**（BACKLOG F4，批次 A）✅已归档 | 阅读模式方案 CRUD：命名快照/应用/管理 + 面板方案切换（2026-10-23 归档，commit 1c8fbc3） | settings-ia-cleanup 作用域选择器（已归档）；quick-settings 面板 |
 | 8 | **favorite-series**（BACKLOG F5，批次 C）✅已归档 | 跨来源手动系列 + 收藏文件夹右键操作 + 顶部多选入口 + Escape 退出 + 批量加入系列（2026-10-25 归档，commit ce5be2a） | settings-ia-cleanup（已归档） |
 | 9 | **search-profiles-author**（BACKLOG F6+F7，批次 C）✅已归档 | 搜索方案CRUD/来源排序及选项 + 收藏单选创作者平台名称树/手动维护/普通单源搜索（2026-11-03 owner验收，实现commit c5429bb，替代旧B2） | 既有搜索及收藏作者alias基础；F8前置已满足 |
-| 10 | **reader-preset-state-recovery**（B3）已排期 | 当前方案按作用域持久化及实际参数校验，保存失败不假成功 | reader-mode-presets已归档；先执行 |
+| 10 | **reader-preset-state-recovery**（B3）已实现，待owner验收 | 当前方案按作用域持久化及实际参数校验，保存失败补偿恢复（commit91789e6，独立108测试/50基线及GUI通过） | reader-mode-presets已归档；已独立复核；未归档/推送 |
 | 11 | **comic-card-hit-target-fix**（B4）已排期 | 标题首行/封面命中修复，保留收藏偏好/多选/右键/拖动 | 无B3技术依赖；按owner排期在B3复核提交后执行 |
 
 剩余排期：B3 → B4；F8、B3后的F9、可独立排期的F11，最后确认F10排序语义；F1 → F2仍为批次B候选。统一视觉美化按owner决定后置。
