@@ -12,7 +12,7 @@ import 'package:venera_next/foundation/translations.dart';
 import 'setting_components.dart';
 
 /// Both entry points use the same library and scoped apply path. The selection
-/// is a local reminder of the last application, never a second preference.
+/// is restored from a scoped reference and checked against effective values.
 class ReaderPresetSelector extends StatefulWidget {
   const ReaderPresetSelector({
     super.key,
@@ -32,8 +32,6 @@ class ReaderPresetSelector extends StatefulWidget {
 
 class _ReaderPresetSelectorState
     extends SettingsSaveState<ReaderPresetSelector> {
-  String? _appliedId;
-
   @override
   void initState() {
     super.initState();
@@ -46,7 +44,7 @@ class _ReaderPresetSelectorState
 
   void _applied(String id, List<String> keys) {
     if (!mounted || widget.isCurrent?.call() == false) return;
-    setState(() => _appliedId = id);
+    setState(() {});
     for (final key in keys) {
       if (!mounted || widget.isCurrent?.call() == false) return;
       widget.onChanged(key);
@@ -55,20 +53,25 @@ class _ReaderPresetSelectorState
 
   Future<void> _apply(String id) async {
     if (!acceptsSettingsChanges || widget.isCurrent?.call() == false) return;
-    if (id.isEmpty) {
-      setState(() => _appliedId = null);
-      return;
-    }
-    final store = widget.store;
+    final store = widget.store.capture();
     var keys = <String>[];
     await saveSetting(
       ('reader-preset', store.scope, store.comicId, store.sourceKey),
       () async {
-        keys = await store.apply(id, store.scope);
+        if (id.isEmpty) {
+          await store.clearSelection();
+        } else {
+          keys = await store.apply(id, store.scope);
+          if (keys.isEmpty) {
+            throw StateError('Preset is no longer available'.tl);
+          }
+        }
       },
+      requireCurrentForFeedback: true,
       onSaved: () => _applied(id, keys),
       isCurrent: () =>
           mounted &&
+          store.isCurrent &&
           widget.isCurrent?.call() != false &&
           widget.store.scope == store.scope &&
           widget.store.comicId == store.comicId &&
@@ -76,16 +79,46 @@ class _ReaderPresetSelectorState
     );
   }
 
+  @override
+  Future<void> retrySettingsSave() async {
+    if (widget.store.recovery != null) {
+      await _retryRecovery();
+    } else {
+      await super.retrySettingsSave();
+    }
+  }
+
+  Future<void> _retryRecovery() async {
+    final store = widget.store.capture();
+    await saveSetting(
+      ('reader-preset', store.scope, store.comicId, store.sourceKey),
+      store.retryRecovery,
+      showSavedFeedback: false,
+      isCurrent: () =>
+          mounted && store.isCurrent && widget.isCurrent?.call() != false,
+    );
+  }
+
   Future<void> _manage() async {
     if (!acceptsSettingsChanges) return;
     await waitForSettingsSave();
     if (!mounted) return;
-    final store = widget.store;
+    final store = widget.store.capture();
     final work = context
         .getInheritedWidgetOfExactType<SettingsSaveScope>()
         ?.work;
     await context.to(() {
-      final page = ReaderPresetManagement(store: store, onApplied: _applied);
+      final page = ReaderPresetManagement(
+        store: store,
+        onApplied: (id, keys) {
+          if (store.isCurrent &&
+              widget.store.scope == store.scope &&
+              widget.store.comicId == store.comicId &&
+              widget.store.sourceKey == store.sourceKey) {
+            _applied(id, keys);
+          }
+        },
+      );
       return work == null ? page : SettingsSaveScope(work: work, child: page);
     });
   }
@@ -93,15 +126,27 @@ class _ReaderPresetSelectorState
   @override
   Widget build(BuildContext context) {
     final presets = widget.store.list;
-    final selected = presets.any((item) => item.id == _appliedId)
-        ? _appliedId!
-        : '';
+    final selected = widget.store.selectedId ?? '';
+    final recovery = widget.store.recovery;
     return withSettingsSaveFeedback(
       protectSettings(
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (recovery != null) ...[
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Text(
+                  'Save failed; recovery incomplete'.tl,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+              TextButton(
+                onPressed: savingSettings ? null : _retryRecovery,
+                child: Text('Retry recovery'.tl),
+              ),
+            ],
             Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.lg,
@@ -123,7 +168,7 @@ class _ReaderPresetSelectorState
                       child: Text(preset.name, overflow: TextOverflow.ellipsis),
                     ),
                 ],
-                onChanged: savingSettings
+                onChanged: savingSettings || recovery != null
                     ? null
                     : (id) {
                         if (id != null) unawaited(_apply(id));
@@ -245,11 +290,12 @@ class _ReaderPresetManagementState extends State<ReaderPresetManagement> {
       await _edit(() async {
         switch (action) {
           case 'apply':
-            final keys = await widget.store.apply(
-              preset.id,
-              widget.store.scope,
-            );
-            widget.onApplied(preset.id, keys);
+            final owner = widget.store.capture();
+            final keys = await owner.apply(preset.id, widget.store.scope);
+            if (keys.isEmpty) {
+              throw StateError('Preset is no longer available'.tl);
+            }
+            if (mounted && owner.isCurrent) widget.onApplied(preset.id, keys);
           case 'update':
             await widget.store.updateFromCurrent(preset.id);
           case 'delete':
@@ -279,6 +325,26 @@ class _ReaderPresetManagementState extends State<ReaderPresetManagement> {
                   child: Text('New preset'.tl),
                 ),
               ),
+              if (widget.store.recovery != null) ...[
+                Text(
+                  'Save failed; recovery incomplete'.tl,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                TextButton(
+                  onPressed: _busy
+                      ? null
+                      : () async {
+                          try {
+                            await _edit(widget.store.retryRecovery);
+                          } catch (error) {
+                            if (mounted) {
+                              setState(() => _error = error.toString());
+                            }
+                          }
+                        },
+                  child: Text('Retry recovery'.tl),
+                ),
+              ],
               if (_error != null)
                 Text(
                   _error!,
@@ -299,7 +365,7 @@ class _ReaderPresetManagementState extends State<ReaderPresetManagement> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       TextButton(
-                        onPressed: _busy
+                        onPressed: _busy || widget.store.recovery != null
                             ? null
                             : () => _action(preset, 'apply'),
                         child: Text('Apply'.tl),

@@ -124,6 +124,8 @@ abstract class SettingsSaveState<W extends StatefulWidget> extends State<W> {
     Future<void> Function() persist, {
     VoidCallback? onSaved,
     bool Function()? isCurrent,
+    bool showSavedFeedback = true,
+    bool requireCurrentForFeedback = false,
   }) async {
     if (!acceptsSettingsChanges) return false;
     final owner = _owner;
@@ -165,7 +167,10 @@ abstract class SettingsSaveState<W extends StatefulWidget> extends State<W> {
       // A successful accepted assignment can repair its own older attempts,
       // even if its page has detached. It never repairs a later attempt.
       save.acknowledgeRepairedFailures();
-      _completedSaves++;
+      if (showSavedFeedback &&
+          (!requireCurrentForFeedback || (isCurrent?.call() ?? true))) {
+        _completedSaves++;
+      }
       return true;
     } catch (error, stack) {
       save.error = error;
@@ -201,6 +206,15 @@ abstract class SettingsSaveState<W extends StatefulWidget> extends State<W> {
         setState(() {});
       }
     }
+  }
+
+  /// An opt-in domain recovery can be completed by another control on the
+  /// same page. Settle only that domain's retained failure registrations.
+  @protected
+  void acknowledgeSettingsRecovery(Object key) {
+    final save = _latest.remove(key);
+    save?.acknowledgeRepairedFailures();
+    _updateGuards();
   }
 
   Future<void> waitForSettingsSave() async {

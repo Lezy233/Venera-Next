@@ -1,5 +1,12 @@
 {
   "zh_CN": {
+    "Preset is no longer available": "方案已不可用",
+    "Save failed; recovery incomplete": "保存失败，恢复未完成",
+    "Save failed; previous settings restored": "保存失败，已恢复原设置",
+    "Retry recovery": "重试恢复",
+    "The reading settings data directory has changed": "阅读设置数据目录已更改",
+    "Reading settings target changed": "阅读设置目标已更改",
+    "Settings directory changed": "设置数据目录已更改",
     "Add shortcut": "添加键位",
     "Remove shortcut": "删除此键位",
     "Keyboard shortcuts": "快捷键",
@@ -1064,6 +1071,13 @@
     "Manage search profile": "管理搜索方案"
   },
   "zh_TW": {
+    "Preset is no longer available": "方案已無法使用",
+    "Save failed; recovery incomplete": "儲存失敗，復原未完成",
+    "Save failed; previous settings restored": "儲存失敗，已復原原設定",
+    "Retry recovery": "重試復原",
+    "The reading settings data directory has changed": "閱讀設定資料目錄已變更",
+    "Reading settings target changed": "閱讀設定目標已變更",
+    "Settings directory changed": "設定資料目錄已變更",
     "Add shortcut": "新增按鍵組合",
     "Remove shortcut": "刪除此按鍵組合",
     "Keyboard shortcuts": "快捷鍵",

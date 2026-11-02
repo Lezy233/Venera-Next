@@ -33,6 +33,7 @@ void main() {
     appdata.settings['comicSpecificSettings'] = <String, dynamic>{};
     appdata.settings['comicLayoutDetections'] = <String, dynamic>{};
     appdata.settings['readerModePresets'] = <dynamic>[];
+    appdata.settings['readerPresetSelections'] = <String, dynamic>{};
     appdata.settings['disableSyncFields'] = '';
   });
   tearDown(() {
@@ -268,6 +269,179 @@ void main() {
         (await global.createFromCurrent('Global')).values['readerSideMargin'],
         3,
       );
+    },
+  );
+  test(
+    'B3 scoped references persist with values; None and reset isolate targets',
+    () async {
+      const device = ReaderPresetStore(scope: ReaderPreferenceScope.device);
+      const other = ReaderPresetStore(
+        scope: ReaderPreferenceScope.comic,
+        comicId: 'book',
+        sourceKey: 'other',
+      );
+      appdata.settings['readerSideMargin'] = 17;
+      final first = await global.createFromCurrent('First');
+      final same = await global.createFromCurrent('Same values');
+      await global.apply(first.id, ReaderPreferenceScope.global);
+      await device.apply(same.id, ReaderPreferenceScope.device);
+      await comic.apply(first.id, ReaderPreferenceScope.comic);
+      await other.apply(same.id, ReaderPreferenceScope.comic);
+      expect(global.selectedId, first.id);
+      expect(device.selectedId, same.id);
+      expect(comic.selectedId, first.id);
+      expect(other.selectedId, same.id);
+      final disk = jsonDecode(
+        File('${root.path}/appdata.json').readAsStringSync(),
+      );
+      expect(disk['settings']['readerPresetSelections'], hasLength(4));
+      appdata.settings['readerPresetSelections'] = {};
+      expect(global.selectedId, isNull);
+      await appdata.loadDataForTesting(root.path);
+      expect(global.selectedId, first.id);
+      expect(device.selectedId, same.id);
+      appdata.settings['deviceId'] = 'different-device';
+      expect(device.selectedId, isNull);
+      appdata.settings['deviceId'] = 'preset-test';
+      expect(device.selectedId, same.id);
+      final parameters = jsonEncode(appdata.settings['comicSpecificSettings']);
+      await comic.clearSelection();
+      expect(comic.selectedId, isNull);
+      expect(jsonEncode(appdata.settings['comicSpecificSettings']), parameters);
+      expect(other.selectedId, same.id);
+      await device.reset();
+      expect(device.selectedId, isNull);
+      expect(global.selectedId, first.id);
+      expect(other.selectedId, same.id);
+    },
+  );
+
+  test(
+    'B3 legacy, corrupt references and tuple separators cannot invent identity',
+    () async {
+      expect(global.selectedId, isNull);
+      for (final value in [
+        null,
+        42,
+        [],
+        {'bad': true},
+      ]) {
+        appdata.settings['readerPresetSelections'] = value;
+        expect(global.selectedId, isNull);
+      }
+      const a = ReaderPresetStore(
+        scope: ReaderPreferenceScope.comic,
+        comicId: 'x@y',
+        sourceKey: 'z',
+      );
+      const b = ReaderPresetStore(
+        scope: ReaderPreferenceScope.comic,
+        comicId: 'x',
+        sourceKey: 'y@z',
+      );
+      expect(a.selectionKey, isNot(b.selectionKey));
+    },
+  );
+  test(
+    'B3 every declared key invalidates, excluded keys and normalized numbers do not',
+    () async {
+      final preset = await global.createFromCurrent('All keys');
+      await global.apply(preset.id, ReaderPreferenceScope.global);
+      expect(global.selectedId, preset.id);
+      final alternatives = <String, Object>{
+        'readerMode': 'galleryLeftToRight',
+        'autoReaderMode': true,
+        'pagedReaderMode': 'galleryTopToBottom',
+        'longStripReaderMode': 'galleryTopToBottom',
+        'readerScreenPicNumberForPortrait': 2,
+        'readerScreenPicNumberForLandscape': 3,
+        'showSingleImageOnFirstPage': false,
+        'limitImageWidth': false,
+        'readerSideMargin': 17,
+        'splitDualPage': true,
+        'splitDualPageInvert': true,
+        'enablePageAnimation': false,
+        'enableTapToTurnPages': false,
+        'reverseTapToTurnPages': true,
+        'enableDoubleTapToZoom': false,
+        'longPressAction': 'none',
+        'longPressZoomPosition': 'center',
+        'quickCollectImage': 'DoubleTap',
+        'enableTurnPageByVolumeKey': false,
+      };
+      for (final preference in readerPresetPreferences) {
+        final old = appdata.settings[preference.key];
+        final alternate = alternatives[preference.key]!;
+        // The alternate must differ from the actual baseline, not merely its JSON type.
+        if (preference.normalize(old) == preference.normalize(alternate)) {
+          appdata.settings[preference.key] = old is bool ? !old : 1;
+        } else {
+          appdata.settings[preference.key] = alternate;
+        }
+        expect(global.selectedId, isNull, reason: preference.key);
+        appdata.settings[preference.key] = old;
+        expect(global.selectedId, preset.id, reason: preference.key);
+      }
+      appdata.settings['readerBrightness'] = 75;
+      expect(global.selectedId, preset.id);
+      appdata.settings['readerSideMargin'] = 0.0;
+      expect(global.selectedId, preset.id);
+      await global.rename(preset.id, 'Renamed');
+      expect(global.list.single.name, 'Renamed');
+      expect(global.selectedId, preset.id);
+      appdata.settings['readerSideMargin'] = 12;
+      await global.updateFromCurrent(preset.id);
+      expect(global.selectedId, preset.id);
+      appdata.settings['readerSideMargin'] = 0;
+      expect(global.selectedId, isNull);
+      await global.delete(preset.id);
+      expect(global.selectedId, isNull);
+      expect(appdata.settings['readerSideMargin'], 0);
+    },
+  );
+
+  test(
+    'B3 partial and empty presets; comic override and actual auto value',
+    () async {
+      appdata.settings['readerModePresets'] = [
+        {
+          'id': 'partial',
+          'name': 'Partial',
+          'values': {'readerSideMargin': 9},
+        },
+        {
+          'id': 'empty',
+          'name': 'Empty',
+          'values': {'readerBrightness': 1},
+        },
+      ];
+      await comic.apply('partial', ReaderPreferenceScope.comic);
+      expect(comic.selectedId, 'partial');
+      appdata.settings['readerMode'] = 'galleryLeftToRight';
+      expect(comic.selectedId, 'partial');
+      expect(await comic.apply('empty', ReaderPreferenceScope.comic), isEmpty);
+      appdata.settings['readerPresetSelections'] = {
+        comic.selectionKey: 'empty',
+      };
+      expect(comic.selectedId, isNull);
+      appdata.settings['autoReaderMode'] = true;
+      final full = await global.createFromCurrent('Full');
+      await comic.apply(full.id, ReaderPreferenceScope.comic);
+      expect(comic.selectedId, full.id);
+      appdata.settings.setReaderSetting(
+        'book',
+        'local',
+        'autoReaderMode',
+        true,
+      );
+      expect(comic.selectedId, isNull);
+      appdata.settings.setReaderSetting(
+        'book',
+        'local',
+        'autoReaderMode',
+        false,
+      );
+      expect(comic.selectedId, full.id);
     },
   );
 }

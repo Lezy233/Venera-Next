@@ -3,6 +3,10 @@ import 'package:venera_next/foundation/sync_configuration.dart';
 import 'dart:async';
 import 'dart:convert';
 
+import 'settings_recovery.dart';
+import 'translations.dart';
+export 'settings_recovery.dart' show SettingsRecoveryFailure;
+
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import 'package:venera_next/foundation/app.dart';
@@ -25,6 +29,51 @@ class Appdata with Init {
   var searchHistory = <String>[];
 
   Future<void>? _writeQueue;
+
+  final _deferredRollbacks = <(String, String), (Map, Map)>{};
+
+  final _settingsRecoveries = <(String, String), SettingsRecoveryFailure>{};
+
+  SettingsRecoveryFailure? settingsRecovery(String path, String target) =>
+      _settingsRecoveries[(path, target)];
+
+  /// Recovery retries persist current valid state, never replay the failed edit.
+  Future<void> retrySettingsRecovery(String path, String target) =>
+      AppDataOperations.instance.access(
+        () => _enqueueWrite(() async {
+          final failure = _settingsRecoveries[(path, target)];
+          if (failure == null) return;
+          if (App.dataPath != path) throw failure;
+          try {
+            final deferred = _deferredRollbacks.remove((path, target));
+            if (deferred != null) {
+              final restored = restoreOwnedSettings(
+                deferred.$1,
+                deferred.$2,
+                settings._data,
+              );
+              _applyChangedFields(
+                settings._data,
+                Map.of(settings._data),
+                restored,
+              );
+            }
+            await _writeAppData(path, _appDataContents(jsonEncode(toJson())));
+            _settingsRecoveries.remove((path, target));
+          } catch (error, stack) {
+            final next = SettingsRecoveryFailure(
+              failure.initialError,
+              failure.initialStack,
+              error,
+              stack,
+            );
+            _settingsRecoveries[(path, target)] = next;
+            throw next;
+          } finally {
+            settings.notifyListeners();
+          }
+        }),
+      );
 
   FutureOr<void> Function()? _syncDataRequestHandler;
 
@@ -55,6 +104,7 @@ class Appdata with Init {
     // Initialization repairs can avoid rewriting an unchanged snapshot. Normal
     // saves keep this true so retrying an already-published value writes again.
     bool persistIfUnchanged = true,
+    String? recoveryKey,
   }) => _edit(
     (draft, _) {
       final previousExclusions = jsonEncode(draft['disableSyncFields']);
@@ -71,6 +121,7 @@ class Appdata with Init {
     },
     sync: sync,
     beforePersist: beforePersist,
+    recoveryKey: recoveryKey,
     persistIfUnchanged: persistIfUnchanged,
   );
 
@@ -108,9 +159,17 @@ class Appdata with Init {
     bool persist = true,
     bool persistIfUnchanged = true,
     Object? Function(Map<String, String> contents)? beforePersist,
+    String? recoveryKey,
   }) => AppDataOperations.instance.access(() {
     final path = App.dataPath;
     return _enqueueWrite(() async {
+      if (recoveryKey != null) {
+        final failure = settingsRecovery(path, recoveryKey);
+        if (failure != null) throw failure;
+        if (path != App.dataPath) {
+          throw StateError('Settings directory changed'.tl);
+        }
+      }
       final before = jsonDecode(jsonEncode(toJson())) as Map<String, dynamic>;
       final draft = Settings._create().._batchDepth = 1;
       draft._data
@@ -142,13 +201,47 @@ class Appdata with Init {
       if (historyChanged) {
         searchHistory = List<String>.from(published['searchHistory'] as List);
       }
-      // Persistence can partially commit. Keep the applied memory state and
-      // report the real failure rather than restoring an unrelated snapshot.
+      // Default callers retain their existing publish-before-IO semantics.
+      // Explicit recovery owners roll back only their own assignments, while
+      // still inside this writer slot, then compensate every required file.
       try {
         if (persist &&
             (persistIfUnchanged || settingsChanged || historyChanged)) {
           await _writeAppData(path, contents);
         }
+      } catch (error, stack) {
+        if (recoveryKey == null) rethrow;
+        Object? recoveryError;
+        StackTrace? recoveryStack;
+        try {
+          if (App.dataPath != path) {
+            _deferredRollbacks[(path, recoveryKey)] = (
+              before['settings'] as Map,
+              published['settings'] as Map,
+            );
+            throw StateError('Settings directory changed'.tl);
+          }
+          final restored = restoreOwnedSettings(
+            before['settings'] as Map,
+            published['settings'] as Map,
+            settings._data,
+          );
+          _applyChangedFields(settings._data, Map.of(settings._data), restored);
+          await _writeAppData(path, _appDataContents(jsonEncode(toJson())));
+        } catch (error, stack) {
+          recoveryError = error;
+          recoveryStack = stack;
+        }
+        final failure = SettingsRecoveryFailure(
+          error,
+          stack,
+          recoveryError,
+          recoveryStack,
+        );
+        if (failure.incomplete) {
+          _settingsRecoveries[(path, recoveryKey)] = failure;
+        }
+        throw failure;
       } finally {
         if (settingsChanged || draft._notificationPending) {
           settings.notifyListeners();

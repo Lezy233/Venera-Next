@@ -50,6 +50,25 @@ class ReaderSettings extends StatefulWidget {
 
 class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
   late ReaderSettingsScope _scope;
+  ReaderPresetStore? _resetRecoveryOwner;
+
+  Object _resetKey(ReaderPresetStore store) =>
+      ('reader-reset', store.selectionKey);
+
+  @override
+  Future<void> retrySettingsSave() async {
+    final owner = _resetRecoveryOwner;
+    if (owner?.recovery != null) {
+      await saveSetting(
+        _resetKey(owner!),
+        owner.retryRecovery,
+        showSavedFeedback: false,
+        isCurrent: () => owner.isCurrent,
+      );
+    } else {
+      await super.retrySettingsSave();
+    }
+  }
 
   @override
   void initState() {
@@ -67,6 +86,11 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
   }
 
   void _refresh() {
+    final owner = _resetRecoveryOwner;
+    if (owner != null && owner.isCurrent && owner.recovery == null) {
+      acknowledgeSettingsRecovery(_resetKey(owner));
+      _resetRecoveryOwner = null;
+    }
     if (mounted) setState(() {});
   }
 
@@ -163,37 +187,29 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
   }
 
   Future<void> _resetScope() async {
-    final comicId = widget.comicId;
-    final source = widget.comicSource;
-    switch (_scope) {
-      case ReaderSettingsScope.defaults:
-        await saveSetting(
-          'reader-reset-default',
-          () => appdata.updateSettings((draft) {
-            draft.resetGlobalReaderSettings();
-          }),
-          onSaved: () => widget.onChanged?.call('readerMode'),
-        );
-      case ReaderSettingsScope.device:
-        await saveSetting(
-          'reader-reset-device',
-          () => appdata.updateSettings((draft) {
-            draft.resetDeviceReaderSettings();
-            draft.setEnabledDeviceSpecificSettings(true);
-          }),
-          onSaved: () => widget.onChanged?.call('readerMode'),
-        );
-      case ReaderSettingsScope.comic:
-        if (comicId == null || source == null) return;
-        await saveSetting(
-          'reader-reset-comic',
-          () => appdata.updateSettings((draft) {
-            draft.resetComicReaderSettings('$comicId@$source');
-            draft.setEnabledComicSpecificSettings(comicId, source, true);
-          }),
-          onSaved: () => widget.onChanged?.call('readerMode'),
-        );
-    }
+    final store = ReaderPresetStore(
+      scope: _preferenceScope,
+      comicId: widget.comicId,
+      sourceKey: widget.comicSource,
+    ).capture();
+    await saveSetting(
+      _resetKey(store),
+      () async {
+        try {
+          await store.reset();
+        } catch (_) {
+          if (store.recovery != null) _resetRecoveryOwner = store;
+          rethrow;
+        }
+      },
+      requireCurrentForFeedback: true,
+      onSaved: () => widget.onChanged?.call('readerMode'),
+      isCurrent: () =>
+          store.isCurrent &&
+          _preferenceScope == store.scope &&
+          widget.comicId == store.comicId &&
+          widget.comicSource == store.sourceKey,
+    );
   }
 
   String get _scopeDescription => switch (_scope) {
@@ -246,7 +262,15 @@ class _ReaderSettingsState extends SettingsSaveState<ReaderSettings> {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                onPressed: savingSettings || !acceptsSettingsChanges
+                onPressed:
+                    savingSettings ||
+                        !acceptsSettingsChanges ||
+                        ReaderPresetStore(
+                              scope: _preferenceScope,
+                              comicId: _scopeComicId,
+                              sourceKey: _scopeComicSource,
+                            ).recovery !=
+                            null
                     ? null
                     : _resetScope,
                 child: Text(_resetLabel),
