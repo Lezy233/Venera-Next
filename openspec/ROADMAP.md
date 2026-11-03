@@ -26,9 +26,10 @@
 | 10 | **reader-preset-state-recovery**（B3）✅已归档 | 持续编辑共享19键、跟随默认保持绑定并动态继承；285+174测试0skip、analyze50零新增，GUI/重启/正常构建通过 | 2026-11-03 owner验收通过，实现526c311；归档review.md含证据 |
 | 11 | **comic-card-hit-target-fix**（B4）✅已归档 | 标题首行/封面命中、窄brief紧凑徽章；owner验收通过，实现6f65f7f，174测试/50基线及GUI通过 | 无B3技术依赖；2026-11-03单独归档，B3返工保留 |
 | 12 | **search-target-memory**（F8）✅已归档 | 记忆聚合/单源及方案身份，失效可见回退、可靠保存；59测试0skip、analyze50零新增、GUI/重启/正常构建通过 | 2026-11-04 owner验收通过，实现3749a52；见归档review.md |
-| 13 | **reader-preset-ordering**（F9）当前执行 | 拖动和上/下移，跨入口一致顺序、身份/绑定不变 | B3/F8已验收归档，owner授权新会话派工 |
+| 13 | **reader-preset-ordering**（F9）✅已归档 | 拖动和上/下移，跨入口顺序/绑定/继承不变；525测试0skip、analyze50零新增、GUI/重启/构建清理通过 | 2026-11-04 owner验收；实现bc3f82a，本次未push |
+| 14 | **favorite-author-manual-order**（F10）规划中 | 作者优先、组内手动，作用域与多作者规则先确认 | owner已安排；语义确认后交executor新会话 |
 
-当前排期（owner已授权）：F8已验收归档，接续 **F9阅读方案手动排序**，独立执行、复核和验收。B5、F11、F10及F1 → F2保留候选，统一视觉美化后置。
+当前状态：F9已验收并本地归档提交，未push；接续规划 **F10收藏作者→手动顺序**，先确认BACKLOG列出的作用域与作者规则。B5、F11及F1 → F2保留候选，统一视觉美化后置。
 
 ## 已完成（quick wins，不在 changes 中）
 
