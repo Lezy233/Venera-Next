@@ -23,8 +23,8 @@
 | 7 | **reader-mode-presets**（BACKLOG F4，批次 A）✅已归档 | 阅读模式方案 CRUD：命名快照/应用/管理 + 面板方案切换（2026-10-23 归档，commit 1c8fbc3） | settings-ia-cleanup 作用域选择器（已归档）；quick-settings 面板 |
 | 8 | **favorite-series**（BACKLOG F5，批次 C）✅已归档 | 跨来源手动系列 + 收藏文件夹右键操作 + 顶部多选入口 + Escape 退出 + 批量加入系列（2026-10-25 归档，commit ce5be2a） | settings-ia-cleanup（已归档） |
 | 9 | **search-profiles-author**（BACKLOG F6+F7，批次 C）✅已归档 | 搜索方案CRUD/来源排序及选项 + 收藏单选创作者平台名称树/手动维护/普通单源搜索（2026-11-03 owner验收，实现commit c5429bb，替代旧B2） | 既有搜索及收藏作者alias基础；F8前置已满足 |
-| 10 | **reader-preset-state-recovery**（B3）已实现，待owner验收 | 当前方案按作用域持久化及实际参数校验，保存失败补偿恢复（commit91789e6，独立108测试/50基线及GUI通过） | reader-mode-presets已归档；已独立复核；未归档/推送 |
-| 11 | **comic-card-hit-target-fix**（B4）已排期 | 标题首行/封面命中修复，保留收藏偏好/多选/右键/拖动 | 无B3技术依赖；按owner排期在B3复核提交后执行 |
+| 10 | **reader-preset-state-recovery**（B3）owner验收不通过，返工已规划 | 第一轮91789e6的失配即无语义被owner否决；修订为选中方案后持续编辑并保存共享19键，tasks3.x/4.x待执行 | reader-mode-presets已归档；保留B4已验收脏改基线；未归档/推送 |
+| 11 | **comic-card-hit-target-fix**（B4）owner已验收，未提交 | 标题首行/封面命中修复，保留收藏偏好/多选/右键/拖动；窄brief复用紧凑徽章（独立174测试/50基线及GUI通过） | 无B3技术依赖；按owner排期在B3复核提交后执行 |
 
 剩余排期：B3 → B4；F8、B3后的F9、可独立排期的F11，最后确认F10排序语义；F1 → F2仍为批次B候选。统一视觉美化按owner决定后置。
 
@@ -38,3 +38,5 @@
 
 每个 change 由 owner 验收后运行 `openspec archive <name>`，delta spec 合并进 `openspec/specs/`。
 归档前执行 agent 必须完成：flutter analyze 基线50项零新增、tasks.md 全部勾选、新增词条已补 zh_CN/zh_TW。
+
+2026-11-03 owner人工验收：B4通过，未发归档推送指令；B3不通过，要求选中的方案成为持续编辑目标。planner已修订B3四件套，保留19键范围并明确同ID共享、None退出保留效果、旧引用迁移及失败恢复；交executor执行3.x/4.x后再次独立复核。B4实现与工件作为保护基线，不混入返工。

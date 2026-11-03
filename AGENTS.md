@@ -12,8 +12,8 @@ Venera-Next 是 PC 优先的 Flutter 漫画阅读器，fork 自 venera-next，**
 
 | 角色 | 承担者 | 职责 | 禁区 |
 |------|--------|------|------|
-| **规划者** | codex「architect」（pane w3:p4） | 写 proposal/spec/design/tasks；驱动 executor 派活与验收；维护 BACKLOG/ROADMAP/design-spec.md；owner 验收后归档推送 | 不写实现代码、不做实现 debug |
-| **执行者** | codex「executor」（pane w3:p2） | 按 change 的 tasks.md 逐个实现并勾选；flutter analyze 自检；交付说明 | 不得改 proposal/spec/design、design-spec.md、openspec/specs/ 下正式 spec；发现契约冲突须停止并报告 architect，不自行改契约；**architect 批准前不得提交** |
+| **规划者** | codex「architect」（pane w4:p1） | 写 proposal/spec/design/tasks；驱动 executor 派活与验收；维护 BACKLOG/ROADMAP/design-spec.md；owner 验收后归档推送 | 不写实现代码、不做实现 debug |
+| **执行者** | codex「executor」（pane w4:p2） | 按 change 的 tasks.md 逐个实现并勾选；flutter analyze 自检；交付说明 | 不得改 proposal/spec/design、design-spec.md、openspec/specs/ 下正式 spec；发现契约冲突须停止并报告 architect，不自行改契约；**architect 批准前不得提交** |
 | **验收人** | owner（人类） | 最终人工验收；验收通过后才归档 | — |
 
 协作闭环（architect 驱动）：① architect 派活 `herdr agent prompt executor "<任务全文>"`（工件以 HEAD 为准、含硬规则清单）；② 读交付 `herdr agent read executor --source recent-unwrapped`；③ architect **独立复核**（复跑 analyze 计数、复跑新增测试与相关回归、tasks 勾选、受保护文件零 diff、抽查 GUI 截图）后判「符合/不符合」，批准时给提交信息；不符合带 spec 依据打回；④ executor blocked（审批/提问）时 architect 读屏判断：只读审批用 send-keys 批，设计取舍类问题转 owner 拍板；⑤ 完成一个 change 后 architect 向 owner 交付报告 + 验收路径建议，owner 说「验收通过，归档推送」后 architect 执行 archive + 三文件同步 + push。
@@ -34,7 +34,7 @@ Venera-Next 是 PC 优先的 Flutter 漫画阅读器，fork 自 venera-next，**
 
 - 分支：`redesign-2026`，已与远程同步（github.com/Lezy233/Venera-Next）。
 - 已完成并归档：`design-system-foundation`（设计基座 + 验收缺陷 5.1–5.3 修复）；`settings-ia-cleanup`（2026-10-21 归档）；`save-bar-layout-fix`（2026-10-21 归档，commit 9669b5c）；`desktop-shell-polish`（2026-10-21 归档，commit ae00919）；`desktop-search-context`（2026-10-21 归档，commit 5833677）；`reader-quick-settings-panel`（2026-10-22 归档，commit 11c495e）；`save-feedback-placement-fix`（2026-10-22 归档，commit 63d45e7）；`chrome-binding-lifecycle-fix`（2026-10-22 归档，commit 0121b81，BACKLOG B1）；`keyboard-shortcuts`（2026-10-23 归档，commit b735663，BACKLOG F3，批次 A——动作注册表/多键位自定义/冲突检测/独立主分类/平台默认键）；`reader-mode-presets`（2026-10-23 归档，commit 1c8fbc3，BACKLOG F4，批次 A——阅读模式方案 CRUD + 面板方案切换）；`favorite-series`（2026-10-25 归档，批次 C F5——跨来源手动系列、收藏交互入口、多选 Escape、批量加入系列）；`search-profiles-author`（2026-11-03 owner验收通过并归档，实现commit c5429bb，批次 C F6+F7——搜索方案与收藏创作者平台名称树，替代旧B2作者聚合入口）。
-- 批次 A（F3+F4）和批次 C（F5+F6+F7）已完成。剩余：B3 阅读方案状态恢复、B4 卡片标题点击、F8 搜索目标记忆、F9 阅读方案排序、F10 收藏多级排序、F11 收藏分类折叠，以及批次 B 的 F1 页面多开 → F2 预览；统一视觉美化后置。2026-11-03 owner已安排B3 → B4：`reader-preset-state-recovery`已实现、独立复核通过并提交91789e6（108测试0skip、analyze50零新增、GUI及实际重启通过），待owner验收，未归档/推送；接着以新会话执行`comic-card-hit-target-fix`，四件套已校验。其他任务未启动，见 `openspec/BACKLOG.md`。
+- 批次 A（F3+F4）和批次 C（F5+F6+F7）已完成。剩余：B3 阅读方案状态恢复、B4 卡片标题点击、F8 搜索目标记忆、F9 阅读方案排序、F10 收藏多级排序、F11 收藏分类折叠，以及批次 B 的 F1 页面多开 → F2 预览；统一视觉美化后置。2026-11-03 owner已安排B3 → B4：`reader-preset-state-recovery`第一轮提交91789e6（108测试/50基线），owner人工验收不通过：选中方案后改设置应直接编辑该方案，不能自动变「无」。现已修订四件套为持续编辑绑定/共享19键，待executor执行tasks3.x/4.x；`comic-card-hit-target-fix`已完成独立复核并经owner验收通过（174测试0skip、analyze50、GUI/正常构建通过），保持未提交，未获归档推送指令。B4当前脏改是B3返工须保留的授权基线，不得清空或顺带改动。两个change均未归档/推送。其他任务未启动，见 `openspec/BACKLOG.md`。
 
 ## 5. 最小阅读清单
 
@@ -48,7 +48,7 @@ Venera-Next 是 PC 优先的 Flutter 漫画阅读器，fork 自 venera-next，**
 ## 6. Herdr 协作约定（如运行在 herdr 中）
 
 - 本机 herdr 0.9.5。Kimi Code 原生支持（`--kind kimi`）；**dsh-tui 不被识别**，只当普通终端。
-- orchestrator 驱动执行 agent（codex，pane w3:p2）用 **agent 原语**：
+- orchestrator 驱动执行 agent（codex，pane w4:p2）用 **agent 原语**：
   派活 `herdr agent prompt w3:p2 "<任务全文>"`（长文本先写 /tmp 文件再 `"$(cat /tmp/x.txt)"`），
   读交付 `herdr agent read w3:p2 --source recent-unwrapped --lines 200`，
   阻塞处理 `herdr agent wait w3:p2 --until blocked` + `herdr agent send-keys w3:p2 <key>`（选择题 down/up+enter，打开问题 shift+left）。
