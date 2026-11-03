@@ -35,7 +35,8 @@ Venera-Next 是 PC 优先的 Flutter 漫画阅读器，fork 自 venera-next，**
 - 分支：`redesign-2026`，已与远程同步（github.com/Lezy233/Venera-Next）。
 - 已完成并归档：`design-system-foundation`（设计基座 + 验收缺陷 5.1–5.3 修复）；`settings-ia-cleanup`（2026-10-21 归档）；`save-bar-layout-fix`（2026-10-21 归档，commit 9669b5c）；`desktop-shell-polish`（2026-10-21 归档，commit ae00919）；`desktop-search-context`（2026-10-21 归档，commit 5833677）；`reader-quick-settings-panel`（2026-10-22 归档，commit 11c495e）；`save-feedback-placement-fix`（2026-10-22 归档，commit 63d45e7）；`chrome-binding-lifecycle-fix`（2026-10-22 归档，commit 0121b81，BACKLOG B1）；`keyboard-shortcuts`（2026-10-23 归档，commit b735663，BACKLOG F3，批次 A——动作注册表/多键位自定义/冲突检测/独立主分类/平台默认键）；`reader-mode-presets`（2026-10-23 归档，commit 1c8fbc3，BACKLOG F4，批次 A——阅读模式方案 CRUD + 面板方案切换）；`favorite-series`（2026-10-25 归档，批次 C F5——跨来源手动系列、收藏交互入口、多选 Escape、批量加入系列）；`search-profiles-author`（2026-11-03 owner验收通过并归档，实现commit c5429bb，批次 C F6+F7——搜索方案与收藏创作者平台名称树，替代旧B2作者聚合入口）。
 - 2026-11-03 owner验收`comic-card-hit-target-fix`（B4）通过，按owner指令归档至`openspec/changes/archive/2026-11-03-comic-card-hit-target-fix/`；实现commit `6f65f7f`，独立174测试0skip、analyze50=38+12、GUI及正常构建通过。
-- 批次A（F3+F4）、批次C（F5+F6+F7）及B4已完成。B3 `reader-preset-state-recovery`第一轮91789e6交互被owner否决，返工设计d5fcf6b定义持续编辑绑定/共享19键；executor阶段回归265通过0skip、B4保护174通过，planner最新analyze raw/unique50=38+12。最后补丁35项窄回归及已定GUI/实际重启、正常构建已通过；owner已裁定「跟随默认」保持方案绑定并保存继承行为，补充design D2.4/tasks3.5待executor实现后最终复核，尚不可归档；B3返工实现保留未提交，本轮仅归档推送B4。其余F8/F9/F10/F11及F1→F2未启动，统一视觉美化后置，见`openspec/BACKLOG.md`。
+- B3 `reader-preset-state-recovery`于2026-11-03经owner验收通过并归档，实现commit `526c311`：持续编辑共享19键及「跟随默认」保持绑定；独立285测试、B4保护174测试均0skip，analyze raw/unique50=38+12零新增，GUI/真实重启/正常构建与清理通过。证据见`openspec/changes/archive/2026-11-03-reader-preset-state-recovery/review.md`。
+- owner已安排下一顺序 **F8搜索目标记忆 → F9阅读方案排序**；逐change执行、独立复核与owner验收。B5上下黑边、F10/F11及F1→F2未启动，统一视觉美化后置，见`openspec/BACKLOG.md`。
 
 ## 5. 最小阅读清单
 
@@ -50,9 +51,9 @@ Venera-Next 是 PC 优先的 Flutter 漫画阅读器，fork 自 venera-next，**
 
 - 本机 herdr 0.9.5。Kimi Code 原生支持（`--kind kimi`）；**dsh-tui 不被识别**，只当普通终端。
 - orchestrator 驱动执行 agent（codex，pane w4:p2）用 **agent 原语**：
-  派活 `herdr agent prompt w3:p2 "<任务全文>"`（长文本先写 /tmp 文件再 `"$(cat /tmp/x.txt)"`），
-  读交付 `herdr agent read w3:p2 --source recent-unwrapped --lines 200`，
-  阻塞处理 `herdr agent wait w3:p2 --until blocked` + `herdr agent send-keys w3:p2 <key>`（选择题 down/up+enter，打开问题 shift+left）。
+  派活 `herdr agent prompt w4:p2 "<任务全文>"`（长文本先写 /tmp 文件再 `"$(cat /tmp/x.txt)"`），
+  读交付 `herdr agent read w4:p2 --source recent-unwrapped --lines 200`，
+  阻塞处理 `herdr agent wait w4:p2 --until blocked` + `herdr agent send-keys w4:p2 <key>`（选择题 down/up+enter，打开问题 shift+left）。
 - 反馈回路（三层，按序使用）：① herdr 读屏（即时）→ ② openspec tasks.md 勾选 + 交付说明（会话内）→ ③ git commit/push（持久，全员可见）。
 - 状态真相永远在仓库文件里：任何 agent 报告「完成」时，先用 git log / tasks.md 核对，再看屏幕说法。
 - openspec CLI：`openspec validate --changes <name>` / `openspec validate --specs` / `openspec archive <name> --yes`（owner 验收通过后）。

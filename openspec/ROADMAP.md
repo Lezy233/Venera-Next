@@ -23,10 +23,10 @@
 | 7 | **reader-mode-presets**（BACKLOG F4，批次 A）✅已归档 | 阅读模式方案 CRUD：命名快照/应用/管理 + 面板方案切换（2026-10-23 归档，commit 1c8fbc3） | settings-ia-cleanup 作用域选择器（已归档）；quick-settings 面板 |
 | 8 | **favorite-series**（BACKLOG F5，批次 C）✅已归档 | 跨来源手动系列 + 收藏文件夹右键操作 + 顶部多选入口 + Escape 退出 + 批量加入系列（2026-10-25 归档，commit ce5be2a） | settings-ia-cleanup（已归档） |
 | 9 | **search-profiles-author**（BACKLOG F6+F7，批次 C）✅已归档 | 搜索方案CRUD/来源排序及选项 + 收藏单选创作者平台名称树/手动维护/普通单源搜索（2026-11-03 owner验收，实现commit c5429bb，替代旧B2） | 既有搜索及收藏作者alias基础；F8前置已满足 |
-| 10 | **reader-preset-state-recovery**（B3）owner验收不通过，返工已规划 | 第一轮91789e6的失配即无语义被owner否决；修订为选中方案后持续编辑并保存共享19键，tasks3.x/4.x待执行 | reader-mode-presets已归档；保留B4已验收脏改基线；未归档/推送 |
+| 10 | **reader-preset-state-recovery**（B3）✅已归档 | 持续编辑共享19键、跟随默认保持绑定并动态继承；285+174测试0skip、analyze50零新增，GUI/重启/正常构建通过 | 2026-11-03 owner验收通过，实现526c311；归档review.md含证据 |
 | 11 | **comic-card-hit-target-fix**（B4）✅已归档 | 标题首行/封面命中、窄brief紧凑徽章；owner验收通过，实现6f65f7f，174测试/50基线及GUI通过 | 无B3技术依赖；2026-11-03单独归档，B3返工保留 |
 
-剩余排期：B3 → B4；F8、B3后的F9、可独立排期的F11，最后确认F10排序语义；F1 → F2仍为批次B候选。统一视觉美化按owner决定后置。
+下一排期（owner已授权）：**F8搜索目标记忆 → F9阅读方案手动排序**，按change逐个执行、复核和验收。B3/B4均已归档；B5、F11、F10及F1 → F2保留候选，统一视觉美化后置。
 
 ## 已完成（quick wins，不在 changes 中）
 
@@ -44,3 +44,5 @@
 2026-11-03 owner明确「先归档推送B4，B3继续完成」：B4实现6f65f7f，归档2026-11-03-comic-card-hit-target-fix；B3保持活动change，未提交返工实现、未归档，待剩余窄回归/GUI与跟随默认语义完成后另行验收。
 
 2026-11-03 owner裁定B3跟随默认：保持方案绑定并保存共享继承行为，按各目标上层模式策略动态求值；planner补充D2.4/spec/tasks3.5。既有窄35测试、已定GUI/真实重启及正常构建完成，待继承分支实现后最终回归及独立复核。
+
+2026-11-03 owner最终验收B3通过并授权归档推送；实现526c311，归档2026-11-03-reader-preset-state-recovery。历史未完成记录以上述最终状态为准；接续F8 → F9。
