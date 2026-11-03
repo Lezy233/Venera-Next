@@ -68,6 +68,7 @@ class AnimatedTapRegion extends StatefulWidget {
     required this.child,
     required this.onTap,
     this.borderRadius = 0,
+    this.footer,
   });
 
   final Widget child;
@@ -75,6 +76,9 @@ class AnimatedTapRegion extends StatefulWidget {
   final void Function() onTap;
 
   final double borderRadius;
+
+  /// Content sharing the tap and hover area, outside the elevated surface.
+  final Widget? footer;
 
   @override
   State<AnimatedTapRegion> createState() => _AnimatedTapRegionState();
@@ -85,6 +89,14 @@ class _AnimatedTapRegionState extends State<AnimatedTapRegion> {
 
   @override
   Widget build(BuildContext context) {
+    final surface = AnimatedPhysicalModel(
+      duration: fastAnimationDuration,
+      elevation: isHovered ? 3 : 1,
+      color: context.colorScheme.surface,
+      shadowColor: context.colorScheme.shadow,
+      borderRadius: BorderRadius.circular(widget.borderRadius),
+      child: widget.child,
+    );
     return MouseRegion(
       onEnter: (_) {
         setState(() {
@@ -98,14 +110,12 @@ class _AnimatedTapRegionState extends State<AnimatedTapRegion> {
       },
       child: GestureDetector(
         onTap: widget.onTap,
-        child: AnimatedPhysicalModel(
-          duration: fastAnimationDuration,
-          elevation: isHovered ? 3 : 1,
-          color: context.colorScheme.surface,
-          shadowColor: context.colorScheme.shadow,
-          borderRadius: BorderRadius.circular(widget.borderRadius),
-          child: widget.child,
-        ),
+        child: widget.footer == null
+            ? surface
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [surface, widget.footer!],
+              ),
       ),
     );
   }

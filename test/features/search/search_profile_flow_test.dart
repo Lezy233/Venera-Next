@@ -1,6 +1,8 @@
 import 'dart:collection';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:venera_next/features/comic_widgets/comic_tile.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:venera_next/features/comic_source/comic_source.dart';
 import 'package:venera_next/features/search/search_page.dart';
@@ -242,6 +244,57 @@ void main() {
       await tester.tap(find.text('Cancel'));
       await frames(tester);
       expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
+    'aggregate title and cover open exact source detail once, not full results',
+    (tester) async {
+      final opened = <(String, String)>[];
+      configureComicWidgets(
+        comicPageBuilder:
+            ({required id, required sourceKey, cover, title, heroID}) {
+              opened.add((id, sourceKey));
+              return const Scaffold(
+                body: Text('Controlled detail destination'),
+              );
+            },
+      );
+      addTearDown(configureComicWidgets);
+      await host(tester, const AggregatedSearchPage(keyword: 'Book'));
+      for (final source in sources) {
+        final name = 'Controlled result 1 · ${source.displayName}';
+        final tile = find.ancestor(
+          of: find.text(name),
+          matching: find.byType(SimpleComicTile),
+        );
+        final paragraph = tester.renderObject<RenderParagraph>(
+          find.descendant(of: find.text(name), matching: find.byType(RichText)),
+        );
+        final glyph = paragraph
+            .getBoxesForSelection(
+              TextSelection(baseOffset: 0, extentOffset: name.length),
+            )
+            .first;
+        final titlePoint = paragraph.localToGlobal(glyph.toRect().center);
+        final coverPoint = tester.getTopLeft(tile) + const Offset(40, 60);
+        for (final point in [titlePoint, coverPoint]) {
+          final before = opened.length;
+          await tester.tapAt(point);
+          await frames(tester);
+          expect(opened.length, before + 1);
+          expect(opened.last, ('result-1', source.key));
+          expect(find.byType(SearchResultPage), findsNothing);
+          expect(find.text('Controlled detail destination'), findsOneWidget);
+          navigator.currentState!.pop();
+          await frames(tester);
+        }
+      }
+      expect(opened, [
+        ('result-1', 'a'),
+        ('result-1', 'a'),
+        ('result-1', 'b'),
+        ('result-1', 'b'),
+      ]);
     },
   );
   testWidgets(
