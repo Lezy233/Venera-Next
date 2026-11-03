@@ -223,6 +223,14 @@ class ReaderPresetManagement extends StatefulWidget {
 class _ReaderPresetManagementState extends State<ReaderPresetManagement> {
   bool _busy = false;
   String? _error;
+  final _rowFocus = <String, FocusNode>{};
+  List<String>? _dragIds;
+  List<ReaderPreset>? _dragItems;
+  int? _dragIndex;
+  bool get _locked =>
+      _busy ||
+      widget.store.recovery != null ||
+      widget.store.orderRecovery != null;
 
   @override
   void initState() {
@@ -231,13 +239,47 @@ class _ReaderPresetManagementState extends State<ReaderPresetManagement> {
   }
 
   void _refresh() {
-    if (mounted) setState(() {});
+    if (mounted && _dragIds == null) setState(() {});
   }
 
   @override
   void dispose() {
     appdata.settings.removeListener(_refresh);
+    for (final node in _rowFocus.values) {
+      node.dispose();
+    }
     super.dispose();
+  }
+
+  Future<void> _move(String id, String adjacent, {required bool before}) async {
+    if (_locked) return;
+    final owner = widget.store.capture();
+    try {
+      await _edit(() => owner.move(id, adjacent, before: before));
+    } catch (error) {
+      if (mounted && owner.isCurrent) {
+        setState(() => _error = error.toString());
+      }
+    }
+    if (mounted && owner.isCurrent) {
+      _rowFocus[id]?.requestFocus();
+    }
+  }
+
+  void _reorder(List<String> visibleIds, int oldIndex, int newIndex) {
+    final ids = _dragIds ?? visibleIds;
+    _dragIds = null;
+    _dragItems = null;
+    _dragIndex = null;
+    if (_locked || oldIndex == newIndex) return;
+    if (oldIndex >= ids.length || newIndex >= ids.length) return;
+    final id = ids[oldIndex];
+    // onReorderItem supplies the destination after removing the original row.
+    if (newIndex > oldIndex) {
+      unawaited(_move(id, ids[newIndex], before: false));
+    } else {
+      unawaited(_move(id, ids[newIndex], before: true));
+    }
   }
 
   Future<void> _edit(Future<void> Function() operation) async {
@@ -268,7 +310,7 @@ class _ReaderPresetManagementState extends State<ReaderPresetManagement> {
   );
 
   Future<void> _action(ReaderPreset preset, String action) async {
-    if (_busy) return;
+    if (_locked) return;
     if (action == 'rename') {
       await _name(preset);
       return;
@@ -323,89 +365,212 @@ class _ReaderPresetManagementState extends State<ReaderPresetManagement> {
 
   @override
   Widget build(BuildContext context) {
-    final presets = widget.store.list;
+    final presets = _dragItems ?? widget.store.list;
     return PopScope(
       canPop: !_busy,
       child: Scaffold(
         appBar: Appbar(title: Text('Reading mode presets'.tl)),
         body: SafeArea(
-          child: ListView(
+          child: ReorderableListView.builder(
             padding: const EdgeInsets.all(AppSpacing.lg),
-            children: [
-              Align(
-                alignment: AlignmentDirectional.centerStart,
-                child: TextButton(
-                  onPressed: _busy ? null : _name,
-                  child: Text('New preset'.tl),
-                ),
-              ),
-              if (widget.store.recovery != null) ...[
-                Text(
-                  'Save failed; recovery incomplete'.tl,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-                TextButton(
-                  onPressed: _busy
-                      ? null
-                      : () async {
-                          try {
-                            await _edit(widget.store.retryRecovery);
-                          } catch (error) {
-                            if (mounted) {
-                              setState(() => _error = error.toString());
-                            }
-                          }
-                        },
-                  child: Text('Retry recovery'.tl),
-                ),
-              ],
-              if (_error != null)
-                Text(
-                  _error!,
-                  style: TextStyle(color: Theme.of(context).colorScheme.error),
-                ),
-              if (presets.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
-                  child: Text(
-                    'No presets yet. Create one from your current reading settings.'
-                        .tl,
+            buildDefaultDragHandles: false,
+            onReorderStart: (index) {
+              _dragItems = presets;
+              _dragIds = presets.map((p) => p.id).toList();
+              _dragIndex = index;
+            },
+            onReorderEnd: (index) {
+              // No callback follows a drop back into the original slot.
+              if (index == _dragIndex || index == (_dragIndex ?? -2) + 1) {
+                _dragIds = null;
+                _dragItems = null;
+                _dragIndex = null;
+                _refresh();
+              }
+            },
+            onReorderItem: (oldIndex, newIndex) =>
+                _reorder(presets.map((p) => p.id).toList(), oldIndex, newIndex),
+            itemCount: presets.length,
+            header: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: TextButton(
+                    onPressed: _locked ? null : _name,
+                    child: Text('New preset'.tl),
                   ),
                 ),
-              for (final preset in presets)
-                ListTile(
-                  title: Text(preset.name),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
+                if (widget.store.recovery != null) ...[
+                  Text(
+                    'Save failed; recovery incomplete'.tl,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _busy
+                        ? null
+                        : () async {
+                            try {
+                              await _edit(widget.store.retryRecovery);
+                            } catch (error) {
+                              if (mounted) {
+                                setState(() => _error = error.toString());
+                              }
+                            }
+                          },
+                    child: Text('Retry recovery'.tl),
+                  ),
+                ],
+                if (widget.store.orderRecovery != null) ...[
+                  Text(
+                    'Save failed; recovery incomplete'.tl,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: _busy
+                        ? null
+                        : () async {
+                            final owner = widget.store.capture();
+                            try {
+                              await _edit(owner.retryOrderRecovery);
+                            } catch (error) {
+                              if (mounted && owner.isCurrent) {
+                                setState(() => _error = error.toString());
+                              }
+                            }
+                          },
+                    child: Text('Retry recovery'.tl),
+                  ),
+                ],
+                if (_error != null)
+                  Text(
+                    _error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                if (presets.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.xl,
+                    ),
+                    child: Text(
+                      'No presets yet. Create one from your current reading settings.'
+                          .tl,
+                    ),
+                  ),
+              ],
+            ),
+            itemBuilder: (context, index) {
+              final preset = presets[index];
+              return Focus(
+                key: ValueKey(preset.id),
+                focusNode: _rowFocus.putIfAbsent(preset.id, () => FocusNode()),
+                skipTraversal: true,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      TextButton(
-                        onPressed: _busy || widget.store.recovery != null
-                            ? null
-                            : () => _action(preset, 'apply'),
-                        child: Text('Apply'.tl),
+                      Row(
+                        children: [
+                          ReorderableDragStartListener(
+                            key: ValueKey('preset-drag-${preset.id}'),
+                            index: index,
+                            enabled: !_locked && presets.length > 1,
+                            child: Tooltip(
+                              message: 'Drag to reorder'.tl,
+                              child: Semantics(
+                                label: 'Drag to reorder'.tl,
+                                child: SizedBox(
+                                  width: kMinInteractiveDimension,
+                                  height: kMinInteractiveDimension,
+                                  child: Icon(
+                                    Icons.drag_handle,
+                                    color: _locked || presets.length < 2
+                                        ? Theme.of(context).disabledColor
+                                        : Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Tooltip(
+                              message: preset.name,
+                              child: Text(
+                                preset.name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      PopupMenuButton<String>(
-                        enabled: !_busy,
-                        onSelected: (action) => _action(preset, action),
-                        itemBuilder: (_) => [
-                          PopupMenuItem(
-                            value: 'rename',
-                            child: Text('Rename'.tl),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          IconButton(
+                            key: ValueKey('preset-up-${preset.id}'),
+                            tooltip: 'Move up'.tl,
+                            icon: const Icon(Icons.arrow_upward),
+                            onPressed: _locked || index == 0
+                                ? null
+                                : () => _move(
+                                    preset.id,
+                                    presets[index - 1].id,
+                                    before: true,
+                                  ),
                           ),
-                          PopupMenuItem(
-                            value: 'update',
-                            child: Text('Update to current settings'.tl),
+                          IconButton(
+                            key: ValueKey('preset-down-${preset.id}'),
+                            tooltip: 'Move down'.tl,
+                            icon: const Icon(Icons.arrow_downward),
+                            onPressed: _locked || index == presets.length - 1
+                                ? null
+                                : () => _move(
+                                    preset.id,
+                                    presets[index + 1].id,
+                                    before: false,
+                                  ),
                           ),
-                          PopupMenuItem(
-                            value: 'delete',
-                            child: Text('Delete'.tl),
+                          TextButton(
+                            onPressed: _locked
+                                ? null
+                                : () => _action(preset, 'apply'),
+                            child: Text('Apply'.tl),
+                          ),
+                          PopupMenuButton<String>(
+                            enabled: !_locked,
+                            onSelected: (action) => _action(preset, action),
+                            itemBuilder: (_) => [
+                              PopupMenuItem(
+                                value: 'rename',
+                                child: Text('Rename'.tl),
+                              ),
+                              PopupMenuItem(
+                                value: 'update',
+                                child: Text('Update to current settings'.tl),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Text('Delete'.tl),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ],
                   ),
                 ),
-            ],
+              );
+            },
           ),
         ),
       ),

@@ -1,5 +1,7 @@
 {
   "zh_CN": {
+    "Drag to reorder": "拖动调整顺序",
+    "Preset list changed; try again": "方案列表已变更，请重试",
     "Saving search selection": "正在保存搜索选择",
     "Last search source unavailable; no search sources": "上次来源不可用，当前无可搜索来源",
     "Last search source unavailable; using @name": "上次来源不可用，已使用 @name",
@@ -1077,6 +1079,8 @@
     "Manage search profile": "管理搜索方案"
   },
   "zh_TW": {
+    "Drag to reorder": "拖動調整順序",
+    "Preset list changed; try again": "方案清單已變更，請重試",
     "Saving search selection": "正在儲存搜尋選擇",
     "Last search source unavailable; no search sources": "上次來源不可用，目前無可搜尋來源",
     "Last search source unavailable; using @name": "上次來源不可用，已使用 @name",

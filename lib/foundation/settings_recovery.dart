@@ -55,10 +55,42 @@ Map<String, dynamic> restoreOwnedSettings(
         for (final item in now as List) item['id'],
         for (final item in old as List) item['id'],
       };
-      return [
+      final result = [
         for (final id in ids)
           if (restored.containsKey(id)) restored[id],
       ];
+      // Order has its own ownership, independent of record fields. Restore
+      // only when the surviving shared IDs still have our published order.
+      // Concurrent insertions keep their slots; deletions are not resurrected,
+      // and a subsequent reorder takes ownership away from this rollback.
+      final oldIds = [for (final item in old) item['id']];
+      final writtenIds = [for (final item in written as List) item['id']];
+      final shared = oldIds.toSet().intersection(writtenIds.toSet());
+      final oldOrder = oldIds.where(shared.contains).toList();
+      final writtenOrder = writtenIds.where(shared.contains).toList();
+      if (!equal(oldOrder, writtenOrder)) {
+        final surviving = {
+          for (final item in result)
+            if (shared.contains(item['id'])) item['id'],
+        };
+        final currentOrder = [
+          for (final item in result)
+            if (surviving.contains(item['id'])) item['id'],
+        ];
+        if (equal(
+          currentOrder,
+          writtenOrder.where(surviving.contains).toList(),
+        )) {
+          final restoredOrder = oldOrder.where(surviving.contains).iterator;
+          for (var index = 0; index < result.length; index++) {
+            if (surviving.contains(result[index]['id'])) {
+              restoredOrder.moveNext();
+              result[index] = restored[restoredOrder.current];
+            }
+          }
+        }
+      }
+      return result;
     }
     if ((old is Map || identical(old, _absent)) &&
         (written is Map || identical(written, _absent)) &&

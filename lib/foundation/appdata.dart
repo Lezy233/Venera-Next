@@ -118,6 +118,8 @@ class Appdata with Init {
     // saves keep this true so retrying an already-published value writes again.
     bool persistIfUnchanged = true,
     String? recoveryKey,
+    // Order-only writes must preserve even legacy raw bindings/records.
+    bool migrateReaderPresets = true,
   }) => _edit(
     (draft, _) {
       final previousExclusions = jsonEncode(draft['disableSyncFields']);
@@ -136,6 +138,7 @@ class Appdata with Init {
     beforePersist: beforePersist,
     recoveryKey: recoveryKey,
     persistIfUnchanged: persistIfUnchanged,
+    migrateReaderPresets: migrateReaderPresets,
     readerOwnership: (
       App.dataPath,
       settings['deviceId'],
@@ -183,6 +186,7 @@ class Appdata with Init {
     Object? Function(Map<String, String> contents)? beforePersist,
     String? recoveryKey,
     (String, Object?, Map<String, dynamic>)? readerOwnership,
+    bool migrateReaderPresets = true,
   }) => AppDataOperations.instance.access(() {
     final path = App.dataPath;
     return _enqueueWrite(() async {
@@ -203,7 +207,7 @@ class Appdata with Init {
       draft._readerOwnership = readerOwnership;
       draft._readerAdmissionDeviceId = draft._data['deviceId'];
       draft._readerRecoveryKey = recoveryKey;
-      ReaderPresetValues(draft._data).migrate();
+      if (migrateReaderPresets) ReaderPresetValues(draft._data).migrate();
       final history = List<String>.from(before['searchHistory'] as List);
       final result = change(draft, history);
       _requireSynchronousEdit(result);

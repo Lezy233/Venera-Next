@@ -145,6 +145,48 @@ class ReaderPresetStore {
 
   List<ReaderPreset> get list => _list(appdata.settings);
 
+  static const _orderRecoveryKey = 'reader-preset-order';
+
+  SettingsRecoveryFailure? get orderRecovery =>
+      appdata.settingsRecovery(_path ?? App.dataPath, _orderRecoveryKey);
+
+  Future<void> retryOrderRecovery() async {
+    final owner = capture();
+    owner._checkPath();
+    await appdata.retrySettingsRecovery(owner._path!, _orderRecoveryKey);
+  }
+
+  /// Capture identities rather than a page's stale objects or list indices.
+  /// The serialized draft is authoritative for both position and content.
+  Future<bool> move(String id, String adjacentId, {required bool before}) {
+    final owner = capture();
+    return appdata.updateSettings(
+      (settings) {
+        owner._checkPath();
+        final raw = settings['readerModePresets'];
+        final items = raw is List ? List<dynamic>.of(raw) : <dynamic>[];
+        int indexOf(String id) =>
+            items.indexWhere((p) => p is Map && p['id'] == id);
+        final from = indexOf(id);
+        final target = indexOf(adjacentId);
+        if (from < 0 || target < 0) {
+          throw StateError('Preset list changed; try again'.tl);
+        }
+        if (id == adjacentId) return false;
+        var destination = target + (before ? 0 : 1);
+        if (from < destination) destination--;
+        if (destination == from) return false;
+        final item = items.removeAt(from);
+        items.insert(destination, item);
+        settings['readerModePresets'] = items;
+        return true;
+      },
+      recoveryKey: _orderRecoveryKey,
+      persistIfUnchanged: false,
+      migrateReaderPresets: false,
+    );
+  }
+
   String? get selectedId {
     if (scope == ReaderPreferenceScope.active) return capture().selectedId;
     if (recovery != null) return null;
