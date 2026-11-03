@@ -7,41 +7,32 @@ import 'translations.dart';
 
 import 'appdata.dart';
 import 'comic_layout.dart';
-import 'preferences.dart';
 import 'reader_preference_store.dart';
 import 'reader_preferences.dart';
+import 'reader_preset_values.dart';
+export 'reader_preset_values.dart' show readerPresetPreferences;
 import 'reader_settings.dart';
 
-/// Fixed snapshot boundary. New preferences do not enter old presets implicitly.
-const readerPresetPreferences = <Preference<Object>>[
-  ReaderPreferences.readerMode,
-  ReaderPreferences.autoReaderMode,
-  ReaderPreferences.pagedReaderMode,
-  ReaderPreferences.longStripReaderMode,
-  ReaderPreferences.readerScreenPicNumberForPortrait,
-  ReaderPreferences.readerScreenPicNumberForLandscape,
-  ReaderPreferences.showSingleImageOnFirstPage,
-  ReaderPreferences.limitImageWidth,
-  ReaderPreferences.readerSideMargin,
-  ReaderPreferences.splitDualPage,
-  ReaderPreferences.splitDualPageInvert,
-  ReaderPreferences.enablePageAnimation,
-  ReaderPreferences.enableTapToTurnPages,
-  ReaderPreferences.reverseTapToTurnPages,
-  ReaderPreferences.enableDoubleTapToZoom,
-  ReaderPreferences.longPressAction,
-  ReaderPreferences.longPressZoomPosition,
-  ReaderPreferences.quickCollectImage,
-  ReaderPreferences.enableTurnPageByVolumeKey,
-];
-
 class ReaderPreset {
-  ReaderPreset(this.id, this.name, Map<String, Object> values)
-    : values = Map.unmodifiable(values);
+  ReaderPreset(
+    this.id,
+    this.name,
+    Map<String, Object> values, {
+    String modeBehavior = 'fixed',
+  }) : modeBehavior = modeBehavior == 'inherit' ? 'inherit' : 'fixed',
+       values = Map.unmodifiable(values);
   final String id, name;
+  final String modeBehavior;
   final Map<String, Object> values;
+  bool get inheritsMode => modeBehavior == 'inherit';
+  bool get isValid => values.isNotEmpty || inheritsMode;
 
-  Map<String, Object> toJson() => {'id': id, 'name': name, 'values': values};
+  Map<String, Object> toJson() => {
+    'id': id,
+    'name': name,
+    'values': values,
+    'modeBehavior': modeBehavior,
+  };
 }
 
 /// UI translates the message key; storage validation remains UI-independent.
@@ -71,7 +62,8 @@ class ReaderPresetStore {
     this._deviceId,
     this._admittedDeviceId,
   );
-  final String? _path, _deviceId, _admittedDeviceId;
+  final String? _path, _deviceId;
+  final Object? _admittedDeviceId;
 
   /// Freeze ownership before waiting for the serialized writer.
   ReaderPresetStore capture() {
@@ -96,7 +88,7 @@ class ReaderPresetStore {
           : target == ReaderPreferenceScope.device
           ? const Uuid().v4()
           : null,
-      appdata.settings['deviceId'] as String?,
+      appdata.settings['deviceId'],
     );
   }
 
@@ -129,15 +121,26 @@ class ReaderPresetStore {
     }
   }
 
-  SettingsRecoveryFailure? get recovery =>
-      appdata.settingsRecovery(_path ?? App.dataPath, recoveryKey);
+  SettingsRecoveryFailure? get recovery {
+    final path = _path ?? App.dataPath;
+    final id = appdata.settings.readerPresetId(selectionKey);
+    return appdata.settingsRecovery(path, recoveryKey) ??
+        (id == null
+            ? null
+            : appdata.settingsRecovery(path, jsonEncode(['preset', id])));
+  }
 
   Future<void> retryRecovery() {
     final owner = capture();
     if (!owner.isCurrent) {
       return Future.error(StateError('Reading settings target changed'.tl));
     }
-    return appdata.retrySettingsRecovery(owner._path!, owner.recoveryKey);
+    final id = appdata.settings.readerPresetId(owner.selectionKey);
+    final key =
+        appdata.settingsRecovery(owner._path!, owner.recoveryKey) != null
+        ? owner.recoveryKey
+        : jsonEncode(['preset', id]);
+    return appdata.retrySettingsRecovery(owner._path, key);
   }
 
   List<ReaderPreset> get list => _list(appdata.settings);
@@ -145,31 +148,7 @@ class ReaderPresetStore {
   String? get selectedId {
     if (scope == ReaderPreferenceScope.active) return capture().selectedId;
     if (recovery != null) return null;
-    final selections = appdata.settings['readerPresetSelections'];
-    final id = selections is Map ? selections[selectionKey] : null;
-    if (id is! String) return null;
-    final preset = list.where((p) => p.id == id).firstOrNull;
-    if (preset == null || preset.values.isEmpty) return null;
-    final store = ReaderPreferenceStore(
-      settings: appdata.settings,
-      scope: scope,
-      comicId: comicId,
-      sourceKey: sourceKey,
-    );
-    final values = {
-      for (final preference in readerPresetPreferences)
-        preference.key: store.read(preference),
-    };
-    final mode = scope == ReaderPreferenceScope.comic
-        ? appdata.settings.readerSettings(comicId!, sourceKey!).readerMode
-        : ReaderSettings.resolve(global: values).readerMode;
-    for (final entry in preset.values.entries) {
-      if (entry.value !=
-          (entry.key == 'readerMode' ? mode : values[entry.key])) {
-        return null;
-      }
-    }
-    return id;
+    return appdata.settings.readerPresetId(selectionKey);
   }
 
   void _select(Settings settings, String? id) {
@@ -185,12 +164,20 @@ class ReaderPresetStore {
       selections[selectionKey] = id;
     }
     settings['readerPresetSelections'] = selections;
+    final bindings = settings['readerPresetBindings'];
+    settings['readerPresetBindings'] = {
+      if (bindings is Map) ...bindings,
+      selectionKey: id,
+    };
   }
 
   Future<void> clearSelection() {
     final target = capture();
     return appdata.updateSettings((settings) {
       target._checkPath();
+      final id = settings.readerPresetId(target.selectionKey);
+      settings.readerTransaction(target.selectionKey, [?id]);
+      target._preserve(settings);
       target._select(settings, null);
     }, recoveryKey: target.recoveryKey);
   }
@@ -199,6 +186,8 @@ class ReaderPresetStore {
     final target = capture();
     return appdata.updateSettings((settings) {
       target._checkPath();
+      final id = settings.readerPresetId(target.selectionKey);
+      settings.readerTransaction(target.selectionKey, [?id]);
       target._withDevice(settings, () {
         switch (target.scope) {
           case ReaderPreferenceScope.global:
@@ -249,13 +238,20 @@ class ReaderPresetStore {
             item['id'] is String &&
             item['name'] is String &&
             item['values'] is Map)
-          ReaderPreset(item['id'] as String, item['name'] as String, {
-            for (final preference in readerPresetPreferences)
-              if ((item['values'] as Map).containsKey(preference.key))
-                preference.key: preference.normalize(
-                  item['values'][preference.key],
-                ),
-          }),
+          ReaderPreset(
+            item['id'] as String,
+            item['name'] as String,
+            {
+              for (final preference in readerPresetPreferences)
+                if ((item['values'] as Map).containsKey(preference.key))
+                  preference.key: preference.normalize(
+                    item['values'][preference.key],
+                  ),
+            },
+            modeBehavior: item['modeBehavior'] == 'inherit'
+                ? 'inherit'
+                : 'fixed',
+          ),
     ];
   }
 
@@ -321,22 +317,124 @@ class ReaderPresetStore {
         final normalized = _name(name, items, id);
         _write(settings, [
           for (final item in items)
-            item.id == id ? ReaderPreset(id, normalized, item.values) : item,
+            item.id == id
+                ? ReaderPreset(
+                    id,
+                    normalized,
+                    item.values,
+                    modeBehavior: item.modeBehavior,
+                  )
+                : item,
         ]);
       });
 
-  Future<void> updateFromCurrent(String id) => appdata.updateSettings((
-    settings,
-  ) {
-    _write(settings, [
-      for (final item in _list(settings))
-        item.id == id ? ReaderPreset(id, item.name, _snapshot(settings)) : item,
-    ]);
-  });
+  Future<void> updateFromCurrent(String id) {
+    final owner = capture();
+    return appdata.updateSettings((settings) {
+      owner._checkPath();
+      settings.readerTransaction(owner.selectionKey, [id]);
+      final snapshot = owner._snapshot(settings);
+      _write(settings, [
+        for (final item in _list(settings))
+          item.id == id ? ReaderPreset(id, item.name, snapshot) : item,
+      ]);
+    }, recoveryKey: owner.recoveryKey);
+  }
 
-  Future<void> delete(String id) => appdata.updateSettings((settings) {
-    _write(settings, _list(settings).where((item) => item.id != id).toList());
-  });
+  void _preserve(Settings settings, {bool switching = false}) {
+    final id = settings.readerPresetId(selectionKey);
+    final preset = _list(settings).where((p) => p.id == id).firstOrNull;
+    if (preset == null) return;
+    final deviceBefore = settings['deviceId'];
+    try {
+      settings.materializeReaderValues(
+        () => _withDevice(settings, () {
+          for (final entry in preset.values.entries) {
+            if (readerPresetModeKeys.contains(entry.key) &&
+                (preset.inheritsMode ||
+                    switching && scope == ReaderPreferenceScope.global)) {
+              continue;
+            }
+            final value =
+                entry.value is num &&
+                    (entry.value as num).toInt() == entry.value
+                ? (entry.value as num).toInt()
+                : entry.value;
+            // Preserve the layer's enable switch while detaching its latest values.
+            switch (scope) {
+              case ReaderPreferenceScope.global:
+                settings[entry.key] = value;
+              case ReaderPreferenceScope.device:
+                settings.setDeviceReaderSetting(entry.key, value);
+              case ReaderPreferenceScope.comic:
+                settings.setReaderSetting(
+                  comicId!,
+                  sourceKey!,
+                  entry.key == 'readerMode' ? 'readerModeOverride' : entry.key,
+                  value,
+                );
+              case ReaderPreferenceScope.active:
+                throw StateError('Unresolved scope');
+            }
+          }
+          if (preset.inheritsMode) {
+            settings.preserveReaderModeInheritance(
+              scope.name,
+              comicId,
+              sourceKey,
+            );
+          }
+        }),
+      );
+    } finally {
+      if (scope == ReaderPreferenceScope.device) {
+        settings['deviceId'] = deviceBefore;
+      }
+    }
+  }
+
+  Future<void> delete(String id) {
+    final owner = capture();
+    return appdata.updateSettings((settings) {
+      owner._checkPath();
+      settings.readerTransaction(owner.selectionKey, [id]);
+      final selections = settings['readerPresetSelections'];
+      if (selections is Map) {
+        for (final key in selections.keys.toList()) {
+          if (selections[key] != id || key is! String) continue;
+          List identity;
+          try {
+            identity = jsonDecode(key) as List;
+          } catch (_) {
+            continue;
+          }
+          final target = switch (identity.first) {
+            'global' => const ReaderPresetStore(),
+            'device' => ReaderPresetStore._bound(
+              ReaderPreferenceScope.device,
+              null,
+              null,
+              owner._path,
+              identity[1] as String?,
+              identity[1] as String?,
+            ),
+            'comic' => ReaderPresetStore(
+              scope: ReaderPreferenceScope.comic,
+              sourceKey: identity[1] as String?,
+              comicId: identity[2] as String?,
+            ),
+            _ => null,
+          };
+          if (target != null) {
+            settings.readerTransaction(key, [id]);
+            target._preserve(settings);
+            target._select(settings, null);
+          }
+        }
+      }
+      _write(settings, _list(settings).where((item) => item.id != id).toList());
+    }, recoveryKey: owner.recoveryKey);
+  }
 
   Future<List<String>> apply(String id, ReaderPreferenceScope target) {
     final owner = target == scope
@@ -352,23 +450,41 @@ class ReaderPresetStore {
   Future<List<String>> _apply(String id) => appdata.updateSettings((settings) {
     _checkPath();
     final preset = _list(settings).where((item) => item.id == id).firstOrNull;
-    if (preset == null || preset.values.isEmpty) return <String>[];
-    _withDevice(settings, () {
-      final store = ReaderPreferenceStore(
-        settings: settings,
-        scope: scope,
-        comicId: comicId,
-        sourceKey: sourceKey,
-      );
-      for (final entry in preset.values.entries) {
-        if (entry.key == ReaderPreferences.readerMode.key &&
-            scope == ReaderPreferenceScope.comic) {
-          store.writeComicModeOverride(entry.value as String);
-        } else {
-          store.writeRaw(entry.key, entry.value);
+    if (preset == null || !preset.isValid) return <String>[];
+    final previous = settings.readerPresetId(selectionKey);
+    settings.readerTransaction(selectionKey, [id, ?previous]);
+    _preserve(settings, switching: true);
+    settings.materializeReaderValues(
+      () => _withDevice(settings, () {
+        final store = ReaderPreferenceStore(
+          settings: settings,
+          scope: scope,
+          comicId: comicId,
+          sourceKey: sourceKey,
+        );
+        for (final entry in preset.values.entries) {
+          // Global raw mode fields are the independent base for inherit.
+          // Bound fixed values already resolve through the shared library.
+          if (readerPresetModeKeys.contains(entry.key) &&
+              (preset.inheritsMode || scope == ReaderPreferenceScope.global)) {
+            continue;
+          }
+          if (entry.key == ReaderPreferences.readerMode.key &&
+              scope == ReaderPreferenceScope.comic) {
+            store.writeComicModeOverride(entry.value as String);
+          } else {
+            store.writeRaw(entry.key, entry.value);
+          }
         }
-      }
-    });
+        if (preset.inheritsMode) {
+          settings.preserveReaderModeInheritance(
+            scope.name,
+            comicId,
+            sourceKey,
+          );
+        }
+      }),
+    );
     // A first device edit may create the existing settings device identity.
     final keyOwner = _deviceId == null && scope == ReaderPreferenceScope.device
         ? ReaderPresetStore._bound(
@@ -381,6 +497,9 @@ class ReaderPresetStore {
           )
         : this;
     keyOwner._select(settings, id);
-    return preset.values.keys.toList();
+    return {
+      ...preset.values.keys,
+      if (preset.inheritsMode) 'readerMode',
+    }.toList();
   }, recoveryKey: recoveryKey);
 }

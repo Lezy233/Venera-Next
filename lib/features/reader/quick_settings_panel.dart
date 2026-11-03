@@ -100,7 +100,16 @@ class _ReaderQuickSettingsPanelState
       releasePreview?.call();
       return;
     }
+    final inheritMode =
+        preference.key == ReaderPreferences.readerMode.key &&
+        value == 'default';
     final normalized = preference.normalize(value);
+    final owner = ReaderPresetStore(
+      scope: ReaderPreferenceScope.comic,
+      comicId: comic,
+      sourceKey: source,
+    ).capture();
+    final selected = appdata.settings.readerPresetId(owner.selectionKey);
     try {
       await saveSetting(
         (comic, source, preference.key),
@@ -114,7 +123,9 @@ class _ReaderQuickSettingsPanelState
           if (identical(preference, ReaderPreferences.readerMode)) {
             // Full settings uses this same dedicated override, independent of
             // the other comic settings switch and automatic layout detection.
-            store.writeComicModeOverride(normalized as String);
+            store.writeComicModeOverride(
+              inheritMode ? null : normalized as String,
+            );
           } else {
             store.write(preference, normalized);
           }
@@ -123,8 +134,11 @@ class _ReaderQuickSettingsPanelState
           }
         }),
         onSaved: () => changed(preference.key),
+        requireCurrentForFeedback: true,
         isCurrent: () =>
             mounted &&
+            owner.isCurrent &&
+            appdata.settings.readerPresetId(owner.selectionKey) == selected &&
             comic == widget.comicId &&
             source == widget.sourceKey &&
             current(),
@@ -174,11 +188,34 @@ class _ReaderQuickSettingsPanelState
         vertical: AppSpacing.sm,
       ),
       child: DropdownButtonFormField<String>(
-        key: ValueKey(_store.read(ReaderPreferences.readerMode)),
-        initialValue: _store.read(ReaderPreferences.readerMode),
+        key: ValueKey((
+          widget.comicId,
+          widget.sourceKey,
+          appdata.settings.comicReaderModeOverride(
+            widget.comicId,
+            widget.sourceKey,
+          ),
+          _store.read(ReaderPreferences.readerMode),
+        )),
+        initialValue:
+            appdata.settings.comicReaderModeOverride(
+                  widget.comicId,
+                  widget.sourceKey,
+                ) ==
+                null
+            ? 'default'
+            : _store.read(ReaderPreferences.readerMode),
         isExpanded: true,
-        decoration: InputDecoration(labelText: 'Reading Mode'.tl),
+        decoration: InputDecoration(
+          labelText: 'Reading Mode'.tl,
+          helperText: 'Currently using: @mode'.tlParams({
+            'mode':
+                readerModeLabels[_store.read(ReaderPreferences.readerMode)] ??
+                _store.read(ReaderPreferences.readerMode),
+          }),
+        ),
         items: [
+          DropdownMenuItem(value: 'default', child: Text('Follow default'.tl)),
           for (final entry in readerModeLabels.entries)
             DropdownMenuItem(
               value: entry.key,

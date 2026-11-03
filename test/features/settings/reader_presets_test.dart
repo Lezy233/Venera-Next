@@ -9,17 +9,26 @@ import 'package:venera_next/features/reader/brightness.dart';
 import 'package:venera_next/features/reader/quick_settings_panel.dart';
 import 'package:venera_next/features/settings/reader.dart';
 import 'package:venera_next/features/settings/reader_presets.dart';
+import 'package:venera_next/features/settings/reader_mode.dart';
 import 'package:venera_next/foundation/app.dart';
 import 'package:venera_next/foundation/appdata.dart';
 import 'package:venera_next/foundation/reader_presets.dart';
 import 'package:venera_next/foundation/reader_preference_store.dart';
 import 'package:venera_next/foundation/reader_preferences.dart';
 
-Future<void> _drain(WidgetTester tester) async {
+Future<void> _drain(
+  WidgetTester tester, {
+  bool persist = true,
+  bool Function()? until,
+}) async {
+  // Menu results schedule their production save in the widget microtask zone.
+  // Admit that save before putting the maintenance barrier behind it.
+  await tester.pump();
   var done = false;
   Object? failure;
-  appdata
-      .saveData(false)
+  (persist
+          ? appdata.saveData(false)
+          : appdata.runPersistenceMaintenance((_) async {}))
       .then(
         (_) => done = true,
         onError: (Object error) {
@@ -27,13 +36,14 @@ Future<void> _drain(WidgetTester tester) async {
           done = true;
         },
       );
-  for (var i = 0; i < 500 && !done; i++) {
+  for (var i = 0; i < 500 && (!done || until?.call() == false); i++) {
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 10)),
     );
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
   }
   expect(done, true);
+  expect(until?.call() ?? true, true);
   expect(failure, isNull);
   await tester.pumpAndSettle();
 }
@@ -74,6 +84,404 @@ void main() {
     App.dataPath = oldPath;
     root.deleteSync(recursive: true);
   });
+
+  testWidgets(
+    'B3 Follow default keeps exact binding and persists shared inheritance',
+    (tester) async {
+      tester.view.physicalSize = const Size(1100, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      appdata.settings['readerMode'] = 'continuousTopToBottom';
+      final preset = (await tester.runAsync(
+        () => const ReaderPresetStore().createFromCurrent('Strip'),
+      ))!;
+      appdata.settings['readerMode'] = 'waterfallTopToBottom';
+      const target = ReaderPresetStore(
+        scope: ReaderPreferenceScope.comic,
+        comicId: 'book',
+        sourceKey: 'local',
+      );
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: ReaderSettings(comicId: 'book', comicSource: 'local'),
+          ),
+        ),
+      );
+      await tester.tap(_presetDropdown);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Strip').last);
+      await _drain(tester);
+      expect(target.selectedId, preset.id);
+      expect(
+        appdata.settings.readerSettings('book', 'local').readerMode,
+        'continuousTopToBottom',
+      );
+      final control = find.descendant(
+        of: find.widgetWithText(ListTile, 'Reading mode for this comic'),
+        matching: find.byType(Select),
+      );
+      await tester.ensureVisible(control);
+      await tester.tap(control);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Follow default').last);
+      await _drain(tester);
+      final disk =
+          jsonDecode(File('${root.path}/appdata.json').readAsStringSync())
+              as Map;
+      expect(
+        {
+          'id': target.selectedId,
+          'name': target.list.single.name,
+          'behavior': (disk['settings']['readerModePresets'] as List)
+              .single['modeBehavior'],
+          'actualMode': appdata.settings
+              .readerSettings('book', 'local')
+              .readerMode,
+          'control': tester.widget<Select>(control).current,
+        },
+        {
+          'id': preset.id,
+          'name': 'Strip',
+          'behavior': 'inherit',
+          'actualMode': 'waterfallTopToBottom',
+          'control': 'Follow default',
+        },
+      );
+      await tester.runAsync(
+        () => appdata.updateSettings(
+          (s) => s['readerMode'] = 'galleryTopToBottom',
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        appdata.settings.readerSettings('book', 'local').readerMode,
+        'galleryTopToBottom',
+      );
+      expect(tester.widget<Select>(control).current, 'Follow default');
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'B3 quick panel chooses inherit through real dropdown and returns same ID to fixed',
+    (tester) async {
+      tester.view.physicalSize = const Size(1100, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      appdata.settings['readerMode'] = 'continuousTopToBottom';
+      final a = (await tester.runAsync(
+        () => const ReaderPresetStore().createFromCurrent('Strip'),
+      ))!;
+      appdata.settings['readerMode'] = 'waterfallTopToBottom';
+      final preview = ReaderBrightnessPreview();
+      addTearDown(preview.dispose);
+      const store = ReaderPresetStore(
+        scope: ReaderPreferenceScope.comic,
+        comicId: 'book',
+        sourceKey: 'local',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ReaderQuickSettingsPanel(
+              comicId: 'book',
+              sourceKey: 'local',
+              brightnessPreview: preview,
+              isCurrent: () => true,
+              onChanged: (_) {},
+              onAllSettings: () async {},
+            ),
+          ),
+        ),
+      );
+      await tester.tap(_presetDropdown);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Strip').last);
+      await _drain(tester);
+      final mode = find.byType(DropdownButtonFormField<String>).first;
+      await tester.tap(mode);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Follow default').last);
+      await _drain(tester);
+      expect(store.selectedId, a.id);
+      expect(store.list.single.modeBehavior, 'inherit');
+      expect(
+        tester.widget<DropdownButtonFormField<String>>(mode).initialValue,
+        'default',
+      );
+      expect(
+        appdata.settings.readerSettings('book', 'local').readerMode,
+        'waterfallTopToBottom',
+      );
+      expect(
+        find.text('Currently using: Waterfall (Top to Bottom)'),
+        findsOneWidget,
+      );
+      await tester.tap(mode);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Page turn (Top to Bottom)').last);
+      await _drain(tester);
+      expect(store.selectedId, a.id);
+      expect(store.list.single.modeBehavior, 'fixed');
+      expect(
+        appdata.settings.readerSettings('book', 'local').readerMode,
+        'galleryTopToBottom',
+      );
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  for (final retrySource in ['field', 'selector']) {
+    testWidgets(
+      'B3 real mode edit failure $retrySource retry recovers without replay or Saved',
+      (tester) async {
+        appdata.settings['disableSyncFields'] = 'proxy';
+        tester.view.physicalSize = const Size(1100, 1600);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        appdata.settings['readerMode'] = 'continuousTopToBottom';
+        final preset = (await tester.runAsync(
+          () => const ReaderPresetStore().createFromCurrent('Strip'),
+        ))!;
+        final effects = <String>[];
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(body: ReaderSettings(onChanged: effects.add)),
+          ),
+        );
+        await tester.tap(_presetDropdown);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Strip').last);
+        await _drain(tester);
+        await tester.pump(const Duration(seconds: 3));
+        effects.clear();
+        final obstacle = Directory('${root.path}/syncdata.json.tmp')
+          ..createSync();
+        final mode = find.descendant(
+          of: find.widgetWithText(ListTile, 'Default reading mode'),
+          matching: find.byType(Select),
+        );
+        await tester.ensureVisible(mode);
+        await tester.tap(mode);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Waterfall (Top to Bottom)').last);
+        await _drain(
+          tester,
+          persist: false,
+          until: () => const ReaderPresetStore().recovery != null,
+        );
+        await tester.pumpAndSettle();
+        expect(const ReaderPresetStore().recovery, isNotNull);
+        expect(
+          const ReaderPresetStore().list.single.values['readerMode'],
+          'continuousTopToBottom',
+        );
+        expect(find.text('Saved'), findsNothing);
+        expect(effects, isEmpty);
+        obstacle.deleteSync();
+        final retry = retrySource == 'selector'
+            ? find.text('Retry recovery')
+            : find.descendant(
+                of: find.byType(ReaderModeSettings),
+                matching: find.text('Retry'),
+              );
+        if (retrySource == 'field') {
+          await Scrollable.ensureVisible(
+            tester.element(find.byType(ReaderModeSettings)),
+            alignment: 0.3,
+          );
+          await tester.pump();
+        } else {
+          await tester.ensureVisible(retry);
+        }
+        await tester.tap(retry);
+        await _drain(
+          tester,
+          persist: false,
+          until: () => const ReaderPresetStore().recovery == null,
+        );
+        await tester.pumpAndSettle();
+        expect(const ReaderPresetStore().recovery, isNull);
+        expect(const ReaderPresetStore().selectedId, preset.id);
+        expect(
+          const ReaderPresetStore().list.single.values['readerMode'],
+          'continuousTopToBottom',
+        );
+        expect(
+          appdata.settings.readerSettings('book', 'local').readerMode,
+          'continuousTopToBottom',
+        );
+        expect(find.text('Saved'), findsNothing);
+        expect(find.text('Retry'), findsNothing);
+        expect(effects, isEmpty);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
+
+  testWidgets(
+    'B3 quick panel real edits update shared preset and keep outside settings scoped',
+    (tester) async {
+      tester.view.physicalSize = const Size(1000, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final preset = (await tester.runAsync(
+        () => const ReaderPresetStore().createFromCurrent('Shared'),
+      ))!;
+      await tester.runAsync(
+        () => const ReaderPresetStore().apply(
+          preset.id,
+          ReaderPreferenceScope.global,
+        ),
+      );
+      final preview = ReaderBrightnessPreview();
+      addTearDown(preview.dispose);
+      final effects = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ReaderQuickSettingsPanel(
+              comicId: 'book',
+              sourceKey: 'local',
+              brightnessPreview: preview,
+              isCurrent: () => true,
+              onChanged: effects.add,
+              onAllSettings: () async {},
+            ),
+          ),
+        ),
+      );
+      await tester.tap(_presetDropdown);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Shared').last);
+      await _drain(tester);
+      expect(
+        find.textContaining('Other scopes using this preset'),
+        findsOneWidget,
+      );
+      for (final title in [
+        'Reverse tap to turn Pages',
+        'Double tap to zoom',
+        'Page animation',
+      ]) {
+        final toggle = find.widgetWithText(SwitchListTile, title);
+        await tester.ensureVisible(toggle);
+        await tester.tap(toggle);
+        await _drain(tester);
+      }
+      final values = const ReaderPresetStore().list.single.values;
+      expect(values['reverseTapToTurnPages'], true);
+      expect(values['enableDoubleTapToZoom'], false);
+      expect(values['enablePageAnimation'], false);
+      expect(appdata.settings.globalReaderSettings.reverseTapToTurnPages, true);
+      expect(
+        appdata.settings.readerSettings('book', 'local').enablePageAnimation,
+        false,
+      );
+      final original = jsonEncode(values);
+      final thumbnails = find.widgetWithText(SwitchListTile, 'Thumbnails');
+      await tester.ensureVisible(thumbnails);
+      await tester.tap(thumbnails);
+      await _drain(tester);
+      expect(
+        jsonEncode(const ReaderPresetStore().list.single.values),
+        original,
+      );
+      expect(
+        const ReaderPresetStore(
+          scope: ReaderPreferenceScope.comic,
+          comicId: 'book',
+          sourceKey: 'local',
+        ).selectedId,
+        preset.id,
+      );
+      expect(
+        effects,
+        containsAll([
+          'reverseTapToTurnPages',
+          'enableDoubleTapToZoom',
+          'enablePageAnimation',
+          'readerThumbnailState',
+        ]),
+      );
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'B3 owner selected strip edits shared preset through production controls',
+    (tester) async {
+      tester.view.physicalSize = const Size(1100, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      appdata.settings['readerMode'] = 'continuousTopToBottom';
+      final preset = (await tester.runAsync(
+        () => const ReaderPresetStore().createFromCurrent('Strip'),
+      ))!;
+      const device = ReaderPresetStore(scope: ReaderPreferenceScope.device);
+      await tester.runAsync(
+        () => device.apply(preset.id, ReaderPreferenceScope.device),
+      );
+      appdata.settings.setEnabledDeviceSpecificSettings(false);
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: ReaderSettings())),
+      );
+      await tester.tap(_presetDropdown);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Strip').last);
+      await _drain(tester);
+      final mode = find.descendant(
+        of: find.widgetWithText(ListTile, 'Default reading mode'),
+        matching: find.byType(Select),
+      );
+      await tester.ensureVisible(mode);
+      await tester.tap(mode);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Waterfall (Top to Bottom)').last);
+      await _drain(tester);
+      expect(
+        appdata.settings.readerSettings('unbound', 'source').readerMode,
+        'waterfallTopToBottom',
+      );
+      expect(
+        {
+          'id': const ReaderPresetStore().selectedId,
+          'libraryMode':
+              const ReaderPresetStore().list.single.values['readerMode'],
+          'deviceMode': ReaderPreferenceStore(
+            settings: appdata.settings,
+            scope: ReaderPreferenceScope.device,
+          ).read(ReaderPreferences.readerMode),
+        },
+        {
+          'id': preset.id,
+          'libraryMode': 'waterfallTopToBottom',
+          'deviceMode': 'waterfallTopToBottom',
+        },
+        reason:
+            'ordinary edit keeps exact binding ID and updates shared library',
+      );
+      expect(
+        const ReaderPresetStore().list.single.values['readerMode'],
+        'waterfallTopToBottom',
+      );
+      expect(device.selectedId, preset.id);
+      expect(
+        ReaderPreferenceStore(
+          settings: appdata.settings,
+          scope: ReaderPreferenceScope.device,
+        ).read(ReaderPreferences.readerMode),
+        'waterfallTopToBottom',
+      );
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   testWidgets(
     'B3 applied preset survives selector destruction and JSON reload',

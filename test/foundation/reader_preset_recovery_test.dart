@@ -7,6 +7,7 @@ import 'package:venera_next/foundation/app.dart';
 import 'package:venera_next/foundation/appdata.dart';
 import 'package:venera_next/foundation/reader_presets.dart';
 import 'package:venera_next/foundation/reader_preference_store.dart';
+import 'package:venera_next/foundation/reader_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -36,6 +37,247 @@ void main() {
     await appdata.restoreImportCheckpoint(before, persist: false);
     root.deleteSync(recursive: true);
   });
+
+  Future<void> editMargin(num value) => appdata.updateSettings(
+    (draft) => ReaderPreferenceStore(
+      settings: draft,
+      scope: ReaderPreferenceScope.global,
+    ).write(ReaderPreferences.readerSideMargin, value),
+  );
+
+  const shared = ReaderPresetStore(
+    scope: ReaderPreferenceScope.comic,
+    comicId: 'shared',
+    sourceKey: 'source',
+  );
+
+  for (final name in ['appdata.json', 'syncdata.json']) {
+    test(
+      'B3 shared partial field real $name failure restores absence and both files',
+      () async {
+        appdata.settings['readerModePresets'] = [
+          {
+            'id': 'partial',
+            'name': 'Partial',
+            'values': {'readerMode': 'galleryRightToLeft'},
+          },
+        ];
+        await store.apply('partial', store.scope);
+        await shared.apply('partial', shared.scope);
+        final entered = Completer<void>(), release = Completer<void>();
+        var writes = 0;
+        final obstacle = Directory('${root.path}/$name.tmp')..createSync();
+        final hook = WriteHooks((path, _) async {
+          if (path == '${root.path}/$name.tmp' && writes++ == 0) {
+            entered.complete();
+          } else if (path.endsWith('.tmp') && writes <= 1) {
+            await release.future;
+          }
+        });
+        final editing = IOOverrides.runWithIOOverrides(
+          () => editMargin(25),
+          hook,
+        );
+        final checking = expectLater(
+          editing,
+          throwsA(
+            isA<SettingsRecoveryFailure>().having(
+              (e) => e.incomplete,
+              'compensation completed',
+              false,
+            ),
+          ),
+        );
+        await entered.future;
+        while (!hook.failed) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        obstacle.deleteSync();
+        release.complete();
+        await checking;
+        expect(store.selectedId, 'partial');
+        expect(shared.selectedId, 'partial');
+        expect(store.list.single.values.containsKey('readerSideMargin'), false);
+        expect(
+          appdata.settings.readerSettings('shared', 'source').readerSideMargin,
+          0,
+        );
+        for (final file in ['appdata.json', 'syncdata.json']) {
+          final settings = disk(file)['settings'];
+          expect(
+            (settings['readerModePresets'] as List).single['values']
+                .containsKey('readerSideMargin'),
+            false,
+          );
+          expect(
+            settings['readerPresetSelections'][store.selectionKey],
+            'partial',
+          );
+        }
+        await appdata.loadDataForTesting(root.path);
+        expect(store.selectedId, 'partial');
+        expect(store.list.single.values.containsKey('readerSideMargin'), false);
+      },
+    );
+  }
+
+  test(
+    'B3 shared field compensation retains concurrent rename, other fields, other preset and takeover',
+    () async {
+      await shared.apply(old.id, shared.scope);
+      var calls = 0;
+      final hook = WriteHooks((path, _) async {
+        if (path.endsWith('syncdata.json.tmp') && calls++ == 0) {
+          // Synchronous competing publishers model changes while native IO is
+          // suspended. The field-level rollback must never replace the library.
+          appdata.settings['readerModePresets'] = [
+            for (final p in store.list)
+              {
+                ...p.toJson(),
+                'name': p.id == old.id ? 'Concurrent rename' : p.name,
+                'values': {
+                  ...p.values,
+                  if (p.id == old.id) 'readerSideMargin': 23,
+                  if (p.id == old.id) 'enablePageAnimation': false,
+                  if (p.id == next.id) 'readerSideMargin': 7,
+                },
+              },
+          ];
+          appdata.settings['language'] = 'zh_TW';
+          throw const FileSystemException('one-shot');
+        }
+      });
+      await expectLater(
+        IOOverrides.runWithIOOverrides(() => editMargin(16), hook),
+        throwsA(
+          isA<SettingsRecoveryFailure>().having(
+            (e) => e.incomplete,
+            'recovered',
+            false,
+          ),
+        ),
+      );
+      expect(store.selectedId, old.id);
+      expect(shared.selectedId, old.id);
+      final current = store.list.firstWhere((p) => p.id == old.id);
+      expect(current.name, 'Concurrent rename');
+      expect(current.values['readerSideMargin'], 23);
+      expect(current.values['enablePageAnimation'], false);
+      expect(
+        store.list
+            .firstWhere((p) => p.id == next.id)
+            .values['readerSideMargin'],
+        7,
+      );
+      expect(
+        appdata.settings.readerSettings('shared', 'source').readerSideMargin,
+        23,
+      );
+      await appdata.loadDataForTesting(root.path);
+      expect(
+        appdata.settings.readerSettings('shared', 'source').readerSideMargin,
+        23,
+      );
+    },
+  );
+
+  test(
+    'B3 shared recovery pauses dependent targets and retries without replay',
+    () async {
+      await shared.apply(old.id, shared.scope);
+      final obstacle = Directory('${root.path}/syncdata.json.tmp')
+        ..createSync();
+      await expectLater(
+        editMargin(17),
+        throwsA(isA<SettingsRecoveryFailure>()),
+      );
+      expect(store.selectedId, isNull);
+      expect(shared.selectedId, isNull);
+      expect(shared.recovery, isNotNull);
+      expect(
+        appdata.settings.readerSettings('shared', 'source').readerSideMargin,
+        0,
+      );
+      await expectLater(
+        shared.clearSelection(),
+        throwsA(isA<SettingsRecoveryFailure>()),
+      );
+      await expectLater(
+        shared.reset(),
+        throwsA(isA<SettingsRecoveryFailure>()),
+      );
+      await expectLater(
+        store.delete(old.id),
+        throwsA(isA<SettingsRecoveryFailure>()),
+      );
+      await expectLater(
+        shared.apply(next.id, shared.scope),
+        throwsA(isA<SettingsRecoveryFailure>()),
+      );
+      await expectLater(
+        shared.retryRecovery(),
+        throwsA(isA<SettingsRecoveryFailure>()),
+      );
+      obstacle.deleteSync();
+      const independent = ReaderPresetStore(
+        scope: ReaderPreferenceScope.comic,
+        comicId: 'independent',
+        sourceKey: 'source',
+      );
+      await independent.apply(next.id, independent.scope);
+      expect(independent.selectedId, next.id);
+      await shared.retryRecovery();
+      expect(store.recovery, isNull);
+      expect(shared.recovery, isNull);
+      expect(store.selectedId, old.id);
+      expect(shared.selectedId, old.id);
+      expect(store.list.first.values['readerSideMargin'], 0);
+      await appdata.loadDataForTesting(root.path);
+      expect(
+        appdata.settings.readerSettings('shared', 'source').readerSideMargin,
+        0,
+      );
+      await editMargin(17);
+      expect(
+        appdata.settings.readerSettings('shared', 'source').readerSideMargin,
+        17,
+      );
+    },
+  );
+
+  for (final action in ['None', 'delete', 'update']) {
+    test(
+      'B3 shared $action failure restores bindings and latest effect',
+      () async {
+        await shared.apply(old.id, shared.scope);
+        await editMargin(11);
+        final obstacle = Directory('${root.path}/appdata.json.tmp')
+          ..createSync();
+        final operation = switch (action) {
+          'None' => shared.clearSelection(),
+          'delete' => store.delete(old.id),
+          _ => store.updateFromCurrent(old.id),
+        };
+        await expectLater(operation, throwsA(isA<SettingsRecoveryFailure>()));
+        expect(appdata.settings.readerPresetId(store.selectionKey), old.id);
+        expect(appdata.settings.readerPresetId(shared.selectionKey), old.id);
+        expect(store.list.first.values['readerSideMargin'], 11);
+        expect(
+          appdata.settings.readerSettings('shared', 'source').readerSideMargin,
+          11,
+        );
+        obstacle.deleteSync();
+        await (action == 'None' ? shared : store).retryRecovery();
+        await appdata.loadDataForTesting(root.path);
+        expect(store.selectedId, old.id);
+        expect(shared.selectedId, old.id);
+        expect(
+          appdata.settings.readerSettings('shared', 'source').readerSideMargin,
+          11,
+        );
+      },
+    );
+  }
 
   for (final blockedName in ['appdata.json', 'syncdata.json']) {
     test(
@@ -128,8 +370,13 @@ void main() {
         comicId: '1',
         sourceKey: 's',
       );
-      await comic.apply(next.id, ReaderPreferenceScope.comic);
-      expect(comic.selectedId, next.id);
+      await expectLater(
+        comic.apply(next.id, ReaderPreferenceScope.comic),
+        throwsA(isA<SettingsRecoveryFailure>()),
+      );
+      final independent = await store.createFromCurrent('Independent');
+      await comic.apply(independent.id, ReaderPreferenceScope.comic);
+      expect(comic.selectedId, independent.id);
       expect(store.selectedId, isNull);
       await store.retryRecovery();
       expect(store.recovery, isNull);
@@ -143,6 +390,9 @@ void main() {
   test(
     'B3 compensation preserves unrelated edits, same-field takeover, current projection',
     () async {
+      // Exercise independent materialized ownership; shared-preset field
+      // takeover is covered separately by the binding recovery matrix.
+      await store.clearSelection();
       var calls = 0;
       final hook = WriteHooks((path, _) async {
         if (path.endsWith('syncdata.json.tmp') && calls++ == 0) {

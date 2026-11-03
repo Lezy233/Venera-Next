@@ -42,6 +42,53 @@ void main() {
     root.deleteSync(recursive: true);
   });
 
+  test('B3 shared ID edit and independent target isolation red loop', () async {
+    const device = ReaderPresetStore(scope: ReaderPreferenceScope.device);
+    appdata.settings['readerSideMargin'] = 5;
+    final a = await global.createFromCurrent('A');
+    final b = await global.createFromCurrent('B');
+    await global.apply(a.id, ReaderPreferenceScope.global);
+    await device.apply(a.id, ReaderPreferenceScope.device);
+    await comic.apply(b.id, ReaderPreferenceScope.comic);
+    appdata.settings.setReaderSetting(
+      'independent',
+      'local',
+      'readerSideMargin',
+      7,
+    );
+    appdata.settings.setEnabledComicSpecificSettings(
+      'independent',
+      'local',
+      true,
+    );
+    await appdata.updateSettings(
+      (draft) => ReaderPreferenceStore(
+        settings: draft,
+        scope: ReaderPreferenceScope.global,
+      ).write(ReaderPreferences.readerSideMargin, 23),
+    );
+    expect(
+      appdata.settings.readerSettings('independent', 'local').readerSideMargin,
+      7,
+    );
+    expect(
+      appdata.settings.readerSettings('book', 'local').readerSideMargin,
+      5,
+    );
+    expect(global.selectedId, a.id);
+    expect(
+      ReaderPreferenceStore(
+        settings: appdata.settings,
+        scope: ReaderPreferenceScope.device,
+      ).read(ReaderPreferences.readerSideMargin),
+      23,
+    );
+    expect(
+      global.list.firstWhere((p) => p.id == a.id).values['readerSideMargin'],
+      23,
+    );
+  });
+
   test(
     'CRUD preserves order, identity and JSON across reload; delete keeps applied values',
     () async {
@@ -343,10 +390,11 @@ void main() {
     },
   );
   test(
-    'B3 every declared key invalidates, excluded keys and normalized numbers do not',
+    'B3 legacy references compare every declared key before migration',
     () async {
       final preset = await global.createFromCurrent('All keys');
       await global.apply(preset.id, ReaderPreferenceScope.global);
+      appdata.settings['readerPresetBindings'] = {};
       expect(global.selectedId, preset.id);
       final alternatives = <String, Object>{
         'readerMode': 'galleryLeftToRight',
@@ -393,7 +441,8 @@ void main() {
       await global.updateFromCurrent(preset.id);
       expect(global.selectedId, preset.id);
       appdata.settings['readerSideMargin'] = 0;
-      expect(global.selectedId, isNull);
+      // After migration, raw materialized edits cannot invalidate a binding.
+      expect(global.selectedId, preset.id);
       await global.delete(preset.id);
       expect(global.selectedId, isNull);
       expect(appdata.settings['readerSideMargin'], 0);
@@ -427,6 +476,7 @@ void main() {
       appdata.settings['autoReaderMode'] = true;
       final full = await global.createFromCurrent('Full');
       await comic.apply(full.id, ReaderPreferenceScope.comic);
+      appdata.settings['readerPresetBindings'] = {};
       expect(comic.selectedId, full.id);
       appdata.settings.setReaderSetting(
         'book',

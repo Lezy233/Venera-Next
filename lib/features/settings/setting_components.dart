@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:venera_next/foundation/preferences.dart';
+import 'package:venera_next/foundation/reader_presets.dart';
 import 'setting_field.dart';
 import 'settings_page.dart';
 import 'package:flutter/material.dart';
@@ -43,6 +44,13 @@ abstract class _SettingState<W extends StatefulWidget, T>
   Future<void> change(T value) async {
     if (!acceptsSettingsChanges) return;
     final target = field;
+    final readerOwner = ReaderPresetStore(
+      scope: target.scope,
+      comicId: target.comicId,
+      sourceKey: target.sourceKey,
+    ).capture();
+    final selected = appdata.settings.readerPresetId(readerOwner.selectionKey);
+    final presetField = readerPresetPreferences.any((p) => p.key == target.key);
     final revision = ++_revision;
     setState(() {
       _preview = value;
@@ -58,7 +66,14 @@ abstract class _SettingState<W extends StatefulWidget, T>
       ),
       () => fields.save(target, value),
       onSaved: () => onSaved?.call(),
-      isCurrent: () => revision == _revision && target.matches(field),
+      requireCurrentForFeedback: presetField,
+      isCurrent: () =>
+          revision == _revision &&
+          target.matches(field) &&
+          (!presetField ||
+              readerOwner.isCurrent &&
+                  appdata.settings.readerPresetId(readerOwner.selectionKey) ==
+                      selected),
     );
     if (revision == _revision) _preview = null;
     if (mounted) setState(() {});

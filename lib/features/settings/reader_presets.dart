@@ -175,6 +175,20 @@ class _ReaderPresetSelectorState
                       },
               ),
             ),
+            if (selected.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.sm,
+                ),
+                child: Text(
+                  'Preset settings are saved to the current shared preset. Other scopes using this preset receive the changes. Settings outside the preset keep their scope.'
+                      .tl,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
             if (widget.showManagement)
               CallbackSetting(
                 title: 'Manage presets…'.tl,

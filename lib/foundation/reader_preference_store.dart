@@ -52,21 +52,41 @@ class ReaderPreferenceStore {
 
   /// Manual mode follows the full form's dedicated comic override. Unlike
   /// other comic edits, it must not activate unrelated saved comic settings.
-  void writeComicModeOverride(String value) {
+  void writeComicModeOverride(String? value) {
     if (scope != ReaderPreferenceScope.comic) {
       throw StateError('A manual comic mode requires comic scope');
+    }
+    if (settings is ReaderPresetEditing &&
+        (settings as ReaderPresetEditing).writePresetField(
+          'comic',
+          comicId,
+          sourceKey,
+          'readerMode',
+          value,
+        )) {
+      return;
     }
     settings.setReaderSetting(
       comicId!,
       sourceKey!,
       'readerModeOverride',
-      ReaderPreferences.readerMode.normalize(value),
+      value == null ? 'default' : ReaderPreferences.readerMode.normalize(value),
     );
   }
 
   /// The remaining heterogeneous fields keep their JSON representation and
   /// use the same write target. Typed writes additionally enforce their rules.
   void writeRaw(String key, Object? value) {
+    if (settings is ReaderPresetEditing &&
+        (settings as ReaderPresetEditing).writePresetField(
+          scope.name,
+          comicId,
+          sourceKey,
+          key,
+          value,
+        )) {
+      return;
+    }
     // Preserve the existing slider JSON representation for whole numbers.
     final stored = value is num && value.toInt() == value
         ? value.toInt()

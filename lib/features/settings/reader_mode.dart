@@ -4,6 +4,7 @@ import 'package:venera_next/components/select.dart';
 import 'package:venera_next/foundation/preferences.dart';
 import 'package:venera_next/foundation/reader_preferences.dart';
 import 'package:venera_next/foundation/reader_preference_store.dart';
+import 'package:venera_next/foundation/reader_presets.dart';
 import 'package:flutter/material.dart';
 import 'package:venera_next/features/reader/reader_mode_labels.dart';
 import 'package:venera_next/foundation/appdata.dart';
@@ -67,19 +68,29 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
     Preference<T> preference,
     T value,
   ) {
-    final target = (widget.comicId, widget.sourceKey);
+    final target = (widget.comicId, widget.sourceKey, widget.scope);
+    final owner = ReaderPresetStore(
+      scope: target.$3,
+      comicId: target.$1,
+      sourceKey: target.$2,
+    ).capture();
+    final selected = appdata.settings.readerPresetId(owner.selectionKey);
     return saveSetting(
       preference.key,
       () => appdata.updateSettings((draft) {
         ReaderPreferenceStore(
           settings: draft,
-          scope: widget.scope,
-          comicId: widget.comicId,
-          sourceKey: widget.sourceKey,
+          scope: owner.scope,
+          comicId: target.$1,
+          sourceKey: target.$2,
         ).write(preference, value);
       }),
       onSaved: () => widget.onChanged?.call(),
-      isCurrent: () => target == (widget.comicId, widget.sourceKey),
+      requireCurrentForFeedback: true,
+      isCurrent: () =>
+          owner.isCurrent &&
+          target == (widget.comicId, widget.sourceKey, widget.scope) &&
+          appdata.settings.readerPresetId(owner.selectionKey) == selected,
     );
   }
 
@@ -150,13 +161,21 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
               return;
             }
             final value = index + 1;
+            final owner = ReaderPresetStore(
+              scope: scope,
+              comicId: cid,
+              sourceKey: source,
+            ).capture();
+            final selected = appdata.settings.readerPresetId(
+              owner.selectionKey,
+            );
             unawaited(
               saveSetting(
                 (cid, source, 'pagesPerScreen'),
                 () => appdata.updateSettings((draft) {
                   final target = ReaderPreferenceStore(
                     settings: draft,
-                    scope: scope,
+                    scope: owner.scope,
                     comicId: cid,
                     sourceKey: source,
                   );
@@ -170,9 +189,13 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
                   );
                 }),
                 onSaved: () => widget.onChanged?.call(),
+                requireCurrentForFeedback: true,
                 isCurrent: () =>
-                    !scoped ||
-                    (cid == widget.comicId && source == widget.sourceKey),
+                    owner.isCurrent &&
+                    appdata.settings.readerPresetId(owner.selectionKey) ==
+                        selected &&
+                    (!scoped ||
+                        (cid == widget.comicId && source == widget.sourceKey)),
               ),
             );
           },
@@ -222,21 +245,31 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
             return;
           }
           final value = index == 1;
+          final owner = ReaderPresetStore(
+            scope: scope,
+            comicId: cid,
+            sourceKey: source,
+          ).capture();
+          final selected = appdata.settings.readerPresetId(owner.selectionKey);
           unawaited(
             saveSetting(
               (cid, source, 'skipFirstPage'),
               () => appdata.updateSettings((draft) {
                 ReaderPreferenceStore(
                   settings: draft,
-                  scope: scope,
+                  scope: owner.scope,
                   comicId: cid,
                   sourceKey: source,
                 ).write(ReaderPreferences.showSingleImageOnFirstPage, value);
               }),
               onSaved: () => widget.onChanged?.call(),
+              requireCurrentForFeedback: true,
               isCurrent: () =>
-                  !scoped ||
-                  (cid == widget.comicId && source == widget.sourceKey),
+                  owner.isCurrent &&
+                  appdata.settings.readerPresetId(owner.selectionKey) ==
+                      selected &&
+                  (!scoped ||
+                      (cid == widget.comicId && source == widget.sourceKey)),
             ),
           );
         },
@@ -324,6 +357,14 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
                 // comic's setting in that case.
                 if (cid != widget.comicId || source != widget.sourceKey) return;
                 final value = keys[index];
+                final owner = ReaderPresetStore(
+                  scope: ReaderPreferenceScope.comic,
+                  comicId: cid,
+                  sourceKey: source,
+                ).capture();
+                final selected = appdata.settings.readerPresetId(
+                  owner.selectionKey,
+                );
                 unawaited(
                   saveSetting(
                     (cid, source, 'readerMode'),
@@ -335,8 +376,13 @@ class _ReaderModeSettingsState extends SettingsSaveState<ReaderModeSettings> {
                       );
                     }),
                     onSaved: () => widget.onChanged?.call(),
+                    requireCurrentForFeedback: true,
                     isCurrent: () =>
-                        cid == widget.comicId && source == widget.sourceKey,
+                        owner.isCurrent &&
+                        appdata.settings.readerPresetId(owner.selectionKey) ==
+                            selected &&
+                        cid == widget.comicId &&
+                        source == widget.sourceKey,
                   ),
                 );
               },

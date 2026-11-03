@@ -11,6 +11,7 @@ import 'package:venera_next/foundation/image_work.dart';
 import 'package:venera_next/foundation/selection_operation.dart';
 import 'package:venera_next/foundation/navigation_admission.dart';
 import 'package:venera_next/foundation/translations.dart';
+import 'package:venera_next/foundation/settings_recovery.dart';
 
 /// Settings opened by a reader retain accepted saves in that reading session,
 /// even if the sidebar or setting control is forcibly removed.
@@ -227,6 +228,9 @@ abstract class SettingsSaveState<W extends StatefulWidget> extends State<W> {
   }
 
   static void _reportFailures(Iterable<_SettingsSave> saves) {
+    for (final save in saves) {
+      save.reconcileRecovery();
+    }
     final failures = [
       for (final save in saves)
         for (final attempt in save.attempts)
@@ -253,8 +257,20 @@ abstract class SettingsSaveState<W extends StatefulWidget> extends State<W> {
             (entry.value.isCurrent?.call() ?? true))
           saveSetting(
             entry.key,
-            entry.value.persist,
-            onSaved: entry.value.onSaved,
+            entry.value.error is SettingsRecoveryFailure &&
+                    (entry.value.error as SettingsRecoveryFailure).incomplete
+                ? (entry.value.error as SettingsRecoveryFailure)
+                          .retryRecovery ??
+                      entry.value.persist
+                : entry.value.persist,
+            showSavedFeedback:
+                !(entry.value.error is SettingsRecoveryFailure &&
+                    (entry.value.error as SettingsRecoveryFailure).incomplete),
+            onSaved:
+                entry.value.error is SettingsRecoveryFailure &&
+                    (entry.value.error as SettingsRecoveryFailure).incomplete
+                ? null
+                : entry.value.onSaved,
             isCurrent: entry.value.isCurrent,
           ),
     ]);
@@ -471,8 +487,24 @@ class _SettingsSave {
     }
   }
 
-  bool get hasFailures =>
-      attempts.any((save) => save.error != null && !save.repaired);
+  void reconcileRecovery() {
+    for (final save in attempts) {
+      if (save.error case final SettingsRecoveryFailure failure
+          when failure.incomplete &&
+              failure.isDurablyRecovered?.call() == true) {
+        save.repaired = true;
+        save.acknowledgeWorkFailure?.call();
+        save.acknowledgeWorkFailure = null;
+        save.releaseIfSettled();
+      }
+    }
+  }
+
+  bool get hasFailures {
+    reconcileRecovery();
+    return attempts.any((save) => save.error != null && !save.repaired);
+  }
+
   bool get hasPending => attempts.any((save) => !save.done.isCompleted);
 
   void cancel() => cancelled = true;
@@ -492,6 +524,7 @@ class _SettingsSave {
 
   Future<void> closeAndWait() async {
     await done.future;
+    reconcileRecovery();
     if (error != null && !repaired) {
       Error.throwWithStackTrace(error!, stack!);
     }

@@ -20,3 +20,14 @@ abstract interface class ReaderPreferenceSettings {
     Object? value,
   );
 }
+
+/// Optional shared-preset edit bridge; plain test stores retain scoped behavior.
+abstract interface class ReaderPresetEditing {
+  bool writePresetField(
+    String scope,
+    String? comicId,
+    String? sourceKey,
+    String key,
+    Object? value,
+  );
+}
