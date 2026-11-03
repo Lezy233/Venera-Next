@@ -2,6 +2,15 @@
 
 ## MODIFIED Requirements
 
+### Requirement: 方案数据模型
+
+方案 MUST 存储为appdata.json中的readerModePresets（List of {id,name,values}）；values MUST 只包含原19项模式/布局/手势键，MUST NOT 包含亮度、缩略图、E-Ink、自动阅读或预加载。方案记录 MAY 附加显式modeBehavior元数据（fixed/inherit），缺省或非法值 MUST 兼容为fixed；MUST NOT 用非法readerMode值经普通normalize冒充继承。合法inherit行为本身可使纯继承方案有效，普通无有效键的空方案仍无效。
+
+#### Scenario: 快照新建
+
+- **WHEN** 用户在方案管理页输入名称「日漫双页」并确认新建
+- **THEN** 新记录保存当前生效层19键快照，modeBehavior为fixed，readerMode为求值后的确定模式且autoReaderMode=false
+
 ### Requirement: 应用方案
 
 选择方案 MUST 将其稳定ID绑定到调用方指定的global/device/comic作用域，并通过既有模式/启用通道使方案声明的19键生效。有效绑定期间该层方案内设置 MUST 读取并编辑所选方案，MUST NOT 因普通编辑自动清除选择。缺失键 MUST 沿用原作用域求值，用户明确编辑缺失的19键时才将该键加入方案。
@@ -102,3 +111,27 @@
 
 - **WHEN** 用户在阅读设置或快捷面板选中一个方案并编辑
 - **THEN** 能从当前界面确认方案内字段修改的对象和共享影响；当前方案保持所选名称，保存失败有明确错误及恢复入口
+
+### Requirement: 共享方案保存模式继承行为
+
+已绑定方案时选择漫画模式「跟随默认」MUST 把继承行为保存到同一共享方案，保持绑定ID/名称和其他方案值。其模式四键及该目标旧物化模式/override MUST 不遮挡继承：漫画继承启用设备→全局策略，设备继承全局策略，全局使用未叠加方案的独立全局模式基底/缺省值。MUST 沿既有auto/layout规则动态求值，同ID跨层绑定 MUST 有界且不自引用循环。确定模式或模式四键的明确编辑 MUST 将该方案切回fixed；其他字段编辑 MUST 保持inherit。
+
+#### Scenario: 保持方案并跟随默认
+
+- **WHEN** 漫画绑定条漫后选择跟随默认，再改变其上层有效模式或检测layout
+- **THEN** 当前方案仍是同一条漫ID，实际模式按最新上层策略和该漫画layout更新，不固化为选择时的模式
+
+#### Scenario: 同方案跨层与切回固定模式
+
+- **WHEN** 全局、设备和漫画绑定同一inherit方案，随后明确修改该方案为一个确定模式
+- **THEN** 继承时无递归循环，各层按自身上下文求值；切fixed后同ID目标使用新确定策略，其他方案不变
+
+#### Scenario: 解除与删除继承方案
+
+- **WHEN** 继承方案被重命名、用户选择方案无或删除该方案
+- **THEN** 重命名保留行为；解除/删除后原目标保留等价继承及其他最新字段，不偷偷变成固定模式，其他绑定/方案按既有生命周期规则处理
+
+#### Scenario: 继承行为重进重启与失败
+
+- **WHEN** 继承保存成功后重进/实际重启，或编辑fixed/inherit发生文件失败、补偿失败、并发修改和目标切换
+- **THEN** 成功后仍绑定并恢复inherit；失败依共享方案字段所有权和两文件恢复规则回退，保留并发更新，重试不重放、不串写新目标、不显示假成功
