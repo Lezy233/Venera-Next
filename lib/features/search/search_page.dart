@@ -31,6 +31,9 @@ import 'aggregated_search_page.dart';
 import 'search_result_page.dart';
 import 'search_shortcuts.dart';
 import 'search_profile.dart';
+import 'search_selection.dart';
+import 'package:venera_next/foundation/app.dart';
+import 'package:venera_next/design_system/tokens.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -51,16 +54,105 @@ class _SearchPageState extends State<SearchPage> {
 
   bool aggregatedSearch = false;
   String? profileId;
+  late final String _dataPath;
+  late SearchSelection _selection;
+  late final SearchSelection _initialDefault;
+  bool _saving = false;
+  Object? _saveError;
+  bool get _blocked =>
+      _saving ||
+      SearchSelection.isSaving(_dataPath) ||
+      App.dataPath != _dataPath ||
+      appdata.settingsRecovery(_dataPath, SearchSelection.recoveryKey) != null;
+  bool get _sourceMissing =>
+      _selection.sourceKey != null &&
+      !searchSources.contains(_selection.sourceKey);
+  bool get _profileMissing =>
+      _selection.profileId != null &&
+      SearchProfileManager.instance.byId(_selection.profileId!) == null;
+
+  void _resolveSelection() {
+    final oldTarget = searchTarget;
+    findSearchSources();
+    aggregatedSearch = _selection.aggregated;
+    searchTarget = searchSources.contains(_selection.sourceKey)
+        ? _selection.sourceKey!
+        : searchSources.firstOrNull ?? '';
+    profileId = _profileMissing ? null : _selection.profileId;
+    if (searchTarget != oldTarget && searchTarget.isNotEmpty) {
+      useDefaultOptions();
+    }
+  }
+
+  Future<void> _choose(SearchSelection selection) async {
+    if (_blocked) return;
+    final restoreAggregateFocus = _aggregateFocus.hasFocus;
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
+    try {
+      await selection.save(_dataPath);
+      if (!mounted || App.dataPath != _dataPath) return;
+      final resetOptions =
+          !selection.aggregated &&
+          (_selection.aggregated ||
+              selection.sourceKey != _selection.sourceKey);
+      _selection = selection;
+      _resolveSelection();
+      if (resetOptions && searchTarget.isNotEmpty) useDefaultOptions();
+    } catch (error) {
+      if (!mounted || App.dataPath != _dataPath) return;
+      _saveError = error;
+    } finally {
+      if (mounted && App.dataPath == _dataPath) {
+        setState(() {
+          _saving = false;
+          _resolveSelection();
+        });
+        if (restoreAggregateFocus) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && !_blocked) _aggregateFocus.requestFocus();
+          });
+        }
+      }
+    }
+  }
+
+  Future<void> _retryRecovery() async {
+    if (_saving || App.dataPath != _dataPath) return;
+    setState(() => _saving = true);
+    try {
+      await appdata.retrySettingsRecovery(
+        _dataPath,
+        SearchSelection.recoveryKey,
+      );
+      if (mounted && App.dataPath == _dataPath) _saveError = null;
+    } catch (error) {
+      if (mounted && App.dataPath == _dataPath) _saveError = error;
+    } finally {
+      if (mounted && App.dataPath == _dataPath) {
+        setState(() {
+          _saving = false;
+          _resolveSelection();
+        });
+      }
+    }
+  }
 
   var focusNode = FocusNode();
+  final _aggregateFocus = FocusNode();
 
   var options = <String>[];
 
   void update() {
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   void search([String? text]) {
+    if (_blocked || searchSources.isEmpty) return;
+    _resolveSelection();
+    if (searchSources.isEmpty) return;
     if (aggregatedSearch) {
       context
           .to(
@@ -99,6 +191,11 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void findSuggestions() {
+    if (_blocked || searchSources.isEmpty) {
+      this.suggestions.clear();
+      update();
+      return;
+    }
     var text = controller.text.split(" ").last;
     var suggestions = this.suggestions;
 
@@ -118,7 +215,7 @@ class _SearchPageState extends State<SearchPage> {
       }
     }
 
-    if (!ComicSource.find(searchTarget)!.enableTagsSuggestions) {
+    if (ComicSource.find(searchTarget)?.enableTagsSuggestions != true) {
       update();
       return;
     }
@@ -164,6 +261,7 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   void initState() {
+    _dataPath = App.dataPath;
     findSearchSources();
     var defaultSearchTarget = GlobalPreferenceStore(
       appdata.settings,
@@ -175,15 +273,25 @@ class _SearchPageState extends State<SearchPage> {
       searchTarget = defaultSearchTarget;
     }
     profileId = SearchProfileManager.instance.defaultProfile?.id;
+    _initialDefault = SearchSelection(
+      aggregated: aggregatedSearch,
+      sourceKey: searchTarget.isEmpty ? null : searchTarget,
+      profileId: profileId,
+    );
+    _selection = SearchSelection.read(_dataPath) ?? _initialDefault;
+    _resolveSelection();
     controller = SearchBarController(onSearch: search);
     appdata.settings.addListener(updateSearchSourcesIfNeeded);
+    SearchProfileManager.instance.addListener(updateSearchSourcesIfNeeded);
     super.initState();
   }
 
   @override
   void dispose() {
     focusNode.dispose();
+    _aggregateFocus.dispose();
     appdata.settings.removeListener(updateSearchSourcesIfNeeded);
+    SearchProfileManager.instance.removeListener(updateSearchSourcesIfNeeded);
     super.dispose();
   }
 
@@ -210,12 +318,13 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void updateSearchSourcesIfNeeded() {
-    var old = searchSources;
-    findSearchSources();
-    if (old.isEqualTo(searchSources)) {
-      return;
-    }
-    setState(() {});
+    if (!mounted || App.dataPath != _dataPath) return;
+    setState(() {
+      if (!_saving) {
+        _selection = SearchSelection.read(_dataPath) ?? _initialDefault;
+      }
+      _resolveSelection();
+    });
   }
 
   void manageSearchSources() {
@@ -235,11 +344,26 @@ class _SearchPageState extends State<SearchPage> {
       msg += "Please check your settings".tl;
       onTap = manageSearchSources;
     }
-    return NetworkError(
-      message: msg,
-      retry: onTap,
-      withAppbar: true,
-      buttonText: "Manage".tl,
+    return Material(
+      child: Column(
+        children: [
+          Expanded(
+            child: NetworkError(
+              message: msg,
+              retry: onTap,
+              withAppbar: true,
+              buttonText: "Manage".tl,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: buildSelectionFeedback().toList(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -254,12 +378,18 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Iterable<Widget> buildSlivers() sync* {
-    yield SliverSearchBar(
-      controller: controller,
-      onChanged: (s) {
-        findSuggestions();
-      },
-      focusNode: focusNode,
+    yield SliverIgnorePointer(
+      ignoring: _blocked,
+      sliver: ExcludeFocus(
+        excluding: _blocked,
+        child: SliverSearchBar(
+          controller: controller,
+          onChanged: (s) {
+            findSuggestions();
+          },
+          focusNode: focusNode,
+        ),
+      ),
     );
     if (suggestions.isNotEmpty) {
       yield buildSuggestions(context);
@@ -270,7 +400,13 @@ class _SearchPageState extends State<SearchPage> {
         child: buildSearchOptions(),
       );
       yield const SearchShortcutsSliver();
-      yield _SearchHistory(search);
+      yield SliverIgnorePointer(
+        ignoring: _blocked,
+        sliver: ExcludeFocus(
+          excluding: _blocked,
+          child: _SearchHistory(search),
+        ),
+      );
     }
   }
 
@@ -292,33 +428,52 @@ class _SearchPageState extends State<SearchPage> {
                 onPressed: manageSearchSources,
               ),
             ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: sources.map((e) {
-                return OptionChip(
-                  text: e.name,
-                  isSelected: searchTarget == e.key || aggregatedSearch,
-                  onTap: () {
-                    if (aggregatedSearch) return;
-                    setState(() {
-                      searchTarget = e.key;
-                      useDefaultOptions();
-                    });
-                  },
-                );
-              }).toList(),
+            AbsorbPointer(
+              absorbing: _blocked || aggregatedSearch,
+              child: ExcludeFocus(
+                excluding: _blocked || aggregatedSearch,
+                child: Opacity(
+                  opacity: _blocked || aggregatedSearch
+                      ? AppOpacity.disabled
+                      : 1,
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: sources.map((e) {
+                      return OptionChip(
+                        text: e.name,
+                        isSelected: searchTarget == e.key || aggregatedSearch,
+                        onTap: () {
+                          if (_blocked || aggregatedSearch) return;
+                          _choose(
+                            SearchSelection(
+                              aggregated: false,
+                              sourceKey: e.key,
+                              profileId: profileId,
+                            ),
+                          );
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
               title: Text("Aggregated Search".tl),
               leading: Checkbox(
+                focusNode: _aggregateFocus,
                 value: aggregatedSearch,
-                onChanged: (value) {
-                  setState(() {
-                    aggregatedSearch = value ?? false;
-                  });
-                },
+                onChanged: _blocked
+                    ? null
+                    : (value) => _choose(
+                        SearchSelection(
+                          aggregated: value ?? false,
+                          sourceKey: searchTarget.isEmpty ? null : searchTarget,
+                          profileId: profileId,
+                        ),
+                      ),
               ),
             ),
             if (SearchProfileManager.instance.all.isNotEmpty)
@@ -350,17 +505,64 @@ class _SearchPageState extends State<SearchPage> {
                           ),
                         ),
                     ],
-                    onChanged: (value) => setState(() {
-                      profileId = value;
-                      if (value != null) aggregatedSearch = true;
-                    }),
+                    onChanged: _blocked
+                        ? null
+                        : (value) => _choose(
+                            SearchSelection(
+                              aggregated: value != null || aggregatedSearch,
+                              sourceKey: searchTarget.isEmpty
+                                  ? null
+                                  : searchTarget,
+                              profileId: value,
+                            ),
+                          ),
                   ),
                 ),
               ),
+            ...buildSelectionFeedback(),
           ],
         ),
       ),
     );
+  }
+
+  Iterable<Widget> buildSelectionFeedback() sync* {
+    if (_sourceMissing) {
+      yield Text(
+        searchTarget.isEmpty
+            ? 'Last search source unavailable; no search sources'.tl
+            : 'Last search source unavailable; using @name'.tlParams({
+                'name': ComicSource.find(searchTarget)?.name ?? searchTarget,
+              }),
+      );
+    }
+    if (_profileMissing) {
+      yield Text('Last search profile unavailable; using global settings'.tl);
+    }
+    if (_saving) yield Text('Saving search selection'.tl);
+    if (_saveError != null ||
+        appdata.settingsRecovery(_dataPath, SearchSelection.recoveryKey) !=
+            null) {
+      yield Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Could not save search selection; previous selection restored'.tl,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+          if (appdata.settingsRecovery(
+                _dataPath,
+                SearchSelection.recoveryKey,
+              ) !=
+              null)
+            Text('Save failed; recovery incomplete'.tl),
+          TextButton(
+            onPressed: _saving ? null : _retryRecovery,
+            child: Text('Retry'.tl),
+          ),
+        ],
+      );
+    }
   }
 
   void useDefaultOptions() {

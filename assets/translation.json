@@ -1,5 +1,10 @@
 {
   "zh_CN": {
+    "Saving search selection": "正在保存搜索选择",
+    "Last search source unavailable; no search sources": "上次来源不可用，当前无可搜索来源",
+    "Last search source unavailable; using @name": "上次来源不可用，已使用 @name",
+    "Last search profile unavailable; using global settings": "上次方案不可用，已使用全局设置",
+    "Could not save search selection; previous selection restored": "无法保存搜索选择，已恢复原选择",
     "Preset is no longer available": "方案已不可用",
     "Save failed; recovery incomplete": "保存失败，恢复未完成",
     "Save failed; previous settings restored": "保存失败，已恢复原设置",
@@ -1072,6 +1077,11 @@
     "Manage search profile": "管理搜索方案"
   },
   "zh_TW": {
+    "Saving search selection": "正在儲存搜尋選擇",
+    "Last search source unavailable; no search sources": "上次來源不可用，目前無可搜尋來源",
+    "Last search source unavailable; using @name": "上次來源不可用，已使用 @name",
+    "Last search profile unavailable; using global settings": "上次方案不可用，已使用全域設定",
+    "Could not save search selection; previous selection restored": "無法儲存搜尋選擇，已恢復原選擇",
     "Preset is no longer available": "方案已無法使用",
     "Save failed; recovery incomplete": "儲存失敗，復原未完成",
     "Save failed; previous settings restored": "儲存失敗，已復原原設定",
