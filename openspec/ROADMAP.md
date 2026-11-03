@@ -1,6 +1,6 @@
 # Venera-Next UI/UX 改造路线图
 
-> 分工：codex「architect」（规划，pane w3:p4）→ codex「executor」（执行/debug，pane w3:p2）→ owner（人工验收 → archive）
+> 分工：codex「architect」（规划，pane w4:p1）→ codex「executor」（执行/debug，pane w4:p2）→ owner（人工验收 → archive）
 > 规则见 `openspec/config.yaml` 的 context 与 operations。已完成的 quick wins 见 `doc/ui-audit-2026-10-20.md`。
 > 设计方向（2026-10-20 锁定，同日修订）：现代极简——浅色内容区 + 浅色壳，动态取色为唯一强调色来源；阅读器跟随主题不设例外；深色内容区主题为二期。详见 design-system-foundation。
 
@@ -8,7 +8,7 @@
 
 功能愿望与新功能规划见 `openspec/BACKLOG.md`（愿景 + 候选清单 + 批次建议）。
 
-2026-11-01 owner 反馈的 B2–B4、F8–F11 及依赖/验收条件见 BACKLOG「Owner 反馈 TODO」：`search-profiles-author` 已验收归档，接下来建议修阅读方案状态恢复和卡片点击；搜索目标记忆、方案排序、收藏分类折叠及多级排序随后排期。此为建议顺序，尚未逐项开启 change。
+2026-11-01 owner反馈的依赖/验收条件见BACKLOG「Owner反馈TODO」。当前F6/F7、B3/B4均已验收归档；owner已安排F8 → F9，其他候选未开启。
 
 2026-11-02 owner实际搜索未得到结果，已批准废止B2详情跨平台入口及原F7专用作者聚合链路。`search-profiles-author` 最终设计：F6搜索方案保留，F7改为收藏右栏单选创作者的平台名称树，可维护同源多名称并点击普通单源搜索。2026-11-03实现与自动化独立复核完成：113项测试全通过、0skip，analyze50=38+12零新增；F6/F7 GUI证据已重留并独立抽查通过，正常生产构建已恢复，owner于2026-11-03验收通过，已归档（实现commit c5429bb）。B3/B4已于2026-11-03由owner安排，四件套已建并校验，顺序执行；F8–F11尚未启动。
 
@@ -25,6 +25,8 @@
 | 9 | **search-profiles-author**（BACKLOG F6+F7，批次 C）✅已归档 | 搜索方案CRUD/来源排序及选项 + 收藏单选创作者平台名称树/手动维护/普通单源搜索（2026-11-03 owner验收，实现commit c5429bb，替代旧B2） | 既有搜索及收藏作者alias基础；F8前置已满足 |
 | 10 | **reader-preset-state-recovery**（B3）✅已归档 | 持续编辑共享19键、跟随默认保持绑定并动态继承；285+174测试0skip、analyze50零新增，GUI/重启/正常构建通过 | 2026-11-03 owner验收通过，实现526c311；归档review.md含证据 |
 | 11 | **comic-card-hit-target-fix**（B4）✅已归档 | 标题首行/封面命中、窄brief紧凑徽章；owner验收通过，实现6f65f7f，174测试/50基线及GUI通过 | 无B3技术依赖；2026-11-03单独归档，B3返工保留 |
+| 12 | **search-target-memory**（F8）已派工 | 记忆聚合/单源及所选方案身份，失效可见回退、可靠保存 | F6/F7、B3/B4均已验收归档 |
+| 13 | **reader-preset-ordering**（F9）工件已建，排队 | 拖动和上/下移，跨入口一致顺序、身份/绑定不变 | B3已完成；等F8验收后另会话派工 |
 
 下一排期（owner已授权）：**F8搜索目标记忆 → F9阅读方案手动排序**，按change逐个执行、复核和验收。B3/B4均已归档；B5、F11、F10及F1 → F2保留候选，统一视觉美化后置。
 

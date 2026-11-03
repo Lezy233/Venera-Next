@@ -36,7 +36,7 @@ Venera-Next 是 PC 优先的 Flutter 漫画阅读器，fork 自 venera-next，**
 - 已完成并归档：`design-system-foundation`（设计基座 + 验收缺陷 5.1–5.3 修复）；`settings-ia-cleanup`（2026-10-21 归档）；`save-bar-layout-fix`（2026-10-21 归档，commit 9669b5c）；`desktop-shell-polish`（2026-10-21 归档，commit ae00919）；`desktop-search-context`（2026-10-21 归档，commit 5833677）；`reader-quick-settings-panel`（2026-10-22 归档，commit 11c495e）；`save-feedback-placement-fix`（2026-10-22 归档，commit 63d45e7）；`chrome-binding-lifecycle-fix`（2026-10-22 归档，commit 0121b81，BACKLOG B1）；`keyboard-shortcuts`（2026-10-23 归档，commit b735663，BACKLOG F3，批次 A——动作注册表/多键位自定义/冲突检测/独立主分类/平台默认键）；`reader-mode-presets`（2026-10-23 归档，commit 1c8fbc3，BACKLOG F4，批次 A——阅读模式方案 CRUD + 面板方案切换）；`favorite-series`（2026-10-25 归档，批次 C F5——跨来源手动系列、收藏交互入口、多选 Escape、批量加入系列）；`search-profiles-author`（2026-11-03 owner验收通过并归档，实现commit c5429bb，批次 C F6+F7——搜索方案与收藏创作者平台名称树，替代旧B2作者聚合入口）。
 - 2026-11-03 owner验收`comic-card-hit-target-fix`（B4）通过，按owner指令归档至`openspec/changes/archive/2026-11-03-comic-card-hit-target-fix/`；实现commit `6f65f7f`，独立174测试0skip、analyze50=38+12、GUI及正常构建通过。
 - B3 `reader-preset-state-recovery`于2026-11-03经owner验收通过并归档，实现commit `526c311`：持续编辑共享19键及「跟随默认」保持绑定；独立285测试、B4保护174测试均0skip，analyze raw/unique50=38+12零新增，GUI/真实重启/正常构建与清理通过。证据见`openspec/changes/archive/2026-11-03-reader-preset-state-recovery/review.md`。
-- owner已安排下一顺序 **F8搜索目标记忆 → F9阅读方案排序**；逐change执行、独立复核与owner验收。B5上下黑边、F10/F11及F1→F2未启动，统一视觉美化后置，见`openspec/BACKLOG.md`。
+- owner已安排下一顺序 **F8搜索目标记忆 → F9阅读方案排序**；四件套分别位于`openspec/changes/search-target-memory/`和`openspec/changes/reader-preset-ordering/`，校验通过。F8派executor新会话执行，F9待F8验收后派活；逐change独立复核与owner验收。B5上下黑边、F10/F11及F1→F2未启动，统一视觉美化后置，见`openspec/BACKLOG.md`。
 
 ## 5. 最小阅读清单
 
