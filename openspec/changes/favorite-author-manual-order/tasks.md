@@ -1,6 +1,6 @@
 ## 派工前条件
 
-本四件套为待owner确认D1的草案。architect确认答复、更新HEAD并明确派活后，executor才可开始实现。
+Owner已于2026-11-04确认每个文件夹/系列独立记忆，D1与proposal已更新。executor按architect正式派活的新会话执行，以当前HEAD为准。
 
 ## 1. 实现与证据（完成一项立即勾选并备注）
 

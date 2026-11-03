@@ -38,7 +38,7 @@ Venera-Next 是 PC 优先的 Flutter 漫画阅读器，fork 自 venera-next，**
 - B3 `reader-preset-state-recovery`于2026-11-03经owner验收通过并归档，实现commit `526c311`：持续编辑共享19键及「跟随默认」保持绑定；独立285测试、B4保护174测试均0skip，analyze raw/unique50=38+12零新增，GUI/真实重启/正常构建与清理通过。证据见`openspec/changes/archive/2026-11-03-reader-preset-state-recovery/review.md`。
 - F8 `search-target-memory`于2026-11-04经owner验收通过并归档，实现commit `3749a52`；独立59测试0skip，analyze raw/unique50=38+12零新增，GUI/真实重启/正常构建及清理通过，证据见`openspec/changes/archive/2026-11-04-search-target-memory/review.md`。
 - F9 **阅读方案排序**于2026-11-04经owner验收通过并归档，实现commit `bc3f82a`；独立525测试0失败0skip、analyze50零新增，GUI/重启/正常构建与清理通过，见`openspec/changes/archive/2026-11-04-reader-preset-ordering/review.md`。本次仅归档提交，未push。
-- owner已安排F10收藏「作者→手动顺序」。architect准备`favorite-author-manual-order`四件套，按BACKLOG先确认作者分组与排序作用域，再交executor新会话实现。B5、F11及F1→F2未启动，统一视觉美化后置。
+- 当前执行F10收藏「作者→手动顺序」（`openspec/changes/favorite-author-manual-order/`）。owner于2026-11-04确认每个文件夹/系列独立记忆；全部视图也独立，作者沿用首位有效标签/人工alias、缺作者置末，只改本地展示、不写网络服务器。四件套已锁定校验，交executor新会话实现，architect持续监听并独立复核。B5、F11及F1→F2未启动，统一视觉美化后置。
 
 ## 5. 最小阅读清单
 

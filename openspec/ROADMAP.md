@@ -27,9 +27,9 @@
 | 11 | **comic-card-hit-target-fix**（B4）✅已归档 | 标题首行/封面命中、窄brief紧凑徽章；owner验收通过，实现6f65f7f，174测试/50基线及GUI通过 | 无B3技术依赖；2026-11-03单独归档，B3返工保留 |
 | 12 | **search-target-memory**（F8）✅已归档 | 记忆聚合/单源及方案身份，失效可见回退、可靠保存；59测试0skip、analyze50零新增、GUI/重启/正常构建通过 | 2026-11-04 owner验收通过，实现3749a52；见归档review.md |
 | 13 | **reader-preset-ordering**（F9）✅已归档 | 拖动和上/下移，跨入口顺序/绑定/继承不变；525测试0skip、analyze50零新增、GUI/重启/构建清理通过 | 2026-11-04 owner验收；实现bc3f82a，本次未push |
-| 14 | **favorite-author-manual-order**（F10）规划中 | 作者优先、组内手动，作用域与多作者规则先确认 | owner已安排；语义确认后交executor新会话 |
+| 14 | **favorite-author-manual-order**（F10）当前执行 | 作者优先、组内手动，各文件夹/全部/系列独立 | owner已确认作用域，D1锁定，交executor新会话 |
 
-当前状态：F9已验收并本地归档提交，未push；接续规划 **F10收藏作者→手动顺序**，先确认BACKLOG列出的作用域与作者规则。B5、F11及F1 → F2保留候选，统一视觉美化后置。
+当前状态：F9已验收并本地归档提交，未push；**F10收藏作者→手动顺序**已确认各文件夹/系列独立记忆，按锁定四件套执行。B5、F11及F1 → F2保留候选，统一视觉美化后置。
 
 ## 已完成（quick wins，不在 changes 中）
 
