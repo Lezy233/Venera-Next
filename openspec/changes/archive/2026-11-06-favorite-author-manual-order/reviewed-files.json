@@ -1,0 +1,28 @@
+{
+  "HEAD": "5977b8523b516893f70fb5fe660bef72cc524611",
+  "files": {
+    "assets/translation.json": "037b3e87a78675a89c13a9aeef8e526ca9603f1b7343be25b14568a62261de12",
+    "lib/features/favorites/author_shelf.dart": "6426479df5dee24d1a68c6030f18b787c338bd14ffb10a855dfeaf74d6d619a4",
+    "lib/features/favorites/author_shelf_model.dart": "8ae0e92a4952323275628f121c55e021a37970fe0b027c843c12daf0a1d8965e",
+    "lib/features/favorites/favorite_filters.dart": "694050d7ae4a19ded670236b7c598a2473152f344b416e6fa03baf6454512c2c",
+    "lib/features/favorites/favorite_order.dart": "1935c2321d1001a74c2d11ff7b23ec6d76885e808ab5cc08df17ee63d1844107",
+    "lib/features/favorites/favorites_manager.dart": "593331cea98d2bf82a475048fa0976ed966e121752025aa36f970de7f3a2924b",
+    "lib/features/favorites/favorites_repository.dart": "107bcbadf881a3ce9537b82d9ef3d6267f0d063d3241e2972f818de9faa2182f",
+    "lib/features/favorites/local_favorites_page.dart": "5e063c22d805e5beab76e5d48846bc20e786d66d70c968e5fcfede2134fc01bb",
+    "test/features/favorites/author_manual_order_storage_test.dart": "b410c48044f2233afad033ceba8cb884f951d5eb2f4661fb1eb0144acad42722",
+    "test/features/favorites/author_shelf_drag_test.dart": "605409493c8d5e3caa29e16cdf54aa3ba276a1184a5832f23fb1d62f25552e77",
+    "test/features/favorites/author_shelf_layout_test.dart": "8744b7675fd0e2d99b2c197d78021fa6f8df8513036ea02852aa7002069a24b2",
+    "test/features/favorites/author_shelf_model_test.dart": "c4928951dcb943fe94b8d47c5a575ccdf687c74f2a6f793a57dc192e603b5f29",
+    "test/features/favorites/author_shelf_order_test.dart": "e99e9d36e173826211c700c5c6195014aa2e1b4c1a7c19e5b9d505f54a30ef4d",
+    "test/features/favorites/author_shelf_storage_test.dart": "1972e420698356721454541e50c3ba943fb9f8b8ea43c9e0e8ef8055f4d7e14b",
+    "test/features/favorites/author_shelf_ui_test.dart": "f82b1ad6de837800306ac94c9a932f1e8451eda16d344eec93759b5eabc36df7",
+    "test/features/favorites/comic_reorder_ownership_test.dart": "a6f079b4a5a1fb175a3abbaf09c8c95089c88bab5f031d15016ea38030443fb1",
+    "test/features/favorites/favorite_confirmation_ownership_test.dart": "0f6e12249b7f2829fff368ae2b8239d97e8aa0817de3f8a0c50c985c7cedcae8",
+    "test/features/favorites/favorite_metadata_ownership_test.dart": "a63d70afd80ea9489c04683c964141f2cb376a9148de0f99c7ec8fc0a1668c8b",
+    "test/features/favorites/favorite_transfer_ownership_test.dart": "737662f0ee67ec492ba2f93a6d6257d4b1852443bd3d8e8373de2a37bbd2313d",
+    "test/features/favorites/folder_rename_ownership_test.dart": "58c28f2fd03a8aebed5e30566f60c42f41e5a05deb7224b49c4420c5946bfb52",
+    "test/features/favorites/author_shelf_independence_test.dart": "e80c5889bf63c7038df2e6147565db41a12322b33ebb2e8459464dbae261e20e",
+    "lib/features/comic_widgets/comic_tile.dart": "5373842e32793101a0491344411434c2745d8e8dfe9b3cb423a3f4abff882975",
+    "test/features/favorites/author_shelf_hover_test.dart": "a6492ebc0467b86d00777c80eab768878ade950407f7200e045d7d22d9dee84f"
+  }
+}
