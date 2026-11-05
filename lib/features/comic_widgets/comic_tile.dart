@@ -190,6 +190,7 @@ class ComicTile extends StatelessWidget {
     this.onBlocked,
     this.heroID,
     this.displayMode,
+    this.hoverColor,
   });
 
   final Comic comic;
@@ -209,6 +210,10 @@ class ComicTile extends StatelessWidget {
   final int? heroID;
 
   final ComicTileDisplayMode? displayMode;
+
+  /// Optional paint override for the primary ink response, without changing
+  /// the inherited theme used by independent controls or context menus.
+  final Color? hoverColor;
 
   void _onTap() {
     if (onTap != null) {
@@ -306,6 +311,7 @@ class ComicTile extends StatelessWidget {
     };
 
     Widget interactive(Widget content) => ClickInkWell(
+      hoverColor: hoverColor,
       borderRadius: BorderRadius.circular(type == 'detailed' ? 12 : 8),
       onTap: _onTap,
       onLongPress: enableLongPressed ? () => _onLongPressed(context) : null,

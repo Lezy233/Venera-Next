@@ -1,4 +1,5 @@
 import 'package:venera_next/features/favorites/favorites_scope.dart';
+import 'package:venera_next/features/favorites/favorite_order.dart';
 import 'package:venera_next/features/history/history_scope.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -54,6 +55,8 @@ class _History extends Fake implements HistoryManager {
 }
 
 class _Manager extends Fake implements LocalFavoritesManager {
+  @override
+  String? orderScopeMode(FavoriteOrderScope scope) => null;
   @override
   int connectionGeneration = 1;
   final contents = {

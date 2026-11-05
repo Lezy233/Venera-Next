@@ -13,6 +13,8 @@ import 'package:venera_next/foundation/file_replacement.dart';
 import 'favorites_repository.dart';
 import 'favorite_series.dart';
 import 'favorite_models.dart';
+import 'favorite_order.dart';
+import 'author_shelf_model.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
@@ -265,6 +267,190 @@ class LocalFavoritesManager with ChangeNotifier {
     return _mutate(() => _reorder(captured, folder));
   }
 
+  AuthorShelfState shelfState(String folder, AuthorShelfAuthor author) =>
+      _repository.shelfState(folder, author);
+
+  Future<void> setShelfState({
+    required String folder,
+    required AuthorShelfAuthor author,
+    required AuthorShelfState state,
+    required String token,
+    required int generation,
+    required String dataPath,
+    required bool Function() isCurrent,
+  }) => _mutate(() {
+    if (!isCurrent() ||
+        generation != connectionGeneration ||
+        dataPath != App.dataPath ||
+        !existsFolder(folder) ||
+        token != orderScopeToken(FavoriteOrderScope.folder(folder))) {
+      throw const FormatException(
+        'Favorite order target changed. Refresh and try again.',
+      );
+    }
+    _repository.setShelfState(folder, author, state);
+    notifyListeners();
+  });
+
+  bool orderScopeExists(FavoriteOrderScope scope) => switch (scope.kind) {
+    FavoriteOrderScopeKind.all => true,
+    FavoriteOrderScopeKind.folder => existsFolder(scope.id),
+    FavoriteOrderScopeKind.series => seriesById(scope.id) != null,
+  };
+
+  Future<void> moveAuthorShelfFavorite({
+    required String folder,
+    required AuthorShelfAuthor author,
+    required FavoriteIdentity comic,
+    required FavoriteIdentity neighbor,
+    required bool before,
+    required Set<FavoriteIdentity> visible,
+    required String token,
+    required int generation,
+    required String dataPath,
+    required bool Function() isCurrent,
+  }) {
+    final capturedVisible = Set<FavoriteIdentity>.of(visible);
+    return _mutate(() {
+      if (!isCurrent() ||
+          generation != connectionGeneration ||
+          dataPath != App.dataPath ||
+          !existsFolder(folder) ||
+          token != orderScopeToken(FavoriteOrderScope.folder(folder))) {
+        throw const FormatException(
+          'Favorite order target changed. Refresh and try again.',
+        );
+      }
+      _commitFavoriteTransaction(
+        () => runSqliteTransaction(_db, () {
+          final plan = planAuthorShelfMove(
+            members: getFolderComics(folder),
+            aliases: orderAuthorAliases,
+            author: author,
+            comic: comic,
+            neighbor: neighbor,
+            before: before,
+            visible: capturedVisible,
+            ranks:
+                authorShelfOrders(folder)[authorShelfStorageKey(author)] ??
+                const {},
+          );
+          _repository.writeShelfOrder(
+            folder,
+            authorShelfStorageKey(author),
+            plan.items,
+          );
+        }),
+      );
+      notifyListeners();
+    });
+  }
+
+  Map<String, Map<FavoriteIdentity, int>> authorShelfOrders(String folder) =>
+      existsFolder(folder) ? _repository.shelfOrders(folder) : const {};
+
+  List<FavoriteItem> orderScopeMembers(FavoriteOrderScope scope) =>
+      switch (scope.kind) {
+        FavoriteOrderScopeKind.all => getAllComics(),
+        FavoriteOrderScopeKind.folder =>
+          existsFolder(scope.id) ? getFolderComics(scope.id) : <FavoriteItem>[],
+        FavoriteOrderScopeKind.series =>
+          seriesById(scope.id) != null
+              ? getSeriesComics(scope.id)
+              : <FavoriteItem>[],
+      };
+
+  String? orderScopeToken(FavoriteOrderScope scope) =>
+      _repository.orderToken(scope);
+  String? orderScopeMode(FavoriteOrderScope scope) =>
+      _repository.orderMode(scope);
+  Map<String, String> get orderAuthorAliases => favoriteAuthorAliases(
+    appdata.implicitData['local_favorites_author_aliases'],
+  );
+
+  List<FavoriteItem> authorOrderedComics(FavoriteOrderScope scope) =>
+      authorManualFavoriteItems(
+        orderScopeMembers(scope),
+        _repository.authorRanks(scope),
+        orderAuthorAliases,
+      );
+
+  Future<void> setOrderScopeMode(FavoriteOrderScope scope, String mode) {
+    final generation = connectionGeneration;
+    final path = App.dataPath;
+    final token = orderScopeToken(scope);
+    return _mutate(() {
+      if (generation != connectionGeneration ||
+          path != App.dataPath ||
+          !orderScopeExists(scope) ||
+          token != orderScopeToken(scope)) {
+        throw const FormatException(
+          'Favorite order target changed. Refresh and try again.',
+        );
+      }
+      _repository.setOrderMode(
+        scope,
+        mode,
+        const Uuid().v4(),
+        orderScopeMembers(scope),
+      );
+      notifyListeners();
+    });
+  }
+
+  /// An idempotent relative placement, validated against current membership
+  /// and author values at execution. Never writes a page's comic snapshot.
+  Future<void> moveAuthorFavorite({
+    required FavoriteOrderScope scope,
+    required String token,
+    required int generation,
+    required String dataPath,
+    required FavoriteIdentity comic,
+    required FavoriteIdentity neighbor,
+    required String author,
+    required bool before,
+  }) => _mutate(() {
+    if (generation != connectionGeneration ||
+        dataPath != App.dataPath ||
+        !orderScopeExists(scope) ||
+        token != orderScopeToken(scope)) {
+      throw const FormatException(
+        'Favorite order target changed. Refresh and try again.',
+      );
+    }
+    _commitFavoriteTransaction(
+      () => runSqliteTransaction(_db, () {
+        final members = orderScopeMembers(scope);
+        final aliases = orderAuthorAliases;
+        final moving = members
+            .where((item) => favoriteIdentity(item) == comic)
+            .firstOrNull;
+        final target = members
+            .where((item) => favoriteIdentity(item) == neighbor)
+            .firstOrNull;
+        if (moving == null ||
+            target == null ||
+            comic == neighbor ||
+            favoriteOrderAuthor(moving, aliases) != author ||
+            favoriteOrderAuthor(target, aliases) != author) {
+          throw const FormatException(
+            'Favorite author group changed. Refresh and try again.',
+          );
+        }
+        _repository.reconcileOrder(scope, members);
+        final group =
+            authorOrderedComics(scope)
+                .where((item) => favoriteOrderAuthor(item, aliases) == author)
+                .map(favoriteIdentity)
+                .toList()
+              ..remove(comic);
+        group.insert(group.indexOf(neighbor) + (before ? 0 : 1), comic);
+        _repository.writeAuthorGroup(scope, group);
+      }),
+    );
+    notifyListeners();
+  });
+
   Future<void> rename(String before, String after) =>
       _mutate(() => _rename(before, after));
 
@@ -464,7 +650,8 @@ class LocalFavoritesManager with ChangeNotifier {
   final _pendingReads = <Future<void>>{};
   int _connectionGeneration = 0;
 
-  FavoritesRepository get _repository => FavoritesRepository(_db);
+  FavoritesRepository get _repository =>
+      FavoritesRepository(_db, shelfAliases: () => orderAuthorAliases);
 
   late String _dbPath;
 

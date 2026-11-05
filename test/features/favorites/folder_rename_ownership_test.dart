@@ -1,4 +1,5 @@
 import 'package:venera_next/features/favorites/favorites_scope.dart';
+import 'package:venera_next/features/favorites/favorite_order.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -34,6 +35,8 @@ import '../../components/sidebar_presentation_test.dart'
     show pumpSidebar, settleSidebarWork, sidebarCauses;
 
 class _Manager extends Fake implements LocalFavoritesManager {
+  @override
+  String? orderScopeMode(FavoriteOrderScope scope) => null;
   @override
   int connectionGeneration = 1;
   final names = ['Original', 'Other'];

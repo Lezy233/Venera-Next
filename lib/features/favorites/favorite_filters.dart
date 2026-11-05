@@ -67,6 +67,7 @@ const favoriteSortModes = [
   'timeOldest',
   'authorAsc',
   'authorDesc',
+  'authorManual',
 ];
 
 bool isManualFavoriteSort(String mode) => mode == favoriteSortModes.first;

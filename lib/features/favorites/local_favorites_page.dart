@@ -5,6 +5,8 @@ import 'package:venera_next/foundation/global_preference_store.dart';
 import 'package:venera_next/foundation/application_preferences.dart';
 import 'package:venera_next/components/file_save_task.dart';
 import 'favorite_models.dart';
+import 'favorite_order.dart';
+import 'author_shelf.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -24,7 +26,6 @@ import 'package:venera_next/components/sidebar_resize_handle.dart';
 import 'package:venera_next/components/window_selection_task.dart';
 import 'package:venera_next/features/comic_details/comic_details.dart';
 import 'package:venera_next/features/comic_source/comic_source.dart';
-import 'package:venera_next/features/comic_widgets/comic_widgets.dart';
 import 'package:venera_next/app_shell/desktop_chrome.dart';
 import 'package:venera_next/features/favorites/author_management_dialog.dart';
 import 'package:venera_next/features/favorites/favorite_actions.dart';
@@ -179,14 +180,28 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
       value is List ? value.whereType<String>().toSet() : <String>{};
 
   String _storedSortMode() {
+    final scoped = manager.orderScopeMode(_orderScope);
+    if (isAllFolder && scoped == 'authorManual') return 'manual';
+    if (scoped != null && favoriteSortModes.contains(scoped)) return scoped;
     final modes = appdata.implicitData['local_favorites_sort_modes'];
     final stored = modes is Map ? modes[widget.folder] : null;
-    return stored is String && favoriteSortModes.contains(stored)
+    return stored is String &&
+            stored != 'authorManual' &&
+            favoriteSortModes.contains(stored)
         ? stored
         : favoriteSortModes.first;
   }
 
   var searchResults = <FavoriteItem>[];
+
+  FavoriteOrderScope get _orderScope => isAllFolder
+      ? const FavoriteOrderScope.all()
+      : FavoriteOrderScope.folder(widget.folder);
+
+  List<String> get _sortModes => [
+    for (final mode in favoriteSortModes)
+      if (!isAllFolder || mode != 'authorManual') mode,
+  ];
 
   void updateSearchResult() {
     setState(() {
@@ -379,28 +394,15 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
     );
   }
 
-  void _persistSortMode() {
-    final folder = widget.folder;
-    final mode = sortMode;
-    final stored = appdata.implicitData['local_favorites_sort_modes'];
-    final modes = <String, Object?>{
-      if (stored is Map)
-        for (final entry in stored.entries) '${entry.key}': entry.value,
-      folder: mode,
-    };
-    unawaited(
-      appdata
-          .updateImplicit((draft) {
-            draft['local_favorites_sort_modes'] = modes;
-          })
-          .then<void>(
-            (_) {},
-            onError: (Object error, StackTrace stack) {
-              Log.error('Favorites sort mode', error, stack);
-            },
-          ),
-    );
-  }
+  Future<void> _persistSortMode(String folder, String mode) =>
+      appdata.updateImplicit((draft) {
+        final stored = draft['local_favorites_sort_modes'];
+        draft['local_favorites_sort_modes'] = <String, Object?>{
+          if (stored is Map)
+            for (final entry in stored.entries) '${entry.key}': entry.value,
+          folder: mode,
+        };
+      });
 
   void _setReadFilter(String value) {
     setState(() => readFilterSelect = value);
@@ -409,8 +411,41 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
   }
 
   void _setSortMode(String value) {
-    setState(() => sortMode = value);
-    _persistSortMode();
+    if (!_canReadObservedFolder) return;
+    final scope = _orderScope;
+    final folder = widget.folder;
+    final token = manager.orderScopeToken(scope);
+    unawaited(
+      AppDataOperations.instance
+          .access(() async {
+            if (!_canReadObservedFolder || widget.folder != folder) return;
+            if (manager.orderScopeToken(scope) != token) {
+              throw const FormatException(
+                'Favorite order target changed. Refresh and try again.',
+              );
+            }
+            await manager.setOrderScopeMode(scope, value);
+            await _persistSortMode(folder, value);
+          })
+          .then(
+            (_) {
+              if (!_canReadObservedFolder || widget.folder != folder) return;
+              setState(() => sortMode = value);
+            },
+            onError: (Object error) {
+              if (mounted &&
+                  _canReadObservedFolder &&
+                  widget.folder == folder) {
+                setState(
+                  () => sortMode = manager.orderScopeMode(scope) ?? sortMode,
+                );
+                context.showMessage(
+                  message: 'Could not save favorite order. Try again.'.tl,
+                );
+              }
+            },
+          ),
+    );
   }
 
   void _toggleTagFilter(String value) {
@@ -566,12 +601,11 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
                     title: "Sort",
                     current: favoriteSortModeLabels[sortMode] ?? 'Manual',
                     values: [
-                      for (final mode in favoriteSortModes)
+                      for (final mode in _sortModes)
                         favoriteSortModeLabels[mode] ?? 'Manual',
                     ],
                     enabled: true,
-                    onSelected: (index) =>
-                        _setSortMode(favoriteSortModes[index]),
+                    onSelected: (index) => _setSortMode(_sortModes[index]),
                   ),
                 ),
                 const Divider(height: 1),
@@ -677,6 +711,7 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                 child: _FavoriteFilterEditor(
+                  allowShelves: !isAllFolder,
                   readFilter: readFilterSelect,
                   sortMode: sortMode,
                   authors: sheetAuthors,
@@ -1482,12 +1517,37 @@ class _LocalFavoritesPageState extends State<LocalFavoritesPage> {
             ),
           )
         else
-          SliverGridComics(
-            comics: sortFavoriteItems(
-              filterComics(searchMode ? searchResults : comics),
-              sortMode,
-              aliases: _authorAliases,
-            ),
+          FavoriteFolderComics(
+            folder: widget.folder,
+            shelves: !isAllFolder && sortMode == 'authorManual',
+            members:
+                !isAllFolder &&
+                    sortMode == 'authorManual' &&
+                    _canReadObservedFolder &&
+                    manager.existsFolder(widget.folder)
+                ? manager.getFolderComics(widget.folder)
+                : comics,
+            aliases: _authorAliases,
+            isCurrent: () => _canReadObservedFolder,
+            comics:
+                !isAllFolder &&
+                    sortMode == 'authorManual' &&
+                    _canReadObservedFolder &&
+                    manager.existsFolder(widget.folder)
+                ? filterComics(manager.getFolderComics(widget.folder))
+                      .where(
+                        (item) =>
+                            !searchMode ||
+                            matchKeyword(keyword, item) ||
+                            matchKeywordT(keyword, item) ||
+                            matchKeywordS(keyword, item),
+                      )
+                      .toList()
+                : sortFavoriteItems(
+                    filterComics(searchMode ? searchResults : comics),
+                    sortMode,
+                    aliases: _authorAliases,
+                  ),
             selections: selectedComics,
             useFavoriteDisplaySettings: true,
             menuBuilder: (c) {
@@ -2056,10 +2116,28 @@ const favoriteSortModeLabels = {
   'timeOldest': 'Added (oldest)',
   'authorAsc': 'Author (A-Z)',
   'authorDesc': 'Author (Z-A)',
+  'authorManual': 'Author shelves',
 };
 
 class _LocalFavoritesFilterDialogState
     extends SettingsSaveState<_LocalFavoritesFilterDialog> {
+  late final FavoriteStoreBinding _store;
+  late final int _generation;
+  late final String _dataPath;
+  late final FavoriteOrderScope _scope;
+  late final String? _scopeToken;
+  @override
+  void initState() {
+    super.initState();
+    _store = FavoritesScope.capture(context);
+    _generation = _store.manager.connectionGeneration;
+    _dataPath = App.dataPath;
+    _scope = widget.folder == localAllFolderLabel
+        ? const FavoriteOrderScope.all()
+        : FavoriteOrderScope.folder(widget.folder);
+    _scopeToken = _store.manager.orderScopeToken(_scope);
+  }
+
   List<String> optionTypes = ['Filter'];
   late var readFilter = widget.initReadFilterSelect;
   late var sortMode = widget.initSortMode;
@@ -2097,6 +2175,7 @@ class _LocalFavoritesFilterDialogState
               TabViewBody(
                 children: [
                   _FavoriteFilterEditor(
+                    allowShelves: widget.folder != localAllFolderLabel,
                     readFilter: readFilter,
                     sortMode: sortMode,
                     authors: authors,
@@ -2141,23 +2220,45 @@ class _LocalFavoritesFilterDialogState
                     final selectedSortMode = sortMode;
                     final selectedAuthors = Set<String>.of(authors);
                     final selectedTags = Set<String>.of(tags);
-                    final storedModes =
-                        appdata.implicitData['local_favorites_sort_modes'];
-                    final sortModes = <String, Object?>{
-                      if (storedModes is Map)
-                        for (final entry in storedModes.entries)
-                          '${entry.key}': entry.value,
-                      widget.folder: selectedSortMode,
-                    };
                     saveSetting(
                       'local_favorites_filter',
-                      () => appdata.updateImplicit((draft) {
-                        draft['local_favorites_read_filter'] = value;
-                        draft['local_favorites_author_filter'] = selectedAuthors
-                            .toList();
-                        draft['local_favorites_tag_filter'] = selectedTags
-                            .toList();
-                        draft['local_favorites_sort_modes'] = sortModes;
+                      () => AppDataOperations.instance.access(() async {
+                        if (!_store.isCurrent ||
+                            _store.manager.connectionGeneration !=
+                                _generation ||
+                            App.dataPath != _dataPath) {
+                          throw const FormatException(
+                            'Favorite order target changed. Refresh and try again.',
+                          );
+                        }
+                        if (selectedSortMode != widget.initSortMode) {
+                          if (_store.manager.orderScopeToken(_scope) !=
+                              _scopeToken) {
+                            throw const FormatException(
+                              'Favorite order target changed. Refresh and try again.',
+                            );
+                          }
+                          await _store.manager.setOrderScopeMode(
+                            _scope,
+                            selectedSortMode,
+                          );
+                        }
+                        await appdata.updateImplicit((draft) {
+                          final storedModes =
+                              draft['local_favorites_sort_modes'];
+                          final sortModes = <String, Object?>{
+                            if (storedModes is Map)
+                              for (final entry in storedModes.entries)
+                                '${entry.key}': entry.value,
+                            widget.folder: selectedSortMode,
+                          };
+                          draft['local_favorites_read_filter'] = value;
+                          draft['local_favorites_author_filter'] =
+                              selectedAuthors.toList();
+                          draft['local_favorites_tag_filter'] = selectedTags
+                              .toList();
+                          draft['local_favorites_sort_modes'] = sortModes;
+                        });
                       }),
                       onSaved: () {
                         widget.updateConfig(
@@ -2199,9 +2300,11 @@ class _FavoriteFilterEditor extends StatelessWidget {
     required this.onAuthorToggle,
     required this.onTagToggle,
     this.platformNames,
+    this.allowShelves = false,
   });
 
   final Widget? platformNames;
+  final bool allowShelves;
   final String readFilter;
   final String sortMode;
   final Set<String> authors;
@@ -2216,6 +2319,10 @@ class _FavoriteFilterEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sortModes = [
+      for (final mode in favoriteSortModes)
+        if (allowShelves || mode != 'authorManual') mode,
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -2223,11 +2330,11 @@ class _FavoriteFilterEditor extends StatelessWidget {
           title: "Sort",
           current: favoriteSortModeLabels[sortMode] ?? 'Manual',
           values: [
-            for (final mode in favoriteSortModes)
+            for (final mode in sortModes)
               favoriteSortModeLabels[mode] ?? 'Manual',
           ],
           enabled: editable,
-          onSelected: (index) => onSortMode(favoriteSortModes[index]),
+          onSelected: (index) => onSortMode(sortModes[index]),
         ),
         _FilterSelectRow(
           title: "Filter reading status",
