@@ -1,0 +1,8 @@
+{
+  "implementationCommit": "49ea8a90e1ed3561f16a227792db3ac239348e0f",
+  "algorithm": "sha256",
+  "files": {
+    "lib/features/reader/gallery_view.dart": "bf3a6995ee5716c9ac03ddb7a09f2085ff8945a704b5ee1483dbff41ae7a56f5",
+    "test/features/reader/gallery_viewport_rendering_test.dart": "33325350105627b2c062cea06dd75499cdcd9e35615601ad0fbef2b0895d95d3"
+  }
+}
