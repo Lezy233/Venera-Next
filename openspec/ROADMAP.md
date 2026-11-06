@@ -8,7 +8,7 @@
 
 功能愿望与新功能规划见 `openspec/BACKLOG.md`（愿景 + 候选清单 + 批次建议）。
 
-2026-11-01 owner反馈的依赖/验收条件见BACKLOG「Owner反馈TODO」。当前F6/F7、B3/B4及F8–F10均已验收归档；剩余B5、F11、F1→F2和UX1待排期，未开启其他候选。
+2026-11-01 owner反馈的依赖/验收条件见BACKLOG「Owner反馈TODO」。当前F6/F7、B3/B4及F8–F10均已验收归档；B5于2026-11-06按owner安排执行，F11、F1→F2和UX1仍待排期。
 
 2026-11-02 owner实际搜索未得到结果，已批准废止B2详情跨平台入口及原F7专用作者聚合链路。`search-profiles-author` 最终设计：F6搜索方案保留，F7改为收藏右栏单选创作者的平台名称树，可维护同源多名称并点击普通单源搜索。2026-11-03实现与自动化独立复核完成：113项测试全通过、0skip，analyze50=38+12零新增；F6/F7 GUI证据已重留并独立抽查通过，正常生产构建已恢复，owner于2026-11-03验收通过，已归档（实现commit c5429bb）。B3/B4已于2026-11-03由owner安排，四件套已建并校验，顺序执行；F8–F11尚未启动。
 
@@ -29,7 +29,9 @@
 | 13 | **reader-preset-ordering**（F9）✅已归档 | 拖动和上/下移，跨入口顺序/绑定/继承不变；525测试0skip、analyze50零新增、GUI/重启/构建清理通过 | 2026-11-04 owner验收；实现bc3f82a，2026-11-06随F10推送 |
 | 14 | **favorite-author-manual-order**（F10）✅已归档 | 作者分栏/三态/独立排序/单源搜索及卡片hover反馈 | 2026-11-06 owner验收并授权归档推送，实现cdce3e6；tasks4.x 3/3、独立204通过0skip/analyze50零新增，GUI/正常构建/清理与23SHA通过 |
 
-当前状态：**F10于2026-11-06经owner最终验收通过并授权归档推送**，实现cdce3e6，归档2026-11-06-favorite-author-manual-order，复核证据见归档review-v2.2.md；F9此前本地提交随本次推送。剩余B5双面翻页黑边、F11收藏侧栏分类折叠、F1页面多开→F2快速预览、UX1整体样式/交互美化，均未启动。UX1先提供风格方向和关键页面样例由owner确认后规划。
+| 15 | **reader-double-page-letterbox-fix**（B5）执行中 | 生产单双面真实渲染红灯、最小修复额外上下黑带，保护原图比例/完整性与既有阅读语义 | 2026-11-06 owner安排；tasks1.x，未实现/验收/提交/归档/push |
+
+当前状态：**F10于2026-11-06经owner最终验收通过并授权归档推送**，实现cdce3e6，归档2026-11-06-favorite-author-manual-order，复核证据见归档review-v2.2.md；F9此前本地提交随本次推送。**owner于2026-11-06安排B5双面翻页黑边修复，reader-double-page-letterbox-fix按四件套交executor新会话执行**；F11收藏侧栏分类折叠、F1页面多开→F2快速预览、UX1整体样式/交互美化仍未启动。UX1先提供风格方向和关键页面样例由owner确认后规划。
 
 ## 已完成（quick wins，不在 changes 中）
 
