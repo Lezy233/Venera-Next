@@ -1,0 +1,11 @@
+{
+  "implementationCommit": "4a886a6d201ff40b0c1eabafdfd39fa619ac875a",
+  "head": "31b38e07d8c0df1ed9b424aaa67c0cc081176408",
+  "algorithm": "sha256",
+  "files": {
+    "lib/features/favorites/favorites_page.dart": "39436767bb25522c684ebc534b9f080e6e67f5014a56e9157bb4189795f7b312",
+    "lib/features/favorites/side_bar.dart": "90ee1dc1004fa3d91afb5a7ea340c5af2290c5061945cb8a4df4087f907837ec",
+    "lib/features/favorites/sidebar_sections.dart": "1b29976e1fdc002937602b67bf57258f974864647afce56b42751af831460b8b",
+    "test/features/favorites/sidebar_sections_test.dart": "9044c8782b4a9ad3a83771d362233fefd2c1548a286dbb0ff46ceade7e64270d"
+  }
+}
