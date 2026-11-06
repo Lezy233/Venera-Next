@@ -8,7 +8,7 @@
 
 功能愿望与新功能规划见 `openspec/BACKLOG.md`（愿景 + 候选清单 + 批次建议）。
 
-2026-11-01 owner反馈的依赖/验收条件见BACKLOG「Owner反馈TODO」。当前F6/F7、B3/B4及F8–F10均已验收归档；B5于2026-11-06验收归档，2026-11-07随F11推送；F11于2026-11-07经owner验收通过并归档；F1→F2和UX1仍待排期。
+2026-11-01 owner反馈的依赖/验收条件见BACKLOG「Owner反馈TODO」。当前F6/F7、B3/B4及F8–F10均已验收归档；B5于2026-11-06验收归档，2026-11-07随F11推送；F11于2026-11-07经owner验收通过并归档。UX1于2026-11-07完成方向确认和正式方案，F1/F2纳入其实施阶段，生产实现待排期。
 
 2026-11-02 owner实际搜索未得到结果，已批准废止B2详情跨平台入口及原F7专用作者聚合链路。`search-profiles-author` 最终设计：F6搜索方案保留，F7改为收藏右栏单选创作者的平台名称树，可维护同源多名称并点击普通单源搜索。2026-11-03实现与自动化独立复核完成：113项测试全通过、0skip，analyze50=38+12零新增；F6/F7 GUI证据已重留并独立抽查通过，正常生产构建已恢复，owner于2026-11-03验收通过，已归档（实现commit c5429bb）。B3/B4已于2026-11-03由owner安排，四件套已建并校验，顺序执行；F8–F11尚未启动。
 
@@ -32,8 +32,9 @@
 | 15 | **reader-double-page-letterbox-fix**（B5）✅已归档 | 修正双面错误窗口尺寸覆盖，保护原图比例/完整性与既有阅读语义 | 2026-11-06 owner验收通过，实现49ea8a9；tasks1.x 4/4、独立148通过0skip/analyze50零新增，GUI/正常构建/清理/SHA通过；2026-11-07随F11推送 |
 
 | 16 | **favorites-sidebar-section-collapse**（F11）✅已归档 | 本地/系列/网络独立折叠、状态记忆、当前条目摘要及键盘/菜单隔离 | 2026-11-07 owner验收，实现4a886a6；tasks5/5、独立140通过0skip/analyze50零新增，GUI/真实重启/正常构建/清理及四SHA通过，本次授权推送 |
+| 17 | **ux1-bookshelf-workspace**（UX1，方案已建立） | A书架型壳层、多内容栈标签、临时预览、搜索/详情/阅读器一致交互 | owner已确认方向与默认值；F1/F2作为实施阶段，生产实现待排期 |
 
-当前状态：**F10于2026-11-06经owner最终验收通过并授权归档推送**，实现cdce3e6，归档2026-11-06-favorite-author-manual-order，复核证据见归档review-v2.2.md；F9此前本地提交随本次推送。**B5 reader-double-page-letterbox-fix已于2026-11-06经owner验收通过并归档提交**（实现49ea8a9，tasks4/4、148通过0skip/analyze50零新增、GUI/正常main构建/清理及SHA通过，局限见归档review.md；2026-11-07随F11推送）；F11收藏侧栏分类折叠于2026-11-07经owner验收通过并归档2026-11-07-favorites-sidebar-section-collapse，实现4a886a6，tasks5/5、独立140通过0skip/analyze50零新增，GUI/真实重启/正常构建/清理及四SHA通过，本次授权推送；F1页面多开→F2快速预览、UX1整体样式/交互美化仍未启动。UX1先提供风格方向和关键页面样例由owner确认后规划。
+当前状态：**F10于2026-11-06经owner最终验收通过并授权归档推送**，实现cdce3e6，归档2026-11-06-favorite-author-manual-order，复核证据见归档review-v2.2.md；F9此前本地提交随本次推送。**B5 reader-double-page-letterbox-fix已于2026-11-06经owner验收通过并归档提交**（实现49ea8a9，tasks4/4、148通过0skip/analyze50零新增、GUI/正常main构建/清理及SHA通过，局限见归档review.md；2026-11-07随F11推送）；F11收藏侧栏分类折叠于2026-11-07经owner验收通过并归档2026-11-07-favorites-sidebar-section-collapse，实现4a886a6，tasks5/5、独立140通过0skip/analyze50零新增，GUI/真实重启/正常构建/清理及四SHA通过，本次授权推送。2026-11-07 owner确认UX1 A书架型方向及全部默认值，正式方案位于openspec/changes/ux1-bookshelf-workspace；F1/F2纳入其分阶段实施，当前仅完成规划，生产实现未启动。
 
 ## 已完成（quick wins，不在 changes 中）
 
