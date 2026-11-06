@@ -400,7 +400,9 @@ class GalleryModeState extends State<ReaderGalleryView>
         }
         return PhotoView.customChild(
           backgroundDecoration: decoration,
-          childSize: MediaQuery.sizeOf(context),
+          // Use PhotoView's actual viewport for the page canvas. A fixed
+          // thumbnail strip can make it smaller than the window MediaQuery;
+          // using the window size fits images twice and adds extra letterbox.
           controller: controller,
           minScale: PhotoViewComputedScale.contained * 1.0,
           maxScale: PhotoViewComputedScale.covered * 10.0,
