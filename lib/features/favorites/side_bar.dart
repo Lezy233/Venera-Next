@@ -4,6 +4,9 @@ import 'package:venera_next/features/favorites/favorites_scope.dart';
 import 'package:venera_next/foundation/application_preferences.dart';
 import 'package:venera_next/foundation/global_preference_store.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:venera_next/design_system/tokens.dart';
+import 'sidebar_sections.dart';
 import 'package:venera_next/components/button.dart';
 import 'package:venera_next/components/file_save_task.dart';
 import 'package:venera_next/components/gesture.dart';
@@ -44,6 +47,8 @@ class FavoritesFolderSidebar extends StatefulWidget {
     this.onFolderListReady,
     this.onSelected,
     this.withAppbar = false,
+    this.sections,
+    this.onSectionChanged,
   });
 
   final String? selectedFolder;
@@ -59,6 +64,8 @@ class FavoritesFolderSidebar extends StatefulWidget {
   final VoidCallback? onSelected;
 
   final bool withAppbar;
+  final FavoriteSidebarSections? sections;
+  final void Function(FavoriteSidebarSection, bool)? onSectionChanged;
 
   @override
   State<FavoritesFolderSidebar> createState() => _FavoritesFolderSidebarState();
@@ -73,6 +80,33 @@ class _FavoritesFolderSidebarState extends State<FavoritesFolderSidebar>
   late final FavoriteStoreBinding _store;
   late final LocalFavoritesManager _manager;
   late final int _managerGeneration;
+  late final FavoriteSidebarSections _sections;
+  final _headerFocus = {
+    for (final section in FavoriteSidebarSection.values) section: FocusNode(),
+  };
+  final _groupFocus = {
+    for (final section in FavoriteSidebarSection.values)
+      section: FocusScopeNode(),
+  };
+  final _focusedHeaders = <FavoriteSidebarSection>{};
+
+  void _sectionsChanged() {
+    if (!mounted) return;
+    for (final section in FavoriteSidebarSection.values) {
+      if (!_sections.expanded(section) && _groupFocus[section]!.hasFocus) {
+        _headerFocus[section]!.requestFocus();
+      }
+    }
+    setState(() {});
+  }
+
+  void _setExpanded(FavoriteSidebarSection section, bool expanded) {
+    if (widget.onSectionChanged case final change?) {
+      change(section, expanded);
+    } else {
+      _sections.setExpanded(section, expanded);
+    }
+  }
 
   bool get _hasManager =>
       _store.isCurrent && _manager.connectionGeneration == _managerGeneration;
@@ -95,6 +129,8 @@ class _FavoritesFolderSidebarState extends State<FavoritesFolderSidebar>
 
   @override
   void initState() {
+    _sections = widget.sections ?? FavoriteSidebarSections(null);
+    _sections.addListener(_sectionsChanged);
     _store = FavoritesScope.capture(context);
     _manager = _store.manager;
     _managerGeneration = _manager.connectionGeneration;
@@ -108,6 +144,14 @@ class _FavoritesFolderSidebarState extends State<FavoritesFolderSidebar>
 
   @override
   void dispose() {
+    _sections.removeListener(_sectionsChanged);
+    if (widget.sections == null) _sections.dispose();
+    for (final node in _headerFocus.values) {
+      node.dispose();
+    }
+    for (final node in _groupFocus.values) {
+      node.dispose();
+    }
     appdata.settings.removeListener(updateFolders);
     _manager.removeListener(updateFolders);
     super.dispose();
@@ -141,44 +185,197 @@ class _FavoritesFolderSidebarState extends State<FavoritesFolderSidebar>
               ),
             ).paddingTop(context.padding.top),
           Expanded(
-            child: ListView.builder(
+            child: ListView(
               padding: widget.withAppbar
                   ? EdgeInsets.zero
                   : EdgeInsets.only(top: context.padding.top),
-              itemCount:
-                  folders.length +
-                  networkFolders.length +
-                  _manager.series.length +
-                  4,
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return buildLocalTitle();
-                }
-                index--;
-                if (index == 0) {
-                  return buildLocalFolder(localAllFolderLabel);
-                }
-                index--;
-                if (index < folders.length) {
-                  return buildLocalFolder(folders[index]);
-                }
-                index -= folders.length;
-                if (index == 0) return buildSeriesTitle();
-                index--;
-                if (index < _manager.series.length) {
-                  return buildSeries(_manager.series[index]);
-                }
-                index -= _manager.series.length;
-                if (index == 0) {
-                  return buildNetworkTitle();
-                }
-                index--;
-                return buildNetworkFolder(networkFolders[index]);
-              },
+              children: [
+                _group(FavoriteSidebarSection.local, buildLocalTitle(), [
+                  if (_sections.expanded(FavoriteSidebarSection.local)) ...[
+                    buildLocalFolder(localAllFolderLabel),
+                    for (final folder in folders) buildLocalFolder(folder),
+                  ],
+                ]),
+                _group(FavoriteSidebarSection.series, buildSeriesTitle(), [
+                  if (_sections.expanded(FavoriteSidebarSection.series))
+                    for (final series in _manager.series) buildSeries(series),
+                ]),
+                _group(FavoriteSidebarSection.network, buildNetworkTitle(), [
+                  if (_sections.expanded(FavoriteSidebarSection.network))
+                    for (final folder in networkFolders)
+                      buildNetworkFolder(folder),
+                ]),
+              ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _group(
+    FavoriteSidebarSection section,
+    Widget title,
+    List<Widget> items,
+  ) => FocusScope(
+    node: _groupFocus[section],
+    child: Column(children: [title, ...items]),
+  );
+
+  String? _currentName(FavoriteSidebarSection section) {
+    final series = _manager.seriesById(widget.selectedSeries ?? '');
+    if (series != null) {
+      return section == FavoriteSidebarSection.series ? series.name : null;
+    }
+    final folder = widget.selectedFolder;
+    if (folder == null) return null;
+    if (widget.isNetworkSelected) {
+      return section == FavoriteSidebarSection.network &&
+              networkFolders.contains(folder)
+          ? getFavoriteDataOrNull(folder)?.title
+          : null;
+    }
+    return section == FavoriteSidebarSection.local &&
+            (folder == localAllFolderLabel || folders.contains(folder))
+        ? (folder == localAllFolderLabel
+              ? 'All'.tl
+              : getFavoriteDataOrNull(folder)?.title ?? folder)
+        : null;
+  }
+
+  Widget _sectionHeader(
+    FavoriteSidebarSection section,
+    String title,
+    IconData icon,
+    Widget action,
+  ) {
+    final expanded = _sections.expanded(section);
+    final current = expanded ? null : _currentName(section);
+    void toggle() => _setExpanded(section, !expanded);
+    final scheme = context.colorScheme;
+    return Row(
+      children: [
+        Expanded(
+          child: Tooltip(
+            message: [
+              title,
+              ?current,
+              (expanded ? 'Collapse' : 'Expand').tl,
+            ].join('\n'),
+            child: Semantics(
+              label: [title, ?current].join(', '),
+              button: true,
+              expanded: expanded,
+              selected: current != null,
+              onTap: toggle,
+              child: CallbackShortcuts(
+                bindings: {
+                  const SingleActivator(LogicalKeyboardKey.arrowLeft): () =>
+                      _setExpanded(section, false),
+                  const SingleActivator(LogicalKeyboardKey.arrowRight): () =>
+                      _setExpanded(section, true),
+                },
+                child: FocusableActionDetector(
+                  focusNode: _headerFocus[section],
+                  onShowFocusHighlight: (focused) => setState(() {
+                    if (focused) {
+                      _focusedHeaders.add(section);
+                    } else {
+                      _focusedHeaders.remove(section);
+                    }
+                  }),
+                  shortcuts: const {
+                    SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+                    SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+                  },
+                  actions: {
+                    ActivateIntent: CallbackAction<ActivateIntent>(
+                      onInvoke: (_) {
+                        toggle();
+                        return null;
+                      },
+                    ),
+                  },
+                  child: ExcludeSemantics(
+                    child: Material(
+                      color: current != null
+                          ? scheme.primaryContainer.withValues(
+                              alpha: AppOpacity.selectedContainer,
+                            )
+                          : scheme.surface.withValues(alpha: 0),
+                      child: InkWell(
+                        canRequestFocus: false,
+                        onTap: toggle,
+                        child: Container(
+                          constraints: const BoxConstraints(
+                            minHeight: AppSizes.navItemSize,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              left: BorderSide(
+                                width: AppSizes.settingsSelectedIndicatorWidth,
+                                color: current != null
+                                    ? scheme.primary
+                                    : scheme.primary.withValues(alpha: 0),
+                              ),
+                              bottom: BorderSide(
+                                width: AppSizes.hairline,
+                                color: _focusedHeaders.contains(section)
+                                    ? scheme.primary
+                                    : scheme.primary.withValues(alpha: 0),
+                              ),
+                            ),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xs,
+                            vertical: AppSpacing.sm,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                expanded
+                                    ? Icons.expand_more
+                                    : Icons.chevron_right,
+                                size: AppSizes.shellIconSize,
+                              ),
+                              const SizedBox(width: AppSpacing.xs),
+                              Icon(icon, size: AppSizes.shellIconSize),
+                              const SizedBox(width: AppSpacing.xs),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    if (current != null)
+                                      Text(
+                                        current,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: AppFontSize.bodySmall,
+                                          color: scheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        action,
+      ],
     );
   }
 
@@ -190,39 +387,37 @@ class _FavoritesFolderSidebarState extends State<FavoritesFolderSidebar>
         top: BorderSide(color: context.colorScheme.outlineVariant, width: 0.6),
       ),
     ),
-    child: Row(
-      children: [
-        const Icon(Icons.collections_bookmark_outlined),
-        const SizedBox(width: 12),
-        Expanded(child: Text('Series'.tl)),
-        MenuButton(
-          entries: [
+    child: _sectionHeader(
+      FavoriteSidebarSection.series,
+      'Series'.tl,
+      Icons.collections_bookmark_outlined,
+      MenuButton(
+        entries: [
+          MenuEntry(
+            icon: Icons.add,
+            text: 'Create series'.tl,
+            onClick: () => _createSeries(context),
+          ),
+          if (widget.selectedSeries != null)
             MenuEntry(
-              icon: Icons.add,
-              text: 'Create series'.tl,
-              onClick: () => _createSeries(context),
+              icon: Icons.edit,
+              text: 'Rename series'.tl,
+              onClick: () => _renameSeries(context),
             ),
-            if (widget.selectedSeries != null)
-              MenuEntry(
-                icon: Icons.edit,
-                text: 'Rename series'.tl,
-                onClick: () => _renameSeries(context),
-              ),
-            if (widget.selectedSeries != null)
-              MenuEntry(
-                icon: Icons.delete_outline,
-                text: 'Delete series'.tl,
-                onClick: () => _deleteSeries(context),
-              ),
+          if (widget.selectedSeries != null)
             MenuEntry(
-              icon: Icons.sort,
-              text: 'Sort series'.tl,
-              onClick: () => _sortSeries(),
+              icon: Icons.delete_outline,
+              text: 'Delete series'.tl,
+              onClick: () => _deleteSeries(context),
             ),
-          ],
-        ),
-      ],
-    ).paddingHorizontal(16),
+          MenuEntry(
+            icon: Icons.sort,
+            text: 'Sort series'.tl,
+            onClick: () => _sortSeries(),
+          ),
+        ],
+      ),
+    ),
   );
 
   Widget buildSeries(FavoriteSeries series) {
@@ -431,49 +626,46 @@ class _FavoritesFolderSidebarState extends State<FavoritesFolderSidebar>
   Widget buildLocalTitle() {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(Icons.local_activity, color: context.colorScheme.secondary),
-          const SizedBox(width: 12),
-          Text("Local".tl),
-          const Spacer(),
-          MenuButton(
-            entries: [
-              MenuEntry(
-                icon: Icons.add,
-                text: 'Create Folder'.tl,
-                onClick: () {
-                  if (!_hasManager) return;
-                  newFolder(
-                    context,
-                    onChanged: (next) {
-                      if (!mounted || !_hasManager) return;
-                      setState(() => folders = next);
-                    },
-                  );
-                },
-              ),
-              MenuEntry(
-                icon: Icons.reorder,
-                text: 'Sort'.tl,
-                onClick: () {
-                  if (!_hasManager) return;
-                  final owner = WindowSelectionTask(context);
-                  if (!owner.canPresent) return;
-                  sortFolders(context).then<void>(
-                    (_) {
-                      if (owner.canPresent && _hasManager) updateFolders();
-                    },
-                    onError: (Object error, StackTrace stack) {
-                      Log.error('Favorite folder list', error, stack);
-                    },
-                  );
-                },
-              ),
-            ],
-          ),
-        ],
-      ).paddingHorizontal(16),
+      child: _sectionHeader(
+        FavoriteSidebarSection.local,
+        'Local'.tl,
+        Icons.local_activity,
+        MenuButton(
+          entries: [
+            MenuEntry(
+              icon: Icons.add,
+              text: 'Create Folder'.tl,
+              onClick: () {
+                if (!_hasManager) return;
+                newFolder(
+                  context,
+                  onChanged: (next) {
+                    if (!mounted || !_hasManager) return;
+                    setState(() => folders = next);
+                  },
+                );
+              },
+            ),
+            MenuEntry(
+              icon: Icons.reorder,
+              text: 'Sort'.tl,
+              onClick: () {
+                if (!_hasManager) return;
+                final owner = WindowSelectionTask(context);
+                if (!owner.canPresent) return;
+                sortFolders(context).then<void>(
+                  (_) {
+                    if (owner.canPresent && _hasManager) updateFolders();
+                  },
+                  onError: (Object error, StackTrace stack) {
+                    Log.error('Favorite folder list', error, stack);
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -489,23 +681,21 @@ class _FavoritesFolderSidebarState extends State<FavoritesFolderSidebar>
           ),
         ),
       ),
-      child: Row(
-        children: [
-          Icon(Icons.cloud, color: context.colorScheme.secondary),
-          const SizedBox(width: 12),
-          Text("Network".tl),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              showPopUpWidget(
-                appNavigation.rootContext,
-                setFavoritesPagesWidget(),
-              );
-            },
-          ),
-        ],
-      ).paddingHorizontal(16),
+      child: _sectionHeader(
+        FavoriteSidebarSection.network,
+        'Network'.tl,
+        Icons.cloud,
+        IconButton(
+          tooltip: 'Settings'.tl,
+          icon: const Icon(Icons.settings),
+          onPressed: () {
+            showPopUpWidget(
+              appNavigation.rootContext,
+              setFavoritesPagesWidget(),
+            );
+          },
+        ),
+      ),
     );
   }
 

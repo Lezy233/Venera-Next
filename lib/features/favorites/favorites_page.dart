@@ -20,6 +20,7 @@ import 'package:venera_next/features/favorites/local_favorites_page.dart';
 import 'package:venera_next/features/favorites/local_favorite_series_page.dart';
 import 'package:venera_next/features/favorites/network_favorites_page.dart';
 import 'package:venera_next/features/favorites/side_bar.dart';
+import 'package:venera_next/features/favorites/sidebar_sections.dart';
 
 const _kLeftBarMinWidth = 160.0;
 
@@ -34,6 +35,38 @@ class FavoritesPage extends StatefulWidget {
 
 class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
   Route<void>? _folderSelector;
+  late final FavoriteSidebarSections _sections;
+  final _sectionFeedback = ValueNotifier<int>(0);
+
+  @override
+  Future<void> retrySettingsSave() async {
+    final retried = super.retrySettingsSave();
+    if (mounted) _sectionFeedback.value++;
+    await retried;
+    if (mounted) _sectionFeedback.value++;
+  }
+
+  void _setSection(FavoriteSidebarSection section, bool expanded) {
+    if (!acceptsSettingsChanges || _sections.expanded(section) == expanded) {
+      return;
+    }
+    _sections.setExpanded(section, expanded);
+    final snapshot = Map<String, bool>.of(_sections.value);
+    final saved = saveSetting(
+      FavoriteSidebarSections.storageKey,
+      () => appdata.updateImplicit(
+        (draft) => FavoriteSidebarSections.merge(draft, snapshot),
+      ),
+      showSavedFeedback: false,
+    );
+    _sectionFeedback.value++;
+    unawaited(
+      saved.whenComplete(() {
+        if (mounted) _sectionFeedback.value++;
+      }),
+    );
+  }
+
   String? folder;
   String? seriesId;
 
@@ -81,6 +114,9 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
 
   @override
   void initState() {
+    _sections = FavoriteSidebarSections(
+      appdata.implicitData[FavoriteSidebarSections.storageKey],
+    );
     var data = appdata.implicitData['favoriteFolder'];
     if (data != null) {
       folder = data['name'];
@@ -153,6 +189,8 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
                         ? Duration.zero
                         : const Duration(milliseconds: 200),
                     child: FavoritesFolderSidebar(
+                      sections: _sections,
+                      onSectionChanged: _setSection,
                       selectedFolder: folder,
                       selectedSeries: seriesId,
                       isNetworkSelected: isNetwork,
@@ -259,27 +297,34 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
           child: Material(
             child: SizedBox(
               width: min(300, context.width - 16),
-              child: FavoritesFolderSidebar(
-                withAppbar: true,
-                selectedFolder: folder,
-                selectedSeries: seriesId,
-                isNetworkSelected: isNetwork,
-                onFolderSelected: (network, name) {
-                  if (mounted &&
-                      identical(ModalRoute.of(this.context), origin)) {
-                    setFolder(network, name);
-                  }
-                },
-                onSeriesSelected: setSeries,
-                onFolderListReady: (list) {
-                  folderList = list;
-                },
-                onSelected: () {
-                  if (context.mounted &&
-                      ModalRoute.of(context)?.isCurrent == true) {
-                    Navigator.of(context).maybePop();
-                  }
-                },
+              child: AnimatedBuilder(
+                animation: _sectionFeedback,
+                builder: (context, _) => withSettingsSaveFeedback(
+                  FavoritesFolderSidebar(
+                    withAppbar: true,
+                    sections: _sections,
+                    onSectionChanged: _setSection,
+                    selectedFolder: folder,
+                    selectedSeries: seriesId,
+                    isNetworkSelected: isNetwork,
+                    onFolderSelected: (network, name) {
+                      if (mounted &&
+                          identical(ModalRoute.of(this.context), origin)) {
+                        setFolder(network, name);
+                      }
+                    },
+                    onSeriesSelected: setSeries,
+                    onFolderListReady: (list) {
+                      folderList = list;
+                    },
+                    onSelected: () {
+                      if (context.mounted &&
+                          ModalRoute.of(context)?.isCurrent == true) {
+                        Navigator.of(context).maybePop();
+                      }
+                    },
+                  ),
+                ),
               ),
             ),
           ),
@@ -317,6 +362,8 @@ class _FavoritesPageState extends SettingsSaveState<FavoritesPage> {
         navigator!.removeRoute(route);
       }
     });
+    _sections.dispose();
+    _sectionFeedback.dispose();
     super.dispose();
   }
 
